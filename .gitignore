@@ -1,0 +1,9 @@
+# Spec / docs (local only)
+.spec/
+
+# IDE / OS
+.DS_Store
+.env
+.env.*
+!.env.example
+backend/bin/
