@@ -4,8 +4,42 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8080" },
-    { "key": "jwt", "value": "<paste your JWT here>" }
+    { "key": "base_url",          "value": "http://localhost:8080" },
+    { "key": "jwt",               "value": "" },
+    { "key": "supabase_url",      "value": "" },
+    { "key": "supabase_anon_key", "value": "" },
+    { "key": "admin_email",       "value": "" },
+    { "key": "admin_password",    "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const url = pm.collectionVariables.get('supabase_url') + '/auth/v1/token?grant_type=password';",
+          "pm.sendRequest({",
+          "  url: url,",
+          "  method: 'POST',",
+          "  header: {",
+          "    'Content-Type': 'application/json',",
+          "    'apikey': pm.collectionVariables.get('supabase_anon_key')",
+          "  },",
+          "  body: {",
+          "    mode: 'raw',",
+          "    raw: JSON.stringify({",
+          "      email: pm.collectionVariables.get('admin_email'),",
+          "      password: pm.collectionVariables.get('admin_password')",
+          "    })",
+          "  }",
+          "}, (err, res) => {",
+          "  if (!err && res.json().access_token) {",
+          "    pm.collectionVariables.set('jwt', res.json().access_token);",
+          "  }",
+          "});"
+        ]
+      }
+    }
   ],
   "item": [
     {

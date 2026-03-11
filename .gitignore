@@ -7,3 +7,6 @@
 .env.*
 !.env.example
 backend/bin/
+
+# Postman local environment (contains credentials - fill in manually)
+*.postman_environment.json

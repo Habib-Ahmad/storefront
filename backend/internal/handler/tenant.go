@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -47,7 +48,14 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 
 	tenant, err := h.svc.Onboard(r.Context(), req.Name, req.Slug, req.TierID, req.AdminUserID, req.AdminEmail)
 	if err != nil {
-		serverErr(w, h.log, r, err)
+		switch {
+		case errors.Is(err, service.ErrSlugTaken):
+			respondErr(w, http.StatusConflict, "slug already in use")
+		case errors.Is(err, service.ErrUserExists):
+			respondErr(w, http.StatusConflict, "user already belongs to a tenant")
+		default:
+			serverErr(w, h.log, r, err)
+		}
 		return
 	}
 	respond(w, http.StatusCreated, tenant)

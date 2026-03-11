@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -14,6 +15,8 @@ import (
 var (
 	ErrTenantNotFound = errors.New("tenant not found")
 	ErrModuleDisabled = errors.New("module not enabled for this tenant")
+	ErrSlugTaken      = errors.New("slug already in use")
+	ErrUserExists     = errors.New("user already belongs to a tenant")
 )
 
 type TenantService struct {
@@ -39,6 +42,9 @@ func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, ti
 		Status: models.TenantStatusActive,
 	}
 	if err := s.tenants.Create(ctx, tenant); err != nil {
+		if strings.Contains(err.Error(), "tenants_slug_key") {
+			return nil, ErrSlugTaken
+		}
 		return nil, fmt.Errorf("create tenant: %w", err)
 	}
 
@@ -49,6 +55,9 @@ func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, ti
 		Role:     models.UserRoleAdmin,
 	}
 	if err := s.users.Create(ctx, user); err != nil {
+		if strings.Contains(err.Error(), "users_pkey") {
+			return nil, ErrUserExists
+		}
 		return nil, fmt.Errorf("create admin user: %w", err)
 	}
 
