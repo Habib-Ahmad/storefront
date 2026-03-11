@@ -129,3 +129,53 @@ func TestVerifyChain_Tampered_SuspendsTenant(t *testing.T) {
 		t.Fatal("tenant should be suspended on chain violation")
 	}
 }
+
+func TestDebit_ChainEntry(t *testing.T) {
+	// Debit must produce a signed negative-amount ledger entry that chains correctly.
+	walletID := uuid.New()
+	w := &models.Wallet{ID: walletID, TenantID: uuid.New(), AvailableBalance: decimal.NewFromInt(1000)}
+	txRepo := &mockTxRepo{}
+	svc := newWalletSvc(w, txRepo, &mockTenantRepo{})
+
+	debitAmount := decimal.NewFromInt(300)
+	tx, err := svc.Debit(context.Background(), walletID, debitAmount, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expectedBalance := decimal.NewFromInt(700) // 1000 - 300
+	if !tx.RunningBalance.Equal(expectedBalance) {
+		t.Fatalf("running_balance: want 700, got %s", tx.RunningBalance)
+	}
+	// Debit records the negated amount in the ledger; signature must use that negated value.
+	negatedAmount := debitAmount.Neg()
+	expectedSig := sign(negatedAmount, expectedBalance, "", testHMACSecret)
+	if tx.Signature != expectedSig {
+		t.Fatalf("debit signature mismatch\ngot:  %s\nwant: %s", tx.Signature, expectedSig)
+	}
+}
+
+func TestReleasePending_MovesBalance(t *testing.T) {
+	// Spec §7: PENDING_BALANCE moves to AVAILABLE_BALANCE only on Terminal Africa 'delivered' webhook.
+	tenantID := uuid.New()
+	w := &models.Wallet{
+		ID:               uuid.New(),
+		TenantID:         tenantID,
+		PendingBalance:   decimal.NewFromInt(1000),
+		AvailableBalance: decimal.NewFromInt(500),
+	}
+	walletRepo := &mockWalletRepo{wallet: w}
+	svc := service.NewWalletService(walletRepo, &mockTxRepo{}, &mockTenantRepo{}, testHMACSecret)
+
+	if err := svc.ReleasePending(context.Background(), tenantID, decimal.NewFromInt(1000)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if walletRepo.updated == nil {
+		t.Fatal("wallet balances were not updated")
+	}
+	if !walletRepo.updated.AvailableBalance.Equal(decimal.NewFromInt(1500)) {
+		t.Fatalf("available_balance: want 1500, got %s", walletRepo.updated.AvailableBalance)
+	}
+	if !walletRepo.updated.PendingBalance.Equal(decimal.NewFromInt(0)) {
+		t.Fatalf("pending_balance: want 0, got %s", walletRepo.updated.PendingBalance)
+	}
+}

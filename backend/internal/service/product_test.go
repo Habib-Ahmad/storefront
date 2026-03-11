@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -69,6 +70,21 @@ func TestDecrementStock_SoldOut(t *testing.T) {
 	err := svc.DecrementStock(context.Background(), uuid.New(), 1)
 	if err == nil {
 		t.Fatal("expected sold-out error")
+	}
+}
+
+func TestDecrementStock_InsufficientQty(t *testing.T) {
+	// stock=2, order qty=5: should block even though not sold out
+	qty := 2
+	repo := &mockProductRepo{variant: &models.ProductVariant{ID: uuid.New(), StockQty: &qty}}
+	svc := service.NewProductService(repo)
+
+	err := svc.DecrementStock(context.Background(), uuid.New(), 5)
+	if err == nil {
+		t.Fatal("expected error when requested qty exceeds stock")
+	}
+	if !errors.Is(err, service.ErrSoldOut) {
+		t.Fatalf("expected ErrSoldOut, got: %v", err)
 	}
 }
 

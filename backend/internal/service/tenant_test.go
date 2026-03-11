@@ -61,3 +61,21 @@ func TestRequireModule_PassesEnabled(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestOnboard_AdminUserBelongsToTenant(t *testing.T) {
+	// The admin user's TenantID must be set to the newly created tenant's ID.
+	tenantRepo := &mockTenantRepo{}
+	userRepo := &mockUserRepo{}
+	svc := service.NewTenantService(tenantRepo, &mockWalletRepo{}, userRepo)
+
+	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), uuid.New(), "admin@acme.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if userRepo.user == nil {
+		t.Fatal("admin user not created")
+	}
+	if userRepo.user.TenantID != tenant.ID {
+		t.Fatalf("admin user TenantID: want %s, got %s", tenant.ID, userRepo.user.TenantID)
+	}
+}

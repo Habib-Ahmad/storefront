@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/shopspring/decimal"
+
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
@@ -37,14 +39,21 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 			return nil, fmt.Errorf("variant %s: %w", items[i].VariantID, ErrVariantNotFound)
 		}
 
-		// nil = infinite; 0 = sold out
-		if v.StockQty != nil && *v.StockQty == 0 {
+		// nil = infinite; 0 = sold out; < qty = insufficient stock
+		if v.StockQty != nil && (*v.StockQty == 0 || *v.StockQty < items[i].Quantity) {
 			return nil, fmt.Errorf("variant %s: %w", v.ID, ErrSoldOut)
 		}
 
-		// Snapshot the price at sale time.
+		// Snapshot the price at sale time (spec: price_at_sale is immutable).
 		items[i].PriceAtSale = v.Price
 	}
+
+	// Compute order total from snapshotted prices.
+	var total decimal.Decimal
+	for _, item := range items {
+		total = total.Add(item.PriceAtSale.Mul(decimal.NewFromInt(int64(item.Quantity))))
+	}
+	order.TotalAmount = total
 
 	order.PaymentStatus = models.PaymentStatusPending
 	order.FulfillmentStatus = models.FulfillmentStatusProcessing

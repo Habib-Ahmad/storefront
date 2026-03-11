@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -19,9 +20,15 @@ import (
 
 // ── minimal mock repos for TenantService ─────────────────────────────────────
 
-type stubTenantRepo struct{ tenant *models.Tenant }
+type stubTenantRepo struct {
+	tenant    *models.Tenant
+	createErr error
+}
 
 func (s *stubTenantRepo) Create(_ context.Context, t *models.Tenant) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
 	t.ID = uuid.New()
 	s.tenant = t
 	return nil
@@ -96,6 +103,27 @@ func TestOnboard_MissingFields(t *testing.T) {
 	h.Onboard(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestOnboard_DuplicateSlug_Returns409(t *testing.T) {
+	// Duplicate slug must return 409 Conflict, not 500 — the service detects the DB constraint name.
+	createErr := errors.New(`ERROR: duplicate key value violates unique constraint "tenants_slug_key" (SQLSTATE 23505)`)
+	svc := service.NewTenantService(&stubTenantRepo{createErr: createErr}, &stubWalletRepo{}, &stubUserRepo{})
+	h := handler.NewTenantHandler(svc, slog.Default())
+
+	body, _ := json.Marshal(map[string]any{
+		"name":          "Acme",
+		"slug":          "acme",
+		"tier_id":       uuid.New(),
+		"admin_user_id": uuid.New(),
+		"admin_email":   "admin@acme.com",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.Onboard(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

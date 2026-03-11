@@ -119,12 +119,14 @@ func (m *mockProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) erro
 
 type mockOrderRepo struct {
 	order *models.Order
+	items []models.OrderItem
 	err   error
 }
 
-func (m *mockOrderRepo) Create(_ context.Context, o *models.Order, _ []models.OrderItem) error {
+func (m *mockOrderRepo) Create(_ context.Context, o *models.Order, items []models.OrderItem) error {
 	o.ID = uuid.New()
 	m.order = o
+	m.items = items
 	return m.err
 }
 func (m *mockOrderRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Order, error) {
