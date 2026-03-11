@@ -1,0 +1,205 @@
+{
+  "info": {
+    "name": "Storefront API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "jwt", "value": "<paste your JWT here>" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Tiers",
+      "item": [
+        {
+          "name": "List Tiers",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tiers"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "Onboard",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tenants/onboard",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Store\",\n  \"slug\": \"acme\",\n  \"tier_id\": \"88174e50-bf0b-40b7-815d-695e11fc021a\",\n  \"admin_user_id\": \"<supabase-user-uuid>\",\n  \"admin_email\": \"admin@acme.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Tenant",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tenants/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }]
+          }
+        },
+        {
+          "name": "Set Modules",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/tenants/me/modules",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inventory\": true,\n  \"payments\": true,\n  \"logistics\": false\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Create Product (auto default variant)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/products",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Classic Tee\",\n  \"description\": \"100% cotton\",\n  \"category\": \"Fashion\",\n  \"is_available\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Product (explicit variants)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/products",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hoodie\",\n  \"category\": \"Fashion\",\n  \"is_available\": true,\n  \"variants\": [\n    { \"sku\": \"HD-M\", \"attributes\": {\"size\": \"M\"}, \"price\": 8500, \"stock_qty\": 20 },\n    { \"sku\": \"HD-L\", \"attributes\": {\"size\": \"L\"}, \"price\": 8500, \"stock_qty\": 15 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/products",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }]
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/products/:id",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": {
+              "raw": "{{base_url}}/products/:id",
+              "host": ["{{base_url}}"],
+              "path": ["products", ":id"],
+              "variable": [{ "key": "id", "value": "<product-uuid>" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Order (delivery)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/orders",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Ade Bello\",\n  \"customer_phone\": \"08012345678\",\n  \"customer_email\": \"ade@example.com\",\n  \"is_delivery\": true,\n  \"shipping_address\": \"45 Bode Thomas, Surulere, Lagos\",\n  \"shipping_fee\": 1500,\n  \"items\": [\n    { \"variant_id\": \"<variant-uuid>\", \"quantity\": 1 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Order (store pickup)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/orders",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Chidi Okeke\",\n  \"is_delivery\": false,\n  \"items\": [\n    { \"variant_id\": \"<variant-uuid>\", \"quantity\": 2 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": {
+              "raw": "{{base_url}}/orders/:id",
+              "host": ["{{base_url}}"],
+              "path": ["orders", ":id"],
+              "variable": [{ "key": "id", "value": "<order-uuid>" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "item": [
+        {
+          "name": "Get Balance",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/wallet",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }]
+          }
+        },
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": {
+              "raw": "{{base_url}}/wallet/transactions?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["wallet", "transactions"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -55,6 +55,7 @@ func main() {
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
 
 	// Handlers
+	tierH := handler.NewTierHandler(tierRepo, log)
 	tenantH := handler.NewTenantHandler(tenantSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
 	orderH := handler.NewOrderHandler(orderSvc, log)
@@ -66,7 +67,7 @@ func main() {
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, tenantH, productH, orderH, walletH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
+		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

@@ -14,6 +14,7 @@ import (
 
 func New(
 	log *slog.Logger,
+	tier *handler.TierHandler,
 	tenant *handler.TenantHandler,
 	product *handler.ProductHandler,
 	order *handler.OrderHandler,
@@ -35,6 +36,7 @@ func New(
 	})
 
 	// Public endpoints
+	r.Get("/tiers", tier.List)
 	r.Post("/tenants/onboard", tenant.Onboard)
 
 	// Authenticated + tenant-resolved routes
