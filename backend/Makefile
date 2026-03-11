@@ -7,6 +7,10 @@
         migrate-up migrate-down migrate-status migrate-reset migrate-version \
         migrate-create docker-up docker-down
 
+# Auto-load .env if it exists
+-include .env
+export
+
 # ── Defaults ─────────────────────────────────────────────────────────────────
 
 help: ## Show this help

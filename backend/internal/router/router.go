@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +13,7 @@ import (
 )
 
 func New(
+	log *slog.Logger,
 	tenant *handler.TenantHandler,
 	product *handler.ProductHandler,
 	order *handler.OrderHandler,
@@ -22,6 +24,8 @@ func New(
 ) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
+	r.Use(middleware.RequestID)
+	r.Use(mw.RequestLogger(log))
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Recoverer)
 

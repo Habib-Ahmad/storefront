@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,10 +16,11 @@ import (
 
 type OrderHandler struct {
 	svc *service.OrderService
+	log *slog.Logger
 }
 
-func NewOrderHandler(svc *service.OrderService) *OrderHandler {
-	return &OrderHandler{svc: svc}
+func NewOrderHandler(svc *service.OrderService, log *slog.Logger) *OrderHandler {
+	return &OrderHandler{svc: svc, log: log}
 }
 
 // POST /orders
@@ -64,7 +66,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrSoldOut):
 			respondErr(w, http.StatusConflict, err.Error())
 		default:
-			respondErr(w, http.StatusInternalServerError, "create order failed")
+			serverErr(w, h.log, r, err)
 		}
 		return
 	}

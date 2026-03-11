@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -11,10 +12,11 @@ import (
 type WalletHandler struct {
 	wallets      repository.WalletRepository
 	transactions repository.TransactionRepository
+	log          *slog.Logger
 }
 
-func NewWalletHandler(wallets repository.WalletRepository, txs repository.TransactionRepository) *WalletHandler {
-	return &WalletHandler{wallets: wallets, transactions: txs}
+func NewWalletHandler(wallets repository.WalletRepository, txs repository.TransactionRepository, log *slog.Logger) *WalletHandler {
+	return &WalletHandler{wallets: wallets, transactions: txs, log: log}
 }
 
 // GET /wallet
@@ -43,7 +45,7 @@ func (h *WalletHandler) ListTransactions(w http.ResponseWriter, r *http.Request)
 
 	txs, err := h.transactions.ListByWallet(r.Context(), wallet.ID, limit, offset)
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "fetch failed")
+		serverErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusOK, txs)

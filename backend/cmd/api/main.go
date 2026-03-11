@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +12,7 @@ import (
 	"storefront/backend/internal/config"
 	"storefront/backend/internal/db"
 	handler "storefront/backend/internal/handler"
+	"storefront/backend/internal/logger"
 	"storefront/backend/internal/repository"
 	"storefront/backend/internal/router"
 	"storefront/backend/internal/scheduler"
@@ -21,15 +22,19 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		slog.Error("config", "error", err)
+		os.Exit(1)
 	}
+
+	log := logger.New(cfg.Environment)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		log.Error("db", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
@@ -50,10 +55,10 @@ func main() {
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
 
 	// Handlers
-	tenantH := handler.NewTenantHandler(tenantSvc)
-	productH := handler.NewProductHandler(productSvc)
-	orderH := handler.NewOrderHandler(orderSvc)
-	walletH := handler.NewWalletHandler(walletRepo, txRepo)
+	tenantH := handler.NewTenantHandler(tenantSvc, log)
+	productH := handler.NewProductHandler(productSvc, log)
+	orderH := handler.NewOrderHandler(orderSvc, log)
+	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 
 	// Monthly audit log partitions
 	go scheduler.RunMonthlyPartitioner(ctx, pool)
@@ -61,25 +66,26 @@ func main() {
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(tenantH, productH, orderH, walletH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
+		Handler:      router.New(log, tenantH, productH, orderH, walletH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {
-		log.Printf("listening on %s", addr)
+		log.Info("listening", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			log.Error("server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("shutting down...")
+	log.Info("shutting down...")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutCtx); err != nil {
-		log.Printf("shutdown: %v", err)
+		log.Error("shutdown", "error", err)
 	}
 	os.Exit(0)
 }

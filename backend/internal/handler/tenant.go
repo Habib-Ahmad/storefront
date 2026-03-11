@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -13,10 +14,11 @@ import (
 
 type TenantHandler struct {
 	svc *service.TenantService
+	log *slog.Logger
 }
 
-func NewTenantHandler(svc *service.TenantService) *TenantHandler {
-	return &TenantHandler{svc: svc}
+func NewTenantHandler(svc *service.TenantService, log *slog.Logger) *TenantHandler {
+	return &TenantHandler{svc: svc, log: log}
 }
 
 // GET /tenants/me
@@ -45,7 +47,7 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 
 	tenant, err := h.svc.Onboard(r.Context(), req.Name, req.Slug, req.TierID, req.AdminUserID, req.AdminEmail)
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "onboarding failed")
+		serverErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusCreated, tenant)
@@ -60,7 +62,7 @@ func (h *TenantHandler) SetModules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.SetModules(r.Context(), tenant.ID, mods); err != nil {
-		respondErr(w, http.StatusInternalServerError, "update failed")
+		serverErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

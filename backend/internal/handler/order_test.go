@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,7 +78,7 @@ func (s *stubProductRepoForOrder) SoftDeleteVariant(_ context.Context, _ uuid.UU
 
 func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
-	return handler.NewOrderHandler(svc)
+	return handler.NewOrderHandler(svc, slog.Default())
 }
 
 func TestCreateOrder_MissingCustomerName(t *testing.T) {

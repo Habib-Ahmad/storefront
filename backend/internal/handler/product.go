@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,10 +16,11 @@ import (
 
 type ProductHandler struct {
 	svc *service.ProductService
+	log *slog.Logger
 }
 
-func NewProductHandler(svc *service.ProductService) *ProductHandler {
-	return &ProductHandler{svc: svc}
+func NewProductHandler(svc *service.ProductService, log *slog.Logger) *ProductHandler {
+	return &ProductHandler{svc: svc, log: log}
 }
 
 // POST /products
@@ -54,7 +56,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := h.svc.Create(r.Context(), p, req.Variants)
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "create failed")
+		serverErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusCreated, out)

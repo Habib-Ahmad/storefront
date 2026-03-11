@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -64,7 +65,7 @@ func (s *stubUserRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return
 
 func newTenantHandler() *handler.TenantHandler {
 	svc := service.NewTenantService(&stubTenantRepo{}, &stubWalletRepo{}, &stubUserRepo{})
-	return handler.NewTenantHandler(svc)
+	return handler.NewTenantHandler(svc, slog.Default())
 }
 
 func TestGetMe(t *testing.T) {

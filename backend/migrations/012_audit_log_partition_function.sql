@@ -1,4 +1,5 @@
 -- +goose Up
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION create_audit_log_partition(target_date DATE)
 RETURNS VOID LANGUAGE plpgsql AS $$
 DECLARE
@@ -22,6 +23,7 @@ BEGIN
     END IF;
 END;
 $$;
+-- +goose StatementEnd
 
 -- +goose Down
 DROP FUNCTION IF EXISTS create_audit_log_partition(DATE);
