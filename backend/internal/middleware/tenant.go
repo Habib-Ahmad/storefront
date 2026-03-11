@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
 
@@ -29,7 +30,7 @@ func ResolveTenant(users repository.UserRepository, tenants repository.TenantRep
 				return
 			}
 
-			if tenant.Status == "suspended" {
+			if tenant.Status == models.TenantStatusSuspended {
 				http.Error(w, "account suspended", http.StatusForbidden)
 				return
 			}

@@ -34,3 +34,8 @@ func TenantFromCtx(ctx context.Context) *models.Tenant {
 func setTenant(ctx context.Context, t *models.Tenant) context.Context {
 	return context.WithValue(ctx, ctxKeyTenant, t)
 }
+
+// WithUserID injects a user ID into ctx. Intended for use in tests.
+func WithUserID(ctx context.Context, id uuid.UUID) context.Context {
+	return context.WithValue(ctx, ctxKeyUserID, id)
+}
