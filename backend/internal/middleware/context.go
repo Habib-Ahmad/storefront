@@ -39,3 +39,8 @@ func setTenant(ctx context.Context, t *models.Tenant) context.Context {
 func WithUserID(ctx context.Context, id uuid.UUID) context.Context {
 	return context.WithValue(ctx, ctxKeyUserID, id)
 }
+
+// WithTenant injects a tenant into ctx. Intended for use in tests.
+func WithTenant(ctx context.Context, t *models.Tenant) context.Context {
+	return setTenant(ctx, t)
+}

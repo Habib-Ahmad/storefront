@@ -75,6 +75,10 @@ func (s *ProductService) DecrementStock(ctx context.Context, variantID uuid.UUID
 	return s.products.UpdateVariant(ctx, v)
 }
 
+func (s *ProductService) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	return s.products.SoftDelete(ctx, id)
+}
+
 func defaultVariant(productID uuid.UUID) *models.ProductVariant {
 	attrs, _ := json.Marshal(map[string]string{})
 	return &models.ProductVariant{
