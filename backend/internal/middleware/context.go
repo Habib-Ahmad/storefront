@@ -1,0 +1,36 @@
+package middleware
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+
+	"storefront/backend/internal/models"
+)
+
+type contextKey int
+
+const (
+	ctxKeyUserID contextKey = iota
+	ctxKeyUserRole
+	ctxKeyTenant
+)
+
+func UserIDFromCtx(ctx context.Context) uuid.UUID {
+	v, _ := ctx.Value(ctxKeyUserID).(uuid.UUID)
+	return v
+}
+
+func UserRoleFromCtx(ctx context.Context) models.UserRole {
+	v, _ := ctx.Value(ctxKeyUserRole).(models.UserRole)
+	return v
+}
+
+func TenantFromCtx(ctx context.Context) *models.Tenant {
+	v, _ := ctx.Value(ctxKeyTenant).(*models.Tenant)
+	return v
+}
+
+func setTenant(ctx context.Context, t *models.Tenant) context.Context {
+	return context.WithValue(ctx, ctxKeyTenant, t)
+}
