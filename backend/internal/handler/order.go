@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -13,13 +14,19 @@ import (
 	"storefront/backend/internal/service"
 )
 
-type OrderHandler struct {
-	svc *service.OrderService
-	log *slog.Logger
+// paymentInitiator is satisfied by *service.PaymentService.
+type paymentInitiator interface {
+	InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode string) (string, error)
 }
 
-func NewOrderHandler(svc *service.OrderService, log *slog.Logger) *OrderHandler {
-	return &OrderHandler{svc: svc, log: log}
+type OrderHandler struct {
+	svc        *service.OrderService
+	paymentSvc paymentInitiator
+	log        *slog.Logger
+}
+
+func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, log *slog.Logger) *OrderHandler {
+	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, log: log}
 }
 
 // POST /orders
@@ -60,7 +67,26 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	respond(w, http.StatusCreated, out)
+
+	email := "guest@storefront.ng"
+	if req.CustomerEmail != nil && *req.CustomerEmail != "" {
+		email = *req.CustomerEmail
+	}
+	subaccount := ""
+	if tenant.PaystackSubaccountID != nil {
+		subaccount = *tenant.PaystackSubaccountID
+	}
+	authURL, err := h.paymentSvc.InitiatePayment(r.Context(), out, email, subaccount)
+	if err != nil {
+		h.log.Error("initiate payment", "order_id", out.ID, "error", err)
+		authURL = ""
+	}
+
+	type orderCreateResp struct {
+		*models.Order
+		AuthorizationURL string `json:"authorization_url,omitempty"`
+	}
+	respond(w, http.StatusCreated, orderCreateResp{Order: out, AuthorizationURL: authURL})
 }
 
 // GET /orders/{id}

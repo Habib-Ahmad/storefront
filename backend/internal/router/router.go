@@ -19,6 +19,7 @@ func New(
 	product *handler.ProductHandler,
 	order *handler.OrderHandler,
 	wallet *handler.WalletHandler,
+	webhook *handler.WebhookHandler,
 	userRepo repository.UserRepository,
 	tenantRepo repository.TenantRepository,
 	jwtSecret string,
@@ -34,6 +35,10 @@ func New(
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+
+	// Webhook endpoints — no auth, signature-verified inside each handler
+	r.Post("/webhooks/paystack", webhook.Paystack)
+	r.Post("/webhooks/terminalaf", webhook.TerminalAf)
 
 	// Public endpoints
 	r.Get("/tiers", tier.List)

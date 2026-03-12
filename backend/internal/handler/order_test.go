@@ -76,9 +76,15 @@ func (s *stubProductRepoForOrder) SoftDeleteVariant(_ context.Context, _ uuid.UU
 	return nil
 }
 
+type stubPaymentInitiator struct{}
+
+func (s *stubPaymentInitiator) InitiatePayment(_ context.Context, _ *models.Order, _, _ string) (string, error) {
+	return "https://paystack.com/pay/stub", nil
+}
+
 func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
-	return handler.NewOrderHandler(svc, slog.Default())
+	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, slog.Default())
 }
 
 func TestCreateOrder_MissingCustomerName(t *testing.T) {

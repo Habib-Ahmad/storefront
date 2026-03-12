@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"storefront/backend/internal/adapter/paystack"
+	"storefront/backend/internal/adapter/terminalaf"
 	"storefront/backend/internal/config"
 	"storefront/backend/internal/db"
 	handler "storefront/backend/internal/handler"
@@ -46,20 +48,29 @@ func main() {
 	txRepo := repository.NewTransactionRepository(pool)
 	productRepo := repository.NewProductRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
+	shipmentRepo := repository.NewShipmentRepository(pool)
 
 	_ = tierRepo // used indirectly via onboarding
+
+	// External adapter clients
+	paystackClient := paystack.New(cfg.PaystackSecretKey)
+	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
 
 	// Services
 	tenantSvc := service.NewTenantService(tenantRepo, walletRepo, userRepo)
 	productSvc := service.NewProductService(productRepo)
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
+	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
+	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc)
+	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 
 	// Handlers
 	tierH := handler.NewTierHandler(tierRepo, log)
 	tenantH := handler.NewTenantHandler(tenantSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
-	orderH := handler.NewOrderHandler(orderSvc, log)
+	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, log)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
+	webhookH := handler.NewWebhookHandler(paystackClient, terminalClient, paymentSvc, shipmentSvc, log)
 
 	// Monthly audit log partitions
 	go scheduler.RunMonthlyPartitioner(ctx, pool)
@@ -67,7 +78,7 @@ func main() {
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
+		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
