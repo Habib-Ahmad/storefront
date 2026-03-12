@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"net/http"
 	"strings"
 
@@ -11,16 +12,9 @@ import (
 	"storefront/backend/internal/models"
 )
 
-// Authenticate validates a Supabase-issued HS256 JWT and injects the user ID
-// and role into the request context. Rejects requests with missing or invalid tokens.
-func Authenticate(secret string) func(http.Handler) http.Handler {
-	keyFunc := func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrSignatureInvalid
-		}
-		return []byte(secret), nil
-	}
-
+// Authenticate validates a Supabase-issued JWT (ES256 or HS256) and injects
+// the user ID and role into the request context.
+func Authenticate(keyFunc jwt.Keyfunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenStr := bearerToken(r)
@@ -31,7 +25,7 @@ func Authenticate(secret string) func(http.Handler) http.Handler {
 
 			var claims jwt.MapClaims
 			_, err := jwt.ParseWithClaims(tokenStr, &claims, keyFunc,
-				jwt.WithValidMethods([]string{"HS256"}),
+				jwt.WithValidMethods([]string{"ES256", "HS256"}),
 				jwt.WithExpirationRequired(),
 			)
 			if err != nil {
@@ -60,6 +54,27 @@ func Authenticate(secret string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, ctxKeyUserRole, role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+// NewKeyFunc builds a jwt.Keyfunc that supports ES256 (via ECDSA public key)
+// and HS256 (via shared secret) for backward compatibility with legacy Supabase projects.
+func NewKeyFunc(ecKey *ecdsa.PublicKey, hmacSecret string) jwt.Keyfunc {
+	return func(t *jwt.Token) (any, error) {
+		switch t.Method.(type) {
+		case *jwt.SigningMethodECDSA:
+			if ecKey == nil {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return ecKey, nil
+		case *jwt.SigningMethodHMAC:
+			if hmacSecret == "" {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte(hmacSecret), nil
+		default:
+			return nil, jwt.ErrSignatureInvalid
+		}
 	}
 }
 

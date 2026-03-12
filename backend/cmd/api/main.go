@@ -15,6 +15,7 @@ import (
 	"storefront/backend/internal/db"
 	handler "storefront/backend/internal/handler"
 	"storefront/backend/internal/logger"
+	mw "storefront/backend/internal/middleware"
 	"storefront/backend/internal/repository"
 	"storefront/backend/internal/router"
 	"storefront/backend/internal/scheduler"
@@ -83,10 +84,17 @@ func main() {
 	// Daily HMAC chain verification across all active tenants — run once on startup too.
 	go scheduler.RunDailyChainVerifier(ctx, pool, walletSvc)
 
+	// Fetch Supabase JWKS (ES256 public key) for JWT verification
+	ecKey, err := config.FetchJWKS(cfg.SupabaseURL)
+	if err != nil {
+		log.Warn("jwks fetch failed, falling back to HS256 only", "error", err)
+	}
+	jwtKeyFunc := mw.NewKeyFunc(ecKey, cfg.SupabaseJWTSecret)
+
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, cfg.SupabaseJWTSecret, cfg.AllowedOrigins),
+		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

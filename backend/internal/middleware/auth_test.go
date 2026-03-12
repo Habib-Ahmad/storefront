@@ -14,6 +14,8 @@ import (
 
 const testSecret = "test-secret-at-least-32-bytes-long!!"
 
+var testKeyFunc = middleware.NewKeyFunc(nil, testSecret)
+
 func makeToken(t *testing.T, sub string, expiry time.Duration, secret string) string {
 	t.Helper()
 	claims := jwt.MapClaims{
@@ -37,7 +39,7 @@ func TestAuthenticate_ValidToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	var gotID uuid.UUID
-	mw := middleware.Authenticate(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mw := middleware.Authenticate(testKeyFunc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotID = middleware.UserIDFromCtx(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -56,7 +58,7 @@ func TestAuthenticate_MissingToken(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 
-	mw := middleware.Authenticate(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mw := middleware.Authenticate(testKeyFunc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	mw.ServeHTTP(rec, req)
@@ -73,7 +75,7 @@ func TestAuthenticate_ExpiredToken(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
-	mw := middleware.Authenticate(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mw := middleware.Authenticate(testKeyFunc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	mw.ServeHTTP(rec, req)
@@ -90,7 +92,7 @@ func TestAuthenticate_TamperedToken(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
-	mw := middleware.Authenticate(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mw := middleware.Authenticate(testKeyFunc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	mw.ServeHTTP(rec, req)
@@ -107,7 +109,7 @@ func TestAuthenticate_InvalidSubject(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
-	mw := middleware.Authenticate(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mw := middleware.Authenticate(testKeyFunc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	mw.ServeHTTP(rec, req)

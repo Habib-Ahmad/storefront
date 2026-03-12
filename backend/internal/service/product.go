@@ -75,12 +75,78 @@ func (s *ProductService) DecrementStock(ctx context.Context, variantID uuid.UUID
 	return s.products.UpdateVariant(ctx, v)
 }
 
+func (s *ProductService) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Product, []models.ProductVariant, error) {
+	p, err := s.products.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, nil, ErrProductNotFound
+	}
+	variants, err := s.products.ListVariants(ctx, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list variants: %w", err)
+	}
+	return p, variants, nil
+}
+
+func (s *ProductService) Update(ctx context.Context, p *models.Product) error {
+	existing, err := s.products.GetByID(ctx, p.TenantID, p.ID)
+	if err != nil {
+		return ErrProductNotFound
+	}
+	existing.Name = p.Name
+	existing.Description = p.Description
+	existing.Category = p.Category
+	existing.IsAvailable = p.IsAvailable
+	return s.products.Update(ctx, existing)
+}
+
 func (s *ProductService) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
+	variants, err := s.products.ListVariants(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list variants for cascade: %w", err)
+	}
+	for _, v := range variants {
+		if err := s.products.SoftDeleteVariant(ctx, v.ID); err != nil {
+			return fmt.Errorf("cascade delete variant %s: %w", v.ID, err)
+		}
+	}
 	return s.products.SoftDelete(ctx, tenantID, id)
 }
 
 func (s *ProductService) List(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error) {
 	return s.products.ListByTenant(ctx, tenantID)
+}
+
+func (s *ProductService) CreateVariant(ctx context.Context, tenantID uuid.UUID, v *models.ProductVariant) error {
+	if _, err := s.products.GetByID(ctx, tenantID, v.ProductID); err != nil {
+		return ErrProductNotFound
+	}
+	return s.products.CreateVariant(ctx, v)
+}
+
+func (s *ProductService) ListVariants(ctx context.Context, tenantID, productID uuid.UUID) ([]models.ProductVariant, error) {
+	if _, err := s.products.GetByID(ctx, tenantID, productID); err != nil {
+		return nil, ErrProductNotFound
+	}
+	return s.products.ListVariants(ctx, productID)
+}
+
+func (s *ProductService) UpdateVariant(ctx context.Context, v *models.ProductVariant) error {
+	existing, err := s.products.GetVariantByID(ctx, v.ID)
+	if err != nil {
+		return ErrVariantNotFound
+	}
+	existing.SKU = v.SKU
+	existing.Attributes = v.Attributes
+	existing.Price = v.Price
+	existing.StockQty = v.StockQty
+	return s.products.UpdateVariant(ctx, existing)
+}
+
+func (s *ProductService) DeleteVariant(ctx context.Context, id uuid.UUID) error {
+	if _, err := s.products.GetVariantByID(ctx, id); err != nil {
+		return ErrVariantNotFound
+	}
+	return s.products.SoftDeleteVariant(ctx, id)
 }
 
 func defaultVariant(productID uuid.UUID) *models.ProductVariant {

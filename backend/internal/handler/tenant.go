@@ -60,6 +60,22 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusCreated, tenant)
 }
 
+// PUT /tenants/me
+func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	var req struct {
+		Name string `json:"name" validate:"required"`
+	}
+	if !decodeValid(w, r, &req) {
+		return
+	}
+	if err := h.svc.UpdateProfile(r.Context(), tenant.ID, req.Name); err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // PUT /tenants/me/modules
 func (h *TenantHandler) SetModules(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())

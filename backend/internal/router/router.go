@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/golang-jwt/jwt/v5"
 
 	handler "storefront/backend/internal/handler"
 	mw "storefront/backend/internal/middleware"
@@ -23,7 +24,7 @@ func New(
 	webhook *handler.WebhookHandler,
 	userRepo repository.UserRepository,
 	tenantRepo repository.TenantRepository,
-	jwtSecret string,
+	jwtKeyFunc jwt.Keyfunc,
 	allowedOrigins []string,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -56,21 +57,28 @@ func New(
 
 	// Authenticated but pre-tenant routes (user has no tenant yet)
 	r.Group(func(r chi.Router) {
-		r.Use(mw.Authenticate(jwtSecret))
+		r.Use(mw.Authenticate(jwtKeyFunc))
 		r.Post("/tenants/onboard", tenant.Onboard)
 	})
 
 	// Authenticated + tenant-resolved routes
 	r.Group(func(r chi.Router) {
-		r.Use(mw.Authenticate(jwtSecret))
+		r.Use(mw.Authenticate(jwtKeyFunc))
 		r.Use(mw.ResolveTenant(userRepo, tenantRepo))
 
 		r.Get("/tenants/me", tenant.GetMe)
+		r.Put("/tenants/me", tenant.UpdateProfile)
 		r.Put("/tenants/me/modules", tenant.SetModules)
 
 		r.Post("/products", product.Create)
 		r.Get("/products", product.List)
+		r.Get("/products/{id}", product.Get)
+		r.Put("/products/{id}", product.Update)
 		r.Delete("/products/{id}", product.Delete)
+		r.Post("/products/{id}/variants", product.CreateVariant)
+		r.Get("/products/{id}/variants", product.ListVariants)
+		r.Put("/products/{id}/variants/{variantId}", product.UpdateVariant)
+		r.Delete("/products/{id}/variants/{variantId}", product.DeleteVariant)
 
 		r.Post("/orders", order.Create)
 		r.Get("/orders", order.List)

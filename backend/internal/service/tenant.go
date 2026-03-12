@@ -79,6 +79,16 @@ func (s *TenantService) SetModules(ctx context.Context, tenantID uuid.UUID, modu
 	return s.tenants.Update(ctx, tenant)
 }
 
+// UpdateProfile updates the tenant's display name.
+func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, name string) error {
+	tenant, err := s.tenants.GetByID(ctx, tenantID)
+	if err != nil {
+		return ErrTenantNotFound
+	}
+	tenant.Name = name
+	return s.tenants.Update(ctx, tenant)
+}
+
 // RequireModule returns ErrModuleDisabled if the requested module is not active.
 func RequireModule(tenant *models.Tenant, inventory, payments, logistics bool) error {
 	if inventory && !tenant.ActiveModules.Inventory {
