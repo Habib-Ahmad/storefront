@@ -22,6 +22,8 @@ type ShipmentService struct {
 	shipments repository.ShipmentRepository
 	orders    repository.OrderRepository
 	walletSvc *WalletService
+	tenants   repository.TenantRepository
+	tiers     repository.TierRepository
 }
 
 func NewShipmentService(
@@ -29,8 +31,10 @@ func NewShipmentService(
 	shipments repository.ShipmentRepository,
 	orders repository.OrderRepository,
 	walletSvc *WalletService,
+	tenants repository.TenantRepository,
+	tiers repository.TierRepository,
 ) *ShipmentService {
-	return &ShipmentService{carrier: carrier, shipments: shipments, orders: orders, walletSvc: walletSvc}
+	return &ShipmentService{carrier: carrier, shipments: shipments, orders: orders, walletSvc: walletSvc, tenants: tenants, tiers: tiers}
 }
 
 // Dispatch books a shipment with the carrier and persists the booking to the shipments table.
@@ -52,7 +56,7 @@ func (s *ShipmentService) Dispatch(ctx context.Context, orderID, tenantID uuid.U
 		return nil, fmt.Errorf("save shipment: %w", err)
 	}
 
-	if err := s.orders.UpdateFulfillmentStatus(ctx, orderID, models.FulfillmentStatusShipped); err != nil {
+	if err := s.orders.UpdateFulfillmentStatus(ctx, tenantID, orderID, models.FulfillmentStatusShipped); err != nil {
 		return nil, fmt.Errorf("update fulfillment status: %w", err)
 	}
 
@@ -63,27 +67,37 @@ func (s *ShipmentService) Dispatch(ctx context.Context, orderID, tenantID uuid.U
 // updates shipment + order status, then releases the order amount from pending balance.
 // orderID is extracted from the booking metadata_reference field echoed in the webhook.
 func (s *ShipmentService) HandleDelivered(ctx context.Context, orderID uuid.UUID) error {
-	order, err := s.orders.GetByID(ctx, orderID)
+	order, err := s.orders.GetByIDInternal(ctx, orderID)
 	if err != nil {
 		return fmt.Errorf("get order: %w", err)
 	}
 
-	shipment, err := s.shipments.GetByOrderID(ctx, orderID)
+	shipment, err := s.shipments.GetByOrderID(ctx, order.TenantID, orderID)
 	if err != nil {
 		return fmt.Errorf("get shipment: %w", err)
 	}
 
-	if err := s.shipments.UpdateStatus(ctx, shipment.ID, models.ShipmentStatusDelivered); err != nil {
+	if err := s.shipments.UpdateStatus(ctx, order.TenantID, shipment.ID, models.ShipmentStatusDelivered); err != nil {
 		return fmt.Errorf("update shipment status: %w", err)
 	}
 
-	if err := s.orders.UpdateFulfillmentStatus(ctx, orderID, models.FulfillmentStatusDelivered); err != nil {
+	if err := s.orders.UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusDelivered); err != nil {
 		return fmt.Errorf("update fulfillment status: %w", err)
 	}
 
-	// Release total order value (total + shipping) from pending to available balance.
-	amount := order.TotalAmount.Add(order.ShippingFee)
-	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, amount); err != nil {
+	// Release the net amount (gross − commission) from pending to available.
+	gross := order.TotalAmount.Add(order.ShippingFee)
+	tenant, err := s.tenants.GetByID(ctx, order.TenantID)
+	if err != nil {
+		return fmt.Errorf("get tenant: %w", err)
+	}
+	tier, err := s.tiers.GetByID(ctx, tenant.TierID)
+	if err != nil {
+		return fmt.Errorf("get tier: %w", err)
+	}
+	commission := gross.Mul(tier.CommissionRate)
+	netAmount := gross.Sub(commission)
+	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, netAmount); err != nil {
 		return fmt.Errorf("release pending: %w", err)
 	}
 

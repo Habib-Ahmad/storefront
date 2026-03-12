@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	handler "storefront/backend/internal/handler"
 	mw "storefront/backend/internal/middleware"
@@ -23,6 +24,7 @@ func New(
 	userRepo repository.UserRepository,
 	tenantRepo repository.TenantRepository,
 	jwtSecret string,
+	allowedOrigins []string,
 ) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
@@ -30,6 +32,14 @@ func New(
 	r.Use(mw.RequestLogger(log))
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Tenant-Slug"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	// Health check — no auth required
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -42,8 +52,13 @@ func New(
 
 	// Public endpoints
 	r.Get("/tiers", tier.List)
-	r.Post("/tenants/onboard", tenant.Onboard)
 	r.Get("/track/{slug}", order.Track)
+
+	// Authenticated but pre-tenant routes (user has no tenant yet)
+	r.Group(func(r chi.Router) {
+		r.Use(mw.Authenticate(jwtSecret))
+		r.Post("/tenants/onboard", tenant.Onboard)
+	})
 
 	// Authenticated + tenant-resolved routes
 	r.Group(func(r chi.Router) {

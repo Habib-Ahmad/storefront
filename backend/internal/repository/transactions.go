@@ -13,6 +13,7 @@ type TransactionRepository interface {
 	Create(ctx context.Context, tx *models.Transaction) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 	ListByWallet(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error)
+	ListByWalletAsc(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error)
 	GetLatestByWallet(ctx context.Context, walletID uuid.UUID) (*models.Transaction, error)
 }
 
@@ -50,6 +51,31 @@ func (r *transactionRepo) ListByWallet(ctx context.Context, walletID uuid.UUID, 
 		FROM transactions
 		WHERE wallet_id = $1
 		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3`,
+		walletID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var txs []models.Transaction
+	for rows.Next() {
+		var tx models.Transaction
+		if err := rows.Scan(&tx.ID, &tx.WalletID, &tx.OrderID, &tx.Amount,
+			&tx.RunningBalance, &tx.Type, &tx.Signature, &tx.CreatedAt); err != nil {
+			return nil, err
+		}
+		txs = append(txs, tx)
+	}
+	return txs, rows.Err()
+}
+
+func (r *transactionRepo) ListByWalletAsc(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, wallet_id, order_id, amount, running_balance, type, signature, created_at
+		FROM transactions
+		WHERE wallet_id = $1
+		ORDER BY created_at ASC
 		LIMIT $2 OFFSET $3`,
 		walletID, limit, offset)
 	if err != nil {

@@ -38,29 +38,35 @@ func (m *mockShipmentRepo) Create(_ context.Context, s *models.Shipment) error {
 	return m.err
 }
 
-func (m *mockShipmentRepo) GetByOrderID(_ context.Context, _ uuid.UUID) (*models.Shipment, error) {
+func (m *mockShipmentRepo) GetByOrderID(_ context.Context, _, _ uuid.UUID) (*models.Shipment, error) {
 	return m.shipment, m.err
 }
 
-func (m *mockShipmentRepo) UpdateStatus(_ context.Context, _ uuid.UUID, status models.ShipmentStatus) error {
+func (m *mockShipmentRepo) UpdateStatus(_ context.Context, _, _ uuid.UUID, status models.ShipmentStatus) error {
 	m.statusSet = status
 	return m.err
 }
 
-func (m *mockShipmentRepo) AppendCarrierEvent(_ context.Context, _ uuid.UUID, _ []byte) error {
+func (m *mockShipmentRepo) AppendCarrierEvent(_ context.Context, _, _ uuid.UUID, _ []byte) error {
 	return m.err
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func newShipmentSvc(carrier *mockCarrierClient, shipments *mockShipmentRepo, orders *mockOrderRepo, wallet *models.Wallet) *service.ShipmentService {
+	tenantID := uuid.New()
+	tierID := uuid.New()
 	walletSvc := service.NewWalletService(
 		&mockWalletRepo{wallet: wallet},
 		&mockTxRepo{},
-		&mockTenantRepo{},
+		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
 		testHMACSecret,
 	)
-	return service.NewShipmentService(carrier, shipments, orders, walletSvc)
+	tier := &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0)}
+	return service.NewShipmentService(carrier, shipments, orders, walletSvc,
+		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
+		&mockTierRepo{tier: tier},
+	)
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────

@@ -58,6 +58,7 @@ type incomingWebhookEvent struct {
 
 // POST /webhooks/paystack
 func (h *WebhookHandler) Paystack(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64*1024)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "cannot read body")
@@ -93,6 +94,7 @@ func (h *WebhookHandler) Paystack(w http.ResponseWriter, r *http.Request) {
 
 // POST /webhooks/terminalaf
 func (h *WebhookHandler) TerminalAf(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64*1024)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "cannot read body")

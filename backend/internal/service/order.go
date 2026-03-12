@@ -52,6 +52,12 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	order.TrackingSlug = slug
 
 	// Validate stock and collect variant prices before persisting.
+	type variantDecrement struct {
+		variant  *models.ProductVariant
+		quantity int
+	}
+	var decrements []variantDecrement
+
 	for i := range items {
 		v, err := s.products.GetVariantByID(ctx, items[i].VariantID)
 		if err != nil {
@@ -59,7 +65,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 		}
 
 		// Check parent product availability.
-		product, err := s.products.GetByID(ctx, v.ProductID)
+		product, err := s.products.GetByID(ctx, order.TenantID, v.ProductID)
 		if err != nil {
 			return nil, fmt.Errorf("product for variant %s: %w", v.ID, ErrVariantNotFound)
 		}
@@ -74,6 +80,19 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 
 		// Snapshot the price at sale time (spec: price_at_sale is immutable).
 		items[i].PriceAtSale = v.Price
+
+		if v.StockQty != nil {
+			decrements = append(decrements, variantDecrement{variant: v, quantity: items[i].Quantity})
+		}
+	}
+
+	// Decrement stock for all finite-stock variants.
+	for _, d := range decrements {
+		newQty := *d.variant.StockQty - d.quantity
+		d.variant.StockQty = &newQty
+		if err := s.products.UpdateVariant(ctx, d.variant); err != nil {
+			return nil, fmt.Errorf("decrement stock for variant %s: %w", d.variant.ID, err)
+		}
 	}
 
 	// Compute order total from snapshotted prices.
@@ -105,8 +124,8 @@ func validateDelivery(o *models.Order) error {
 	return nil
 }
 
-func (s *OrderService) GetByID(ctx context.Context, id uuid.UUID) (*models.Order, error) {
-	return s.orders.GetByID(ctx, id)
+func (s *OrderService) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Order, error) {
+	return s.orders.GetByID(ctx, tenantID, id)
 }
 
 func (s *OrderService) GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error) {

@@ -11,11 +11,12 @@ import (
 
 type OrderRepository interface {
 	Create(ctx context.Context, o *models.Order, items []models.OrderItem) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Order, error)
+	GetByIDInternal(ctx context.Context, id uuid.UUID) (*models.Order, error)
 	GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error)
 	ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error)
-	UpdatePaymentStatus(ctx context.Context, id uuid.UUID, status models.PaymentStatus) error
-	UpdateFulfillmentStatus(ctx context.Context, id uuid.UUID, status models.FulfillmentStatus) error
+	UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error
+	UpdateFulfillmentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.FulfillmentStatus) error
 	ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error)
 }
 
@@ -76,7 +77,14 @@ func (r *orderRepo) Create(ctx context.Context, o *models.Order, items []models.
 	return tx.Commit(ctx)
 }
 
-func (r *orderRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Order, error) {
+func (r *orderRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Order, error) {
+	return scanOrder(r.db.QueryRow(ctx,
+		`SELECT `+orderCols+` FROM orders WHERE id = $1 AND tenant_id = $2`, id, tenantID))
+}
+
+// GetByIDInternal fetches an order by ID without tenant filtering.
+// Only for trusted internal paths (verified webhooks) where tenant_id is unknown.
+func (r *orderRepo) GetByIDInternal(ctx context.Context, id uuid.UUID) (*models.Order, error) {
 	return scanOrder(r.db.QueryRow(ctx,
 		`SELECT `+orderCols+` FROM orders WHERE id = $1`, id))
 }
@@ -106,15 +114,15 @@ func (r *orderRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit,
 	return orders, rows.Err()
 }
 
-func (r *orderRepo) UpdatePaymentStatus(ctx context.Context, id uuid.UUID, status models.PaymentStatus) error {
+func (r *orderRepo) UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error {
 	_, err := r.db.Exec(ctx,
-		`UPDATE orders SET payment_status = $1, updated_at = NOW() WHERE id = $2`, status, id)
+		`UPDATE orders SET payment_status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`, status, id, tenantID)
 	return err
 }
 
-func (r *orderRepo) UpdateFulfillmentStatus(ctx context.Context, id uuid.UUID, status models.FulfillmentStatus) error {
+func (r *orderRepo) UpdateFulfillmentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.FulfillmentStatus) error {
 	_, err := r.db.Exec(ctx,
-		`UPDATE orders SET fulfillment_status = $1, updated_at = NOW() WHERE id = $2`, status, id)
+		`UPDATE orders SET fulfillment_status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`, status, id, tenantID)
 	return err
 }
 

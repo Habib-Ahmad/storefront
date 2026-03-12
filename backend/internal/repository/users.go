@@ -14,7 +14,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, tenantID uuid.UUID, email string) (*models.User, error)
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.User, error)
-	SoftDelete(ctx context.Context, id uuid.UUID) error
+	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
 }
 
 type userRepo struct{ db *pgxpool.Pool }
@@ -71,7 +71,7 @@ func (r *userRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]mode
 	return users, rows.Err()
 }
 
-func (r *userRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE users SET deleted_at = NOW() WHERE id = $1`, id)
+func (r *userRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
 }

@@ -74,7 +74,7 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		return fmt.Errorf("invalid reference: %w", err)
 	}
 
-	order, err := s.orders.GetByID(ctx, orderID)
+	order, err := s.orders.GetByIDInternal(ctx, orderID)
 	if err != nil {
 		return fmt.Errorf("get order: %w", err)
 	}
@@ -84,7 +84,7 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		return ErrAlreadyPaid
 	}
 
-	if err := s.orders.UpdatePaymentStatus(ctx, orderID, models.PaymentStatusPaid); err != nil {
+	if err := s.orders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusPaid); err != nil {
 		return fmt.Errorf("update payment status: %w", err)
 	}
 

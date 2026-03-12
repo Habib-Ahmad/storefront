@@ -94,13 +94,14 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GET /orders/{id}
 func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid order id")
 		return
 	}
-	order, err := h.svc.GetByID(r.Context(), id)
+	order, err := h.svc.GetByID(r.Context(), tenant.ID, id)
 	if err != nil {
 		respondErr(w, http.StatusNotFound, "order not found")
 		return

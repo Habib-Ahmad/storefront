@@ -63,7 +63,7 @@ func main() {
 	walletSvc.SetTierRepo(tierRepo)
 	walletSvc.SetAuditLogRepo(auditLogRepo)
 	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc, tierRepo, tenantRepo)
-	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
+	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc, tenantRepo, tierRepo)
 
 	// Handlers
 	tierH := handler.NewTierHandler(tierRepo, log)
@@ -73,15 +73,20 @@ func main() {
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 	webhookH := handler.NewWebhookHandler(paystackClient, terminalClient, paymentSvc, shipmentSvc, log)
 
+	// Ensure audit log partitions exist on startup (fresh deploy safety).
+	if err := scheduler.EnsureAuditLogPartitions(ctx, pool); err != nil {
+		log.Warn("startup partition check", "error", err)
+	}
+
 	// Monthly audit log partitions
 	go scheduler.RunMonthlyPartitioner(ctx, pool)
-	// Daily HMAC chain verification across all active tenants
+	// Daily HMAC chain verification across all active tenants — run once on startup too.
 	go scheduler.RunDailyChainVerifier(ctx, pool, walletSvc)
 
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, cfg.SupabaseJWTSecret),
+		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, cfg.SupabaseJWTSecret, cfg.AllowedOrigins),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

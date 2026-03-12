@@ -28,7 +28,7 @@ func (m *mockUserRepo) GetByEmail(_ context.Context, _ uuid.UUID, _ string) (*mo
 func (m *mockUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.User, error) {
 	return nil, nil
 }
-func (m *mockUserRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return nil }
+func (m *mockUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
 
 type mockTenantRepo struct {
 	tenant *models.Tenant

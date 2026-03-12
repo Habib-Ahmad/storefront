@@ -26,7 +26,10 @@ func (s *stubOrderRepo) Create(_ context.Context, o *models.Order, _ []models.Or
 	s.order = o
 	return nil
 }
-func (s *stubOrderRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Order, error) {
+func (s *stubOrderRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*models.Order, error) {
+	return s.order, nil
+}
+func (s *stubOrderRepo) GetByIDInternal(_ context.Context, _ uuid.UUID) (*models.Order, error) {
 	return s.order, nil
 }
 func (s *stubOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.Order, error) {
@@ -35,10 +38,10 @@ func (s *stubOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.
 func (s *stubOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
 	return nil, nil
 }
-func (s *stubOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ models.PaymentStatus) error {
+func (s *stubOrderRepo) UpdatePaymentStatus(_ context.Context, _, _ uuid.UUID, _ models.PaymentStatus) error {
 	return nil
 }
-func (s *stubOrderRepo) UpdateFulfillmentStatus(_ context.Context, _ uuid.UUID, _ models.FulfillmentStatus) error {
+func (s *stubOrderRepo) UpdateFulfillmentStatus(_ context.Context, _, _ uuid.UUID, _ models.FulfillmentStatus) error {
 	return nil
 }
 func (s *stubOrderRepo) ListItems(_ context.Context, _ uuid.UUID) ([]models.OrderItem, error) {
@@ -51,14 +54,14 @@ func (s *stubProductRepoForOrder) Create(_ context.Context, p *models.Product) e
 	p.ID = uuid.New()
 	return nil
 }
-func (s *stubProductRepoForOrder) GetByID(_ context.Context, id uuid.UUID) (*models.Product, error) {
+func (s *stubProductRepoForOrder) GetByID(_ context.Context, _, id uuid.UUID) (*models.Product, error) {
 	return &models.Product{ID: id, IsAvailable: true}, nil
 }
 func (s *stubProductRepoForOrder) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
 	return nil, nil
 }
-func (s *stubProductRepoForOrder) Update(_ context.Context, _ *models.Product) error { return nil }
-func (s *stubProductRepoForOrder) SoftDelete(_ context.Context, _ uuid.UUID) error   { return nil }
+func (s *stubProductRepoForOrder) Update(_ context.Context, _ *models.Product) error  { return nil }
+func (s *stubProductRepoForOrder) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
 func (s *stubProductRepoForOrder) CreateVariant(_ context.Context, v *models.ProductVariant) error {
 	v.ID = uuid.New()
 	return nil

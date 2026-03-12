@@ -49,7 +49,7 @@ func (r *walletRepo) UpdateBalances(ctx context.Context, w *models.Wallet) error
 		SET available_balance    = $1,
 		    pending_balance      = $2,
 		    last_transaction_id  = $3
-		WHERE id = $4`,
-		w.AvailableBalance, w.PendingBalance, w.LastTransactionID, w.ID)
+		WHERE id = $4 AND tenant_id = $5`,
+		w.AvailableBalance, w.PendingBalance, w.LastTransactionID, w.ID, w.TenantID)
 	return err
 }

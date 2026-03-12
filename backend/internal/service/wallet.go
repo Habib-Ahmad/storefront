@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	ErrChainTampered      = errors.New("ledger chain integrity violation")
-	ErrWalletNotFound     = errors.New("wallet not found")
+	ErrChainTampered       = errors.New("ledger chain integrity violation")
+	ErrWalletNotFound      = errors.New("wallet not found")
 	ErrDebtCeilingExceeded = errors.New("debt ceiling exceeded")
 )
 
@@ -76,9 +76,9 @@ func (s *WalletService) Debit(ctx context.Context, walletID uuid.UUID, amount de
 	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeDebit, false, orderID)
 }
 
-// RecordCommission appends a commission deduction entry to the ledger (pending side).
+// RecordCommission appends a commission deduction entry to the ledger (available side, not escrow).
 func (s *WalletService) RecordCommission(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeCommission, true, orderID)
+	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeCommission, false, orderID)
 }
 
 // ReleasePending moves amount from pending to available (post-delivery settlement).
@@ -100,7 +100,7 @@ func (s *WalletService) VerifyChain(ctx context.Context, walletID uuid.UUID, ten
 	var prevSig string
 
 	for {
-		txs, err := s.transactions.ListByWallet(ctx, walletID, pageSize, offset)
+		txs, err := s.transactions.ListByWalletAsc(ctx, walletID, pageSize, offset)
 		if err != nil {
 			return fmt.Errorf("list transactions: %w", err)
 		}
@@ -108,9 +108,7 @@ func (s *WalletService) VerifyChain(ctx context.Context, walletID uuid.UUID, ten
 			break
 		}
 
-		// Transactions are returned newest-first; reverse for chain verification.
-		for i := len(txs) - 1; i >= 0; i-- {
-			tx := txs[i]
+		for _, tx := range txs {
 			expected := computeSignature(tx.Amount, tx.RunningBalance, prevSig, s.secret)
 			if !hmac.Equal([]byte(tx.Signature), []byte(expected)) {
 				_ = s.suspendTenant(ctx, tenantID)

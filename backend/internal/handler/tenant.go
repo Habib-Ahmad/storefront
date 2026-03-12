@@ -29,18 +29,23 @@ func (h *TenantHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 // POST /tenants/onboard
 func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	if userID == uuid.Nil {
+		respondErr(w, http.StatusUnauthorized, "missing user identity")
+		return
+	}
+
 	var req struct {
-		Name        string    `json:"name"         validate:"required"`
-		Slug        string    `json:"slug"         validate:"required"`
-		TierID      uuid.UUID `json:"tier_id"`
-		AdminUserID uuid.UUID `json:"admin_user_id"`
-		AdminEmail  string    `json:"admin_email"  validate:"required,email"`
+		Name       string    `json:"name"         validate:"required"`
+		Slug       string    `json:"slug"         validate:"required"`
+		TierID     uuid.UUID `json:"tier_id"`
+		AdminEmail string    `json:"admin_email"  validate:"required,email"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
 	}
 
-	tenant, err := h.svc.Onboard(r.Context(), req.Name, req.Slug, req.TierID, req.AdminUserID, req.AdminEmail)
+	tenant, err := h.svc.Onboard(r.Context(), req.Name, req.Slug, req.TierID, userID, req.AdminEmail)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrSlugTaken):

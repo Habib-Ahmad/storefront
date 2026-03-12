@@ -68,7 +68,7 @@ func (s *stubUserRepo) GetByEmail(_ context.Context, _ uuid.UUID, _ string) (*mo
 func (s *stubUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.User, error) {
 	return nil, nil
 }
-func (s *stubUserRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return nil }
+func (s *stubUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
 
 func newTenantHandler() *handler.TenantHandler {
 	svc := service.NewTenantService(&stubTenantRepo{}, &stubWalletRepo{}, &stubUserRepo{})
@@ -99,6 +99,7 @@ func TestOnboard_MissingFields(t *testing.T) {
 	h := newTenantHandler()
 	body, _ := json.Marshal(map[string]string{"name": "Acme"})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserID(req.Context(), uuid.New()))
 	rec := httptest.NewRecorder()
 	h.Onboard(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -113,13 +114,13 @@ func TestOnboard_DuplicateSlug_Returns409(t *testing.T) {
 	h := handler.NewTenantHandler(svc, slog.Default())
 
 	body, _ := json.Marshal(map[string]any{
-		"name":          "Acme",
-		"slug":          "acme",
-		"tier_id":       uuid.New(),
-		"admin_user_id": uuid.New(),
-		"admin_email":   "admin@acme.com",
+		"name":        "Acme",
+		"slug":        "acme",
+		"tier_id":     uuid.New(),
+		"admin_email": "admin@acme.com",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserID(req.Context(), uuid.New()))
 	rec := httptest.NewRecorder()
 	h.Onboard(rec, req)
 	if rec.Code != http.StatusConflict {
@@ -130,13 +131,13 @@ func TestOnboard_DuplicateSlug_Returns409(t *testing.T) {
 func TestOnboard_Valid(t *testing.T) {
 	h := newTenantHandler()
 	body, _ := json.Marshal(map[string]any{
-		"name":          "Acme",
-		"slug":          "acme",
-		"tier_id":       uuid.New(),
-		"admin_user_id": uuid.New(),
-		"admin_email":   "admin@acme.com",
+		"name":        "Acme",
+		"slug":        "acme",
+		"tier_id":     uuid.New(),
+		"admin_email": "admin@acme.com",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserID(req.Context(), uuid.New()))
 	rec := httptest.NewRecorder()
 	h.Onboard(rec, req)
 	if rec.Code != http.StatusCreated {

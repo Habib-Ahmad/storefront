@@ -76,13 +76,14 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /products/{id}
 func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
 		return
 	}
-	if err := h.svc.SoftDelete(r.Context(), id); err != nil {
+	if err := h.svc.SoftDelete(r.Context(), tenant.ID, id); err != nil {
 		if errors.Is(err, service.ErrProductNotFound) {
 			respondErr(w, http.StatusNotFound, "product not found")
 			return

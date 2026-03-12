@@ -14,6 +14,11 @@ import (
 // RunDailyChainVerifier runs VerifyChain for every active tenant's wallet once a day.
 // On chain tamper, VerifyChain suspends the tenant and writes an audit log entry.
 func RunDailyChainVerifier(ctx context.Context, pool *pgxpool.Pool, walletSvc *service.WalletService) {
+	// Run once immediately on startup.
+	if err := verifyAllChains(ctx, pool, walletSvc); err != nil {
+		slog.Error("chain verifier (startup)", "error", err)
+	}
+
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 

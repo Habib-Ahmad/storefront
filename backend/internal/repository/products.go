@@ -11,10 +11,10 @@ import (
 
 type ProductRepository interface {
 	Create(ctx context.Context, p *models.Product) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Product, error)
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Product, error)
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error)
 	Update(ctx context.Context, p *models.Product) error
-	SoftDelete(ctx context.Context, id uuid.UUID) error
+	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
 
 	CreateVariant(ctx context.Context, v *models.ProductVariant) error
 	GetVariantByID(ctx context.Context, id uuid.UUID) (*models.ProductVariant, error)
@@ -38,11 +38,11 @@ func (r *productRepo) Create(ctx context.Context, p *models.Product) error {
 	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 }
 
-func (r *productRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Product, error) {
+func (r *productRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Product, error) {
 	p := &models.Product{}
 	err := r.db.QueryRow(ctx, `
 		SELECT id, tenant_id, name, description, category, is_available, created_at, updated_at, deleted_at
-		FROM products WHERE id = $1 AND deleted_at IS NULL`, id,
+		FROM products WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, id, tenantID,
 	).Scan(&p.ID, &p.TenantID, &p.Name, &p.Description, &p.Category,
 		&p.IsAvailable, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
 	if err != nil {
@@ -76,13 +76,13 @@ func (r *productRepo) Update(ctx context.Context, p *models.Product) error {
 	_, err := r.db.Exec(ctx, `
 		UPDATE products
 		SET name = $1, description = $2, category = $3, is_available = $4, updated_at = NOW()
-		WHERE id = $5 AND deleted_at IS NULL`,
-		p.Name, p.Description, p.Category, p.IsAvailable, p.ID)
+		WHERE id = $5 AND tenant_id = $6 AND deleted_at IS NULL`,
+		p.Name, p.Description, p.Category, p.IsAvailable, p.ID, p.TenantID)
 	return err
 }
 
-func (r *productRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE products SET deleted_at = NOW() WHERE id = $1`, id)
+func (r *productRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `UPDATE products SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
 }
 

@@ -100,10 +100,10 @@ func TestVerifyChain_ValidChain(t *testing.T) {
 	bal2 := decimal.NewFromInt(1500)
 	sig2 := sign(amount2, bal2, sig1, testHMACSecret)
 
-	// ListByWallet returns newest-first; VerifyChain reverses internally.
+	// ListByWalletAsc returns oldest-first for chain verification.
 	txs := []models.Transaction{
-		{Amount: amount2, RunningBalance: bal2, Signature: sig2},
 		{Amount: amount1, RunningBalance: bal1, Signature: sig1},
+		{Amount: amount2, RunningBalance: bal2, Signature: sig2},
 	}
 	txRepo := &mockTxRepo{txs: txs}
 	svc := service.NewWalletService(&mockWalletRepo{wallet: w}, txRepo, &mockTenantRepo{}, testHMACSecret)

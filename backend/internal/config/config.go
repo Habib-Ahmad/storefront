@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -26,6 +27,8 @@ type Config struct {
 	R2SecretKey  string
 	R2BucketName string
 	R2PublicURL  string
+
+	AllowedOrigins []string
 }
 
 func Load() (*Config, error) {
@@ -50,6 +53,8 @@ func Load() (*Config, error) {
 		R2SecretKey:  os.Getenv("R2_SECRET_KEY"),
 		R2BucketName: os.Getenv("R2_BUCKET_NAME"),
 		R2PublicURL:  os.Getenv("R2_PUBLIC_URL"),
+
+		AllowedOrigins: parseOrigins(os.Getenv("ALLOWED_ORIGINS")),
 	}
 
 	var errs []error
@@ -71,4 +76,17 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func parseOrigins(raw string) []string {
+	if raw == "" {
+		return []string{"http://localhost:3000"}
+	}
+	var origins []string
+	for _, o := range strings.Split(raw, ",") {
+		if t := strings.TrimSpace(o); t != "" {
+			origins = append(origins, t)
+		}
+	}
+	return origins
 }

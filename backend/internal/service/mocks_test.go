@@ -74,7 +74,7 @@ func (m *mockUserRepo) GetByEmail(_ context.Context, _ uuid.UUID, _ string) (*mo
 func (m *mockUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.User, error) {
 	return nil, m.err
 }
-func (m *mockUserRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return m.err }
+func (m *mockUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return m.err }
 
 // ── Product repo mock ─────────────────────────────────────────
 
@@ -90,7 +90,7 @@ func (m *mockProductRepo) Create(_ context.Context, p *models.Product) error {
 	m.product = p
 	return m.err
 }
-func (m *mockProductRepo) GetByID(_ context.Context, id uuid.UUID) (*models.Product, error) {
+func (m *mockProductRepo) GetByID(_ context.Context, _ uuid.UUID, id uuid.UUID) (*models.Product, error) {
 	if m.product != nil {
 		return m.product, m.err
 	}
@@ -99,8 +99,8 @@ func (m *mockProductRepo) GetByID(_ context.Context, id uuid.UUID) (*models.Prod
 func (m *mockProductRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
 	return nil, m.err
 }
-func (m *mockProductRepo) Update(_ context.Context, _ *models.Product) error { return m.err }
-func (m *mockProductRepo) SoftDelete(_ context.Context, _ uuid.UUID) error   { return m.err }
+func (m *mockProductRepo) Update(_ context.Context, _ *models.Product) error  { return m.err }
+func (m *mockProductRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return m.err }
 func (m *mockProductRepo) CreateVariant(_ context.Context, v *models.ProductVariant) error {
 	v.ID = uuid.New()
 	m.variantCreated = v
@@ -132,7 +132,10 @@ func (m *mockOrderRepo) Create(_ context.Context, o *models.Order, items []model
 	m.items = items
 	return m.err
 }
-func (m *mockOrderRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Order, error) {
+func (m *mockOrderRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*models.Order, error) {
+	return m.order, m.err
+}
+func (m *mockOrderRepo) GetByIDInternal(_ context.Context, _ uuid.UUID) (*models.Order, error) {
 	return m.order, m.err
 }
 func (m *mockOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.Order, error) {
@@ -141,10 +144,10 @@ func (m *mockOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.
 func (m *mockOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
 	return nil, m.err
 }
-func (m *mockOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ models.PaymentStatus) error {
+func (m *mockOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ models.PaymentStatus) error {
 	return m.err
 }
-func (m *mockOrderRepo) UpdateFulfillmentStatus(_ context.Context, _ uuid.UUID, _ models.FulfillmentStatus) error {
+func (m *mockOrderRepo) UpdateFulfillmentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ models.FulfillmentStatus) error {
 	return m.err
 }
 func (m *mockOrderRepo) ListItems(_ context.Context, _ uuid.UUID) ([]models.OrderItem, error) {
@@ -172,6 +175,9 @@ func (m *mockTxRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Transactio
 	return m.latest, m.err
 }
 func (m *mockTxRepo) ListByWallet(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Transaction, error) {
+	return m.txs, m.err
+}
+func (m *mockTxRepo) ListByWalletAsc(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Transaction, error) {
 	return m.txs, m.err
 }
 func (m *mockTxRepo) GetLatestByWallet(_ context.Context, _ uuid.UUID) (*models.Transaction, error) {

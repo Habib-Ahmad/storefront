@@ -75,8 +75,8 @@ func (s *ProductService) DecrementStock(ctx context.Context, variantID uuid.UUID
 	return s.products.UpdateVariant(ctx, v)
 }
 
-func (s *ProductService) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	return s.products.SoftDelete(ctx, id)
+func (s *ProductService) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.products.SoftDelete(ctx, tenantID, id)
 }
 
 func (s *ProductService) List(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error) {
