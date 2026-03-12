@@ -49,8 +49,7 @@ func main() {
 	productRepo := repository.NewProductRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
 	shipmentRepo := repository.NewShipmentRepository(pool)
-
-	_ = tierRepo // used indirectly via onboarding
+	auditLogRepo := repository.NewAuditLogRepository(pool)
 
 	// External adapter clients
 	paystackClient := paystack.New(cfg.PaystackSecretKey)
@@ -61,7 +60,9 @@ func main() {
 	productSvc := service.NewProductService(productRepo)
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
-	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc)
+	walletSvc.SetTierRepo(tierRepo)
+	walletSvc.SetAuditLogRepo(auditLogRepo)
+	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc, tierRepo, tenantRepo)
 	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 
 	// Handlers
@@ -74,6 +75,8 @@ func main() {
 
 	// Monthly audit log partitions
 	go scheduler.RunMonthlyPartitioner(ctx, pool)
+	// Daily HMAC chain verification across all active tenants
+	go scheduler.RunDailyChainVerifier(ctx, pool, walletSvc)
 
 	addr := ":" + cfg.Port
 	srv := &http.Server{

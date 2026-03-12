@@ -51,8 +51,8 @@ func (s *stubProductRepoForOrder) Create(_ context.Context, p *models.Product) e
 	p.ID = uuid.New()
 	return nil
 }
-func (s *stubProductRepoForOrder) GetByID(_ context.Context, _ uuid.UUID) (*models.Product, error) {
-	return nil, nil
+func (s *stubProductRepoForOrder) GetByID(_ context.Context, id uuid.UUID) (*models.Product, error) {
+	return &models.Product{ID: id, IsAvailable: true}, nil
 }
 func (s *stubProductRepoForOrder) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
 	return nil, nil

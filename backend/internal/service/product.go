@@ -79,6 +79,10 @@ func (s *ProductService) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return s.products.SoftDelete(ctx, id)
 }
 
+func (s *ProductService) List(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error) {
+	return s.products.ListByTenant(ctx, tenantID)
+}
+
 func defaultVariant(productID uuid.UUID) *models.ProductVariant {
 	attrs, _ := json.Marshal(map[string]string{})
 	return &models.ProductVariant{

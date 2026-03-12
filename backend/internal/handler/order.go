@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
@@ -46,6 +47,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	shippingFee := decimal.NewFromFloat(req.ShippingFee)
 	order := &models.Order{
 		TenantID:        tenant.ID,
 		IsDelivery:      req.IsDelivery,
@@ -53,6 +55,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CustomerPhone:   req.CustomerPhone,
 		CustomerEmail:   req.CustomerEmail,
 		ShippingAddress: req.ShippingAddress,
+		ShippingFee:     shippingFee,
 	}
 
 	out, err := h.svc.Create(r.Context(), order, req.Items)
@@ -92,11 +95,58 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 // GET /orders/{id}
 func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	_, err := uuid.Parse(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid order id")
 		return
 	}
-	// DB fetch wired in full handler pass
-	respondErr(w, http.StatusNotImplemented, "not yet implemented")
+	order, err := h.svc.GetByID(r.Context(), id)
+	if err != nil {
+		respondErr(w, http.StatusNotFound, "order not found")
+		return
+	}
+	respond(w, http.StatusOK, order)
+}
+
+// GET /orders?limit=20&offset=0
+func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	limit := queryInt(r, "limit", 20)
+	offset := queryInt(r, "offset", 0)
+	orders, err := h.svc.List(r.Context(), tenant.ID, limit, offset)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	if orders == nil {
+		orders = []models.Order{}
+	}
+	respond(w, http.StatusOK, orders)
+}
+
+// GET /track/{slug} — public, no auth
+func (h *OrderHandler) Track(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		respondErr(w, http.StatusBadRequest, "tracking slug required")
+		return
+	}
+	order, err := h.svc.GetByTrackingSlug(r.Context(), slug)
+	if err != nil {
+		respondErr(w, http.StatusNotFound, "order not found")
+		return
+	}
+	// Return only the fields a customer needs — no internal IDs or financial data.
+	type trackingResp struct {
+		TrackingSlug      string                   `json:"tracking_slug"`
+		CustomerName      string                   `json:"customer_name"`
+		PaymentStatus     models.PaymentStatus     `json:"payment_status"`
+		FulfillmentStatus models.FulfillmentStatus `json:"fulfillment_status"`
+	}
+	respond(w, http.StatusOK, trackingResp{
+		TrackingSlug:      order.TrackingSlug,
+		CustomerName:      order.CustomerName,
+		PaymentStatus:     order.PaymentStatus,
+		FulfillmentStatus: order.FulfillmentStatus,
+	})
 }

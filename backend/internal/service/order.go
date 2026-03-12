@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/models"
@@ -14,7 +17,17 @@ import (
 var (
 	ErrDeliveryFieldsMissing = errors.New("customer_phone and shipping_address are required for delivery orders")
 	ErrOrderNotFound         = errors.New("order not found")
+	ErrProductUnavailable    = errors.New("product is not available")
 )
+
+// generateTrackingSlug returns a 12-character lowercase hex string (48 bits of entropy).
+func generateTrackingSlug() (string, error) {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate slug: %w", err)
+	}
+	return hex.EncodeToString(b), nil
+}
 
 type OrderService struct {
 	orders   repository.OrderRepository
@@ -32,11 +45,26 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 		return nil, err
 	}
 
+	slug, err := generateTrackingSlug()
+	if err != nil {
+		return nil, err
+	}
+	order.TrackingSlug = slug
+
 	// Validate stock and collect variant prices before persisting.
 	for i := range items {
 		v, err := s.products.GetVariantByID(ctx, items[i].VariantID)
 		if err != nil {
 			return nil, fmt.Errorf("variant %s: %w", items[i].VariantID, ErrVariantNotFound)
+		}
+
+		// Check parent product availability.
+		product, err := s.products.GetByID(ctx, v.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("product for variant %s: %w", v.ID, ErrVariantNotFound)
+		}
+		if !product.IsAvailable {
+			return nil, fmt.Errorf("variant %s: %w", v.ID, ErrProductUnavailable)
 		}
 
 		// nil = infinite; 0 = sold out; < qty = insufficient stock
@@ -75,4 +103,16 @@ func validateDelivery(o *models.Order) error {
 		return ErrDeliveryFieldsMissing
 	}
 	return nil
+}
+
+func (s *OrderService) GetByID(ctx context.Context, id uuid.UUID) (*models.Order, error) {
+	return s.orders.GetByID(ctx, id)
+}
+
+func (s *OrderService) GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error) {
+	return s.orders.GetByTrackingSlug(ctx, slug)
+}
+
+func (s *OrderService) List(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error) {
+	return s.orders.ListByTenant(ctx, tenantID, limit, offset)
 }

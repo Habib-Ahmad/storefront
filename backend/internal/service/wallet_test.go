@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -57,15 +58,20 @@ func TestCredit_FirstEntry_NoChain(t *testing.T) {
 func TestCredit_ChainContinues(t *testing.T) {
 	walletID := uuid.New()
 	prevTxID := uuid.New()
-	prevSig := sign(decimal.NewFromInt(1000), decimal.NewFromInt(1000), "", testHMACSecret)
+	prevRunningBalance := decimal.NewFromInt(1000)
+	prevSig := sign(decimal.NewFromInt(1000), prevRunningBalance, "", testHMACSecret)
 
 	w := &models.Wallet{
 		ID:                walletID,
 		TenantID:          uuid.New(),
-		AvailableBalance:  decimal.NewFromInt(1000),
+		PendingBalance:    prevRunningBalance, // first credit went to pending
 		LastTransactionID: &prevTxID,
 	}
-	txRepo := &mockTxRepo{latest: &models.Transaction{ID: prevTxID, Signature: prevSig}}
+	txRepo := &mockTxRepo{latest: &models.Transaction{
+		ID:             prevTxID,
+		Signature:      prevSig,
+		RunningBalance: prevRunningBalance,
+	}}
 	svc := newWalletSvc(w, txRepo, &mockTenantRepo{})
 
 	amount := decimal.NewFromInt(500)
@@ -130,8 +136,38 @@ func TestVerifyChain_Tampered_SuspendsTenant(t *testing.T) {
 	}
 }
 
+func TestVerifyChain_Tampered_WritesAuditLog(t *testing.T) {
+	walletID := uuid.New()
+	tenantID := uuid.New()
+	w := &models.Wallet{ID: walletID, TenantID: tenantID}
+
+	tamperedTx := models.Transaction{
+		Amount:         decimal.NewFromInt(1000),
+		RunningBalance: decimal.NewFromInt(1000),
+		Signature:      "tampered-signature",
+	}
+	txRepo := &mockTxRepo{txs: []models.Transaction{tamperedTx}}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Status: models.TenantStatusActive}}
+	auditRepo := &mockAuditLogRepo{}
+	svc := service.NewWalletService(&mockWalletRepo{wallet: w}, txRepo, tenantRepo, testHMACSecret)
+	svc.SetAuditLogRepo(auditRepo)
+
+	_ = svc.VerifyChain(context.Background(), walletID, tenantID)
+
+	if auditRepo.created == nil {
+		t.Fatal("expected audit log entry for chain tamper")
+	}
+	if auditRepo.created.Action != "chain_tampered" {
+		t.Fatalf("audit action: want chain_tampered, got %s", auditRepo.created.Action)
+	}
+	if auditRepo.created.TenantID != tenantID {
+		t.Fatalf("audit tenant_id mismatch")
+	}
+}
+
 func TestDebit_ChainEntry(t *testing.T) {
 	// Debit must produce a signed negative-amount ledger entry that chains correctly.
+	// running_balance tracks cumulative net flow, not wallet balance.
 	walletID := uuid.New()
 	w := &models.Wallet{ID: walletID, TenantID: uuid.New(), AvailableBalance: decimal.NewFromInt(1000)}
 	txRepo := &mockTxRepo{}
@@ -142,12 +178,12 @@ func TestDebit_ChainEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	expectedBalance := decimal.NewFromInt(700) // 1000 - 300
+	negatedAmount := debitAmount.Neg()
+	expectedBalance := negatedAmount // no prev tx → 0 + (-300) = -300
 	if !tx.RunningBalance.Equal(expectedBalance) {
-		t.Fatalf("running_balance: want 700, got %s", tx.RunningBalance)
+		t.Fatalf("running_balance: want %s, got %s", expectedBalance, tx.RunningBalance)
 	}
 	// Debit records the negated amount in the ledger; signature must use that negated value.
-	negatedAmount := debitAmount.Neg()
 	expectedSig := sign(negatedAmount, expectedBalance, "", testHMACSecret)
 	if tx.Signature != expectedSig {
 		t.Fatalf("debit signature mismatch\ngot:  %s\nwant: %s", tx.Signature, expectedSig)
@@ -177,5 +213,35 @@ func TestReleasePending_MovesBalance(t *testing.T) {
 	}
 	if !walletRepo.updated.PendingBalance.Equal(decimal.NewFromInt(0)) {
 		t.Fatalf("pending_balance: want 0, got %s", walletRepo.updated.PendingBalance)
+	}
+}
+
+func TestDebit_WithinDebtCeiling_Succeeds(t *testing.T) {
+	tenantID := uuid.New()
+	tierID := uuid.New()
+	w := &models.Wallet{ID: uuid.New(), TenantID: tenantID, AvailableBalance: decimal.NewFromInt(100)}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}}
+	svc := newWalletSvc(w, &mockTxRepo{}, tenantRepo)
+	svc.SetTierRepo(&mockTierRepo{tier: &models.Tier{ID: tierID, DebtCeiling: decimal.NewFromInt(500)}})
+
+	// Debit 400 from 100 balance → new balance = -300, ceiling allows -500. Should succeed.
+	_, err := svc.Debit(context.Background(), tenantID, decimal.NewFromInt(400), nil)
+	if err != nil {
+		t.Fatalf("expected debit within ceiling to succeed, got: %v", err)
+	}
+}
+
+func TestDebit_ExceedsDebtCeiling_Rejected(t *testing.T) {
+	tenantID := uuid.New()
+	tierID := uuid.New()
+	w := &models.Wallet{ID: uuid.New(), TenantID: tenantID, AvailableBalance: decimal.NewFromInt(100)}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}}
+	svc := newWalletSvc(w, &mockTxRepo{}, tenantRepo)
+	svc.SetTierRepo(&mockTierRepo{tier: &models.Tier{ID: tierID, DebtCeiling: decimal.NewFromInt(500)}})
+
+	// Debit 700 from 100 balance → new balance = -600, ceiling allows only -500.
+	_, err := svc.Debit(context.Background(), tenantID, decimal.NewFromInt(700), nil)
+	if !errors.Is(err, service.ErrDebtCeilingExceeded) {
+		t.Fatalf("expected ErrDebtCeilingExceeded, got: %v", err)
 	}
 }

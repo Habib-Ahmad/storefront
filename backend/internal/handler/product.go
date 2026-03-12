@@ -63,8 +63,15 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusForbidden, "inventory module not enabled")
 		return
 	}
-	_ = tenant // repo call goes here in Block 6 wiring — handler shells are intentional
-	respond(w, http.StatusOK, []any{})
+	products, err := h.svc.List(r.Context(), tenant.ID)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	if products == nil {
+		products = []models.Product{}
+	}
+	respond(w, http.StatusOK, products)
 }
 
 // DELETE /products/{id}

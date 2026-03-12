@@ -90,8 +90,11 @@ func (m *mockProductRepo) Create(_ context.Context, p *models.Product) error {
 	m.product = p
 	return m.err
 }
-func (m *mockProductRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Product, error) {
-	return m.product, m.err
+func (m *mockProductRepo) GetByID(_ context.Context, id uuid.UUID) (*models.Product, error) {
+	if m.product != nil {
+		return m.product, m.err
+	}
+	return &models.Product{ID: id, IsAvailable: true}, m.err
 }
 func (m *mockProductRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
 	return nil, m.err
@@ -151,15 +154,18 @@ func (m *mockOrderRepo) ListItems(_ context.Context, _ uuid.UUID) ([]models.Orde
 // ── Transaction repo mock ─────────────────────────────────────
 
 type mockTxRepo struct {
-	txs     []models.Transaction
-	latest  *models.Transaction
-	err     error
-	created *models.Transaction
+	txs        []models.Transaction
+	latest     *models.Transaction
+	err        error
+	created    *models.Transaction
+	allCreated []*models.Transaction
 }
 
 func (m *mockTxRepo) Create(_ context.Context, tx *models.Transaction) error {
 	tx.ID = uuid.New()
 	m.created = tx
+	m.latest = tx
+	m.allCreated = append(m.allCreated, tx)
 	return m.err
 }
 func (m *mockTxRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Transaction, error) {
@@ -170,4 +176,33 @@ func (m *mockTxRepo) ListByWallet(_ context.Context, _ uuid.UUID, _, _ int) ([]m
 }
 func (m *mockTxRepo) GetLatestByWallet(_ context.Context, _ uuid.UUID) (*models.Transaction, error) {
 	return m.latest, m.err
+}
+
+// ── Tier repo mock ────────────────────────────────────────────
+
+type mockTierRepo struct {
+	tier *models.Tier
+	err  error
+}
+
+func (m *mockTierRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Tier, error) {
+	return m.tier, m.err
+}
+func (m *mockTierRepo) List(_ context.Context) ([]models.Tier, error) {
+	if m.tier != nil {
+		return []models.Tier{*m.tier}, m.err
+	}
+	return nil, m.err
+}
+
+// ── Audit log repo mock ──────────────────────────────────────
+
+type mockAuditLogRepo struct {
+	created *models.AuditLog
+	err     error
+}
+
+func (m *mockAuditLogRepo) Create(_ context.Context, l *models.AuditLog) error {
+	m.created = l
+	return m.err
 }

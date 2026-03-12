@@ -43,6 +43,7 @@ func New(
 	// Public endpoints
 	r.Get("/tiers", tier.List)
 	r.Post("/tenants/onboard", tenant.Onboard)
+	r.Get("/track/{slug}", order.Track)
 
 	// Authenticated + tenant-resolved routes
 	r.Group(func(r chi.Router) {
@@ -57,6 +58,7 @@ func New(
 		r.Delete("/products/{id}", product.Delete)
 
 		r.Post("/orders", order.Create)
+		r.Get("/orders", order.List)
 		r.Get("/orders/{id}", order.Get)
 
 		r.Get("/wallet", wallet.GetBalance)

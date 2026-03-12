@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -16,14 +17,17 @@ import (
 )
 
 var (
-	ErrChainTampered  = errors.New("ledger chain integrity violation")
-	ErrWalletNotFound = errors.New("wallet not found")
+	ErrChainTampered      = errors.New("ledger chain integrity violation")
+	ErrWalletNotFound     = errors.New("wallet not found")
+	ErrDebtCeilingExceeded = errors.New("debt ceiling exceeded")
 )
 
 type WalletService struct {
 	wallets      repository.WalletRepository
 	transactions repository.TransactionRepository
 	tenants      repository.TenantRepository
+	tiers        repository.TierRepository
+	auditLogs    repository.AuditLogRepository
 	secret       string
 }
 
@@ -36,14 +40,45 @@ func NewWalletService(
 	return &WalletService{wallets: wallets, transactions: transactions, tenants: tenants, secret: secret}
 }
 
-// Credit adds amount to the wallet's pending balance and appends a signed ledger entry.
+// SetTierRepo injects the tier repository after construction (avoids circular init order).
+func (s *WalletService) SetTierRepo(tiers repository.TierRepository) { s.tiers = tiers }
+
+// SetAuditLogRepo injects the audit-log repository after construction.
+func (s *WalletService) SetAuditLogRepo(al repository.AuditLogRepository) { s.auditLogs = al }
+
+// Credit adds funds to the wallet's pending balance and appends a signed ledger entry.
+// Funds stay in pending until delivery is confirmed; use ReleasePending to make them available.
 func (s *WalletService) Credit(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	return s.record(ctx, walletID, amount, models.TransactionTypeCredit, orderID)
+	return s.record(ctx, walletID, amount, models.TransactionTypeCredit, true, orderID)
 }
 
 // Debit subtracts amount from available balance and appends a signed ledger entry.
+// It enforces the tier debt ceiling: available_balance - amount must not fall below -debtCeiling.
 func (s *WalletService) Debit(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeDebit, orderID)
+	if s.tiers != nil {
+		w, err := s.wallets.GetByTenantID(ctx, walletID)
+		if err != nil {
+			return nil, ErrWalletNotFound
+		}
+		tenant, err := s.tenants.GetByID(ctx, w.TenantID)
+		if err != nil {
+			return nil, fmt.Errorf("get tenant for ceiling check: %w", err)
+		}
+		tier, err := s.tiers.GetByID(ctx, tenant.TierID)
+		if err != nil {
+			return nil, fmt.Errorf("get tier for ceiling check: %w", err)
+		}
+		newBalance := w.AvailableBalance.Sub(amount)
+		if newBalance.LessThan(tier.DebtCeiling.Neg()) {
+			return nil, ErrDebtCeilingExceeded
+		}
+	}
+	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeDebit, false, orderID)
+}
+
+// RecordCommission appends a commission deduction entry to the ledger (pending side).
+func (s *WalletService) RecordCommission(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeCommission, true, orderID)
 }
 
 // ReleasePending moves amount from pending to available (post-delivery settlement).
@@ -79,6 +114,7 @@ func (s *WalletService) VerifyChain(ctx context.Context, walletID uuid.UUID, ten
 			expected := computeSignature(tx.Amount, tx.RunningBalance, prevSig, s.secret)
 			if !hmac.Equal([]byte(tx.Signature), []byte(expected)) {
 				_ = s.suspendTenant(ctx, tenantID)
+				_ = s.logChainBreach(ctx, tenantID, walletID)
 				return ErrChainTampered
 			}
 			prevSig = tx.Signature
@@ -93,29 +129,34 @@ func (s *WalletService) VerifyChain(ctx context.Context, walletID uuid.UUID, ten
 }
 
 // record is the single write path for all ledger entries.
-func (s *WalletService) record(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, orderID *uuid.UUID) (*models.Transaction, error) {
+// toPending controls whether the credit goes to pending_balance (true) or available_balance (false).
+func (s *WalletService) record(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
 	w, err := s.wallets.GetByTenantID(ctx, walletID)
 	if err != nil {
 		return nil, ErrWalletNotFound
 	}
 
+	// Chain base is the previous transaction's running_balance, not w.AvailableBalance.
+	// This decouples the immutable chain from the pending/available split.
 	var prevSig string
+	var prevRunningBalance decimal.Decimal
 	if w.LastTransactionID != nil {
 		prev, err := s.transactions.GetLatestByWallet(ctx, w.ID)
 		if err != nil {
 			return nil, fmt.Errorf("fetch chain tip: %w", err)
 		}
 		prevSig = prev.Signature
+		prevRunningBalance = prev.RunningBalance
 	}
 
-	newBalance := w.AvailableBalance.Add(amount)
-	sig := computeSignature(amount, newBalance, prevSig, s.secret)
+	newRunningBalance := prevRunningBalance.Add(amount)
+	sig := computeSignature(amount, newRunningBalance, prevSig, s.secret)
 
 	tx := &models.Transaction{
 		WalletID:       w.ID,
 		OrderID:        orderID,
 		Amount:         amount,
-		RunningBalance: newBalance,
+		RunningBalance: newRunningBalance,
 		Type:           txType,
 		Signature:      sig,
 	}
@@ -123,7 +164,11 @@ func (s *WalletService) record(ctx context.Context, walletID uuid.UUID, amount d
 		return nil, fmt.Errorf("insert transaction: %w", err)
 	}
 
-	w.AvailableBalance = newBalance
+	if toPending {
+		w.PendingBalance = w.PendingBalance.Add(amount)
+	} else {
+		w.AvailableBalance = w.AvailableBalance.Add(amount)
+	}
 	w.LastTransactionID = &tx.ID
 	if err := s.wallets.UpdateBalances(ctx, w); err != nil {
 		return nil, fmt.Errorf("update wallet balances: %w", err)
@@ -139,6 +184,18 @@ func (s *WalletService) suspendTenant(ctx context.Context, tenantID uuid.UUID) e
 	}
 	t.Status = models.TenantStatusSuspended
 	return s.tenants.Update(ctx, t)
+}
+
+func (s *WalletService) logChainBreach(ctx context.Context, tenantID, walletID uuid.UUID) error {
+	if s.auditLogs == nil {
+		return nil
+	}
+	diff := fmt.Sprintf(`{"wallet_id":"%s","reason":"HMAC chain tampered"}`, walletID)
+	return s.auditLogs.Create(ctx, &models.AuditLog{
+		TenantID: tenantID,
+		Action:   "chain_tampered",
+		Diff:     json.RawMessage(diff),
+	})
 }
 
 // computeSignature returns HMAC-SHA256(amount|running_balance|prev_sig, secret).

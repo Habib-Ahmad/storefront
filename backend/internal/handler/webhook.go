@@ -3,11 +3,14 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"storefront/backend/internal/service"
 )
 
 // chargeSuccessHandler is satisfied by *service.PaymentService.
@@ -78,7 +81,9 @@ func (h *WebhookHandler) Paystack(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := json.Unmarshal(event.Data, &data); err == nil && data.Reference != "" {
 			if err := h.paymentSvc.HandleChargeSuccess(r.Context(), data.Reference); err != nil {
-				h.log.Error("paystack webhook: charge.success", "error", err)
+				if !errors.Is(err, service.ErrAlreadyPaid) {
+					h.log.Error("paystack webhook: charge.success", "error", err)
+				}
 			}
 		}
 	}
