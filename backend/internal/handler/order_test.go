@@ -88,8 +88,8 @@ func TestCreateOrder_MissingCustomerName(t *testing.T) {
 	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rec.Code)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d", rec.Code)
 	}
 }
 

@@ -101,8 +101,8 @@ func TestOnboard_MissingFields(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	h.Onboard(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rec.Code)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d", rec.Code)
 	}
 }
 

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -29,23 +28,14 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		IsDelivery      bool               `json:"is_delivery"`
-		CustomerName    string             `json:"customer_name"`
+		CustomerName    string             `json:"customer_name"    validate:"required"`
 		CustomerPhone   *string            `json:"customer_phone"`
 		CustomerEmail   *string            `json:"customer_email"`
 		ShippingAddress *string            `json:"shipping_address"`
 		ShippingFee     float64            `json:"shipping_fee"`
-		Items           []models.OrderItem `json:"items"`
+		Items           []models.OrderItem `json:"items"            validate:"required,min=1"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondErr(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.CustomerName == "" {
-		respondErr(w, http.StatusBadRequest, "customer_name is required")
-		return
-	}
-	if len(req.Items) == 0 {
-		respondErr(w, http.StatusBadRequest, "order must contain at least one item")
+	if !decodeValid(w, r, &req) {
 		return
 	}
 

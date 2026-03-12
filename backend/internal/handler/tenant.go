@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -31,18 +30,13 @@ func (h *TenantHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 // POST /tenants/onboard
 func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name        string    `json:"name"`
-		Slug        string    `json:"slug"`
+		Name        string    `json:"name"         validate:"required"`
+		Slug        string    `json:"slug"         validate:"required"`
 		TierID      uuid.UUID `json:"tier_id"`
 		AdminUserID uuid.UUID `json:"admin_user_id"`
-		AdminEmail  string    `json:"admin_email"`
+		AdminEmail  string    `json:"admin_email"  validate:"required,email"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondErr(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" || req.Slug == "" || req.AdminEmail == "" {
-		respondErr(w, http.StatusBadRequest, "name, slug, and admin_email are required")
+	if !decodeValid(w, r, &req) {
 		return
 	}
 
@@ -65,8 +59,7 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 func (h *TenantHandler) SetModules(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
 	var mods models.ActiveModules
-	if err := json.NewDecoder(r.Body).Decode(&mods); err != nil {
-		respondErr(w, http.StatusBadRequest, "invalid request body")
+	if !decodeValid(w, r, &mods) {
 		return
 	}
 	if err := h.svc.SetModules(r.Context(), tenant.ID, mods); err != nil {

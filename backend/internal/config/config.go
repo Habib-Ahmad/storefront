@@ -8,6 +8,7 @@ import (
 type Config struct {
 	Port        string
 	Environment string
+	LogLevel    string
 
 	DatabaseURL string
 	HMACSecret  string
@@ -31,6 +32,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Port:        getEnv("PORT", "8080"),
 		Environment: getEnv("ENVIRONMENT", "development"),
+		LogLevel:    getEnv("LOG_LEVEL", "info"),
 
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		HMACSecret:  os.Getenv("HMAC_SECRET"),

@@ -146,7 +146,6 @@
           "name": "Delete Product",
           "request": {
             "method": "DELETE",
-            "url": "{{base_url}}/products/:id",
             "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
             "url": {
               "raw": "{{base_url}}/products/:id",

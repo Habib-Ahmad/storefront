@@ -18,14 +18,23 @@ func RequestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(ww, r)
 
-			log.Info("request",
+			status := ww.Status()
+			args := []any{
 				"method", r.Method,
 				"path", r.URL.Path,
-				"status", ww.Status(),
+				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", time.Since(start).String(),
 				"request_id", chimw.GetReqID(r.Context()),
-			)
+			}
+			switch {
+			case status >= 500:
+				log.Error("request", args...)
+			case status >= 400:
+				log.Warn("request", args...)
+			default:
+				log.Info("request", args...)
+			}
 		})
 	}
 }

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -32,18 +31,13 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name        string                  `json:"name"`
+		Name        string                  `json:"name"        validate:"required"`
 		Description *string                 `json:"description"`
 		Category    *string                 `json:"category"`
 		IsAvailable bool                    `json:"is_available"`
 		Variants    []models.ProductVariant `json:"variants"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondErr(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		respondErr(w, http.StatusBadRequest, "name is required")
+	if !decodeValid(w, r, &req) {
 		return
 	}
 
