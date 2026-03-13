@@ -12,11 +12,12 @@ import (
 
 func TestOnboard_CreatesTenanUserAndWallet(t *testing.T) {
 	tenantRepo := &mockTenantRepo{}
+	tierRepo := &mockTierRepo{tier: &models.Tier{ID: uuid.New(), Name: "Standard"}}
 	walletRepo := &mockWalletRepo{}
 	userRepo := &mockUserRepo{}
 
-	svc := service.NewTenantService(tenantRepo, walletRepo, userRepo)
-	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), uuid.New(), "admin@acme.com")
+	svc := service.NewTenantService(tenantRepo, tierRepo, walletRepo, userRepo)
+	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), "admin@acme.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestOnboard_CreatesTenanUserAndWallet(t *testing.T) {
 func TestSetModules_UpdatesTenant(t *testing.T) {
 	tenantID := uuid.New()
 	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Status: models.TenantStatusActive}}
-	svc := service.NewTenantService(tenantRepo, &mockWalletRepo{}, &mockUserRepo{})
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
 
 	mods := models.ActiveModules{Inventory: true, Payments: true}
 	if err := svc.SetModules(context.Background(), tenantID, mods); err != nil {
@@ -66,9 +67,9 @@ func TestOnboard_AdminUserBelongsToTenant(t *testing.T) {
 	// The admin user's TenantID must be set to the newly created tenant's ID.
 	tenantRepo := &mockTenantRepo{}
 	userRepo := &mockUserRepo{}
-	svc := service.NewTenantService(tenantRepo, &mockWalletRepo{}, userRepo)
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{tier: &models.Tier{ID: uuid.New(), Name: "Standard"}}, &mockWalletRepo{}, userRepo)
 
-	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), uuid.New(), "admin@acme.com")
+	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), "admin@acme.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

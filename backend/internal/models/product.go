@@ -7,13 +7,13 @@ import (
 )
 
 type Product struct {
-	ID          uuid.UUID
-	TenantID    uuid.UUID
-	Name        string
-	Description *string
-	Category    *string
-	IsAvailable bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   *time.Time
+	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description,omitempty"`
+	Category    *string    `json:"category,omitempty"`
+	IsAvailable bool       `json:"is_available"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"-"`
 }

@@ -8,10 +8,10 @@ import (
 )
 
 type Tier struct {
-	ID             uuid.UUID
-	Name           string
-	DebtCeiling    decimal.Decimal
-	CommissionRate decimal.Decimal
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             uuid.UUID       `json:"id"`
+	Name           string          `json:"name"`
+	DebtCeiling    decimal.Decimal `json:"debt_ceiling"`
+	CommissionRate decimal.Decimal `json:"commission_rate"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }

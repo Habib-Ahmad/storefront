@@ -70,8 +70,18 @@ func (s *stubUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Us
 }
 func (s *stubUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
 
+type stubTierRepo struct{}
+
+func (s *stubTierRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Tier, error) {
+	return &models.Tier{ID: uuid.New(), Name: "Standard"}, nil
+}
+func (s *stubTierRepo) GetByName(_ context.Context, _ string) (*models.Tier, error) {
+	return &models.Tier{ID: uuid.New(), Name: "Standard"}, nil
+}
+func (s *stubTierRepo) List(_ context.Context) ([]models.Tier, error) { return nil, nil }
+
 func newTenantHandler() *handler.TenantHandler {
-	svc := service.NewTenantService(&stubTenantRepo{}, &stubWalletRepo{}, &stubUserRepo{})
+	svc := service.NewTenantService(&stubTenantRepo{}, &stubTierRepo{}, &stubWalletRepo{}, &stubUserRepo{})
 	return handler.NewTenantHandler(svc, slog.Default())
 }
 
@@ -110,13 +120,12 @@ func TestOnboard_MissingFields(t *testing.T) {
 func TestOnboard_DuplicateSlug_Returns409(t *testing.T) {
 	// Duplicate slug must return 409 Conflict, not 500 — the service detects the DB constraint name.
 	createErr := errors.New(`ERROR: duplicate key value violates unique constraint "tenants_slug_key" (SQLSTATE 23505)`)
-	svc := service.NewTenantService(&stubTenantRepo{createErr: createErr}, &stubWalletRepo{}, &stubUserRepo{})
+	svc := service.NewTenantService(&stubTenantRepo{createErr: createErr}, &stubTierRepo{}, &stubWalletRepo{}, &stubUserRepo{})
 	h := handler.NewTenantHandler(svc, slog.Default())
 
 	body, _ := json.Marshal(map[string]any{
 		"name":        "Acme",
 		"slug":        "acme",
-		"tier_id":     uuid.New(),
 		"admin_email": "admin@acme.com",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
@@ -133,7 +142,6 @@ func TestOnboard_Valid(t *testing.T) {
 	body, _ := json.Marshal(map[string]any{
 		"name":        "Acme",
 		"slug":        "acme",
-		"tier_id":     uuid.New(),
 		"admin_email": "admin@acme.com",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))

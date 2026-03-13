@@ -8,10 +8,10 @@ import (
 )
 
 type AuditLog struct {
-	ID        int64
-	TenantID  uuid.UUID
-	UserID    *uuid.UUID // nil for guest actions
-	Action    string
-	Diff      json.RawMessage
-	CreatedAt time.Time
+	ID        int64           `json:"id"`
+	TenantID  uuid.UUID       `json:"tenant_id"`
+	UserID    *uuid.UUID      `json:"user_id,omitempty"`
+	Action    string          `json:"action"`
+	Diff      json.RawMessage `json:"diff,omitempty"`
+	CreatedAt time.Time       `json:"created_at"`
 }

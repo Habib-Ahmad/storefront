@@ -36,16 +36,15 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name       string    `json:"name"         validate:"required"`
-		Slug       string    `json:"slug"         validate:"required"`
-		TierID     uuid.UUID `json:"tier_id"`
-		AdminEmail string    `json:"admin_email"  validate:"required,email"`
+		Name       string `json:"name"         validate:"required"`
+		Slug       string `json:"slug"         validate:"required"`
+		AdminEmail string `json:"admin_email"  validate:"required,email"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
 	}
 
-	tenant, err := h.svc.Onboard(r.Context(), req.Name, req.Slug, req.TierID, userID, req.AdminEmail)
+	tenant, err := h.svc.Onboard(r.Context(), req.Name, req.Slug, userID, req.AdminEmail)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrSlugTaken):

@@ -57,7 +57,7 @@ func main() {
 	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
 
 	// Services
-	tenantSvc := service.NewTenantService(tenantRepo, walletRepo, userRepo)
+	tenantSvc := service.NewTenantService(tenantRepo, tierRepo, walletRepo, userRepo)
 	productSvc := service.NewProductService(productRepo)
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)

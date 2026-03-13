@@ -17,13 +17,13 @@ const (
 )
 
 type Shipment struct {
-	ID             uuid.UUID
-	OrderID        uuid.UUID
-	TenantID       uuid.UUID
-	Status         ShipmentStatus
-	CarrierRef     *string // external carrier booking ID
-	TrackingNumber *string
-	CarrierHistory json.RawMessage // raw logs from Terminal Africa / Shipbubble
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             uuid.UUID       `json:"id"`
+	OrderID        uuid.UUID       `json:"order_id"`
+	TenantID       uuid.UUID       `json:"tenant_id"`
+	Status         ShipmentStatus  `json:"status"`
+	CarrierRef     *string         `json:"carrier_ref,omitempty"`
+	TrackingNumber *string         `json:"tracking_number,omitempty"`
+	CarrierHistory json.RawMessage `json:"carrier_history,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }

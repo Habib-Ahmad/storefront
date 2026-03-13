@@ -20,14 +20,14 @@ type ActiveModules struct {
 }
 
 type Tenant struct {
-	ID                   uuid.UUID
-	TierID               uuid.UUID
-	Name                 string
-	Slug                 string
-	PaystackSubaccountID *string
-	ActiveModules        ActiveModules
-	Status               TenantStatus
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	DeletedAt            *time.Time
+	ID                   uuid.UUID     `json:"id"`
+	TierID               uuid.UUID     `json:"tier_id"`
+	Name                 string        `json:"name"`
+	Slug                 string        `json:"slug"`
+	PaystackSubaccountID *string       `json:"paystack_subaccount_id,omitempty"`
+	ActiveModules        ActiveModules `json:"active_modules"`
+	Status               TenantStatus  `json:"status"`
+	CreatedAt            time.Time     `json:"created_at"`
+	UpdatedAt            time.Time     `json:"updated_at"`
+	DeletedAt            *time.Time    `json:"-"`
 }

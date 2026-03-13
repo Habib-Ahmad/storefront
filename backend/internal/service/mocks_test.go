@@ -33,6 +33,21 @@ func (m *mockTenantRepo) Update(_ context.Context, t *models.Tenant) error {
 }
 func (m *mockTenantRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return m.err }
 
+// ── Tier repo mock ─────────────────────────────────────────
+
+type mockTierRepo struct {
+	tier *models.Tier
+	err  error
+}
+
+func (m *mockTierRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Tier, error) {
+	return m.tier, m.err
+}
+func (m *mockTierRepo) GetByName(_ context.Context, _ string) (*models.Tier, error) {
+	return m.tier, m.err
+}
+func (m *mockTierRepo) List(_ context.Context) ([]models.Tier, error) { return nil, m.err }
+
 // ── Wallet repo mock ──────────────────────────────────────────
 
 type mockWalletRepo struct {
@@ -182,23 +197,6 @@ func (m *mockTxRepo) ListByWalletAsc(_ context.Context, _ uuid.UUID, _, _ int) (
 }
 func (m *mockTxRepo) GetLatestByWallet(_ context.Context, _ uuid.UUID) (*models.Transaction, error) {
 	return m.latest, m.err
-}
-
-// ── Tier repo mock ────────────────────────────────────────────
-
-type mockTierRepo struct {
-	tier *models.Tier
-	err  error
-}
-
-func (m *mockTierRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Tier, error) {
-	return m.tier, m.err
-}
-func (m *mockTierRepo) List(_ context.Context) ([]models.Tier, error) {
-	if m.tier != nil {
-		return []models.Tier{*m.tier}, m.err
-	}
-	return nil, m.err
 }
 
 // ── Audit log repo mock ──────────────────────────────────────

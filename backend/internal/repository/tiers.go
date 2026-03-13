@@ -11,6 +11,7 @@ import (
 
 type TierRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Tier, error)
+	GetByName(ctx context.Context, name string) (*models.Tier, error)
 	List(ctx context.Context) ([]models.Tier, error)
 }
 
@@ -24,6 +25,19 @@ func (r *tierRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Tier, err
 	row := r.db.QueryRow(ctx, `
 		SELECT id, name, debt_ceiling, commission_rate, created_at, updated_at
 		FROM tiers WHERE id = $1`, id)
+
+	t := &models.Tier{}
+	err := row.Scan(&t.ID, &t.Name, &t.DebtCeiling, &t.CommissionRate, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (r *tierRepo) GetByName(ctx context.Context, name string) (*models.Tier, error) {
+	row := r.db.QueryRow(ctx, `
+		SELECT id, name, debt_ceiling, commission_rate, created_at, updated_at
+		FROM tiers WHERE name = $1`, name)
 
 	t := &models.Tier{}
 	err := row.Scan(&t.ID, &t.Name, &t.DebtCeiling, &t.CommissionRate, &t.CreatedAt, &t.UpdatedAt)

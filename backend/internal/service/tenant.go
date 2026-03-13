@@ -12,6 +12,8 @@ import (
 	"storefront/backend/internal/repository"
 )
 
+const defaultTierName = "Standard"
+
 var (
 	ErrTenantNotFound = errors.New("tenant not found")
 	ErrModuleDisabled = errors.New("module not enabled for this tenant")
@@ -21,22 +23,30 @@ var (
 
 type TenantService struct {
 	tenants repository.TenantRepository
+	tiers   repository.TierRepository
 	wallets repository.WalletRepository
 	users   repository.UserRepository
 }
 
 func NewTenantService(
 	tenants repository.TenantRepository,
+	tiers repository.TierRepository,
 	wallets repository.WalletRepository,
 	users repository.UserRepository,
 ) *TenantService {
-	return &TenantService{tenants: tenants, wallets: wallets, users: users}
+	return &TenantService{tenants: tenants, tiers: tiers, wallets: wallets, users: users}
 }
 
 // Onboard creates a new tenant, its first admin user, and an empty wallet.
-func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, tierID, adminUserID uuid.UUID, adminEmail string) (*models.Tenant, error) {
+// Every new vendor is assigned the Standard tier automatically.
+func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, adminUserID uuid.UUID, adminEmail string) (*models.Tenant, error) {
+	tier, err := s.tiers.GetByName(ctx, defaultTierName)
+	if err != nil {
+		return nil, fmt.Errorf("lookup default tier: %w", err)
+	}
+
 	tenant := &models.Tenant{
-		TierID: tierID,
+		TierID: tier.ID,
 		Name:   tenantName,
 		Slug:   slug,
 		Status: models.TenantStatusActive,

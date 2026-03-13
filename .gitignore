@@ -2,6 +2,7 @@
 .spec/
 
 # IDE / OS
+.vscode/
 .DS_Store
 .env
 .env.*

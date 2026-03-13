@@ -15,11 +15,11 @@ const (
 )
 
 type User struct {
-	ID        uuid.UUID // set by Supabase Auth, not DB-generated
-	TenantID  uuid.UUID
-	Email     string
-	Role      UserRole
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time
+	ID        uuid.UUID  `json:"id"` // set by Supabase Auth, not DB-generated
+	TenantID  uuid.UUID  `json:"tenant_id"`
+	Email     string     `json:"email"`
+	Role      UserRole   `json:"role"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"-"`
 }

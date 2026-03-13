@@ -9,14 +9,14 @@ import (
 )
 
 type ProductVariant struct {
-	ID         uuid.UUID
-	ProductID  uuid.UUID
-	SKU        string
-	Attributes json.RawMessage
-	Price      decimal.Decimal
-	StockQty   *int // nil = infinite, 0 = sold out
-	IsDefault  bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DeletedAt  *time.Time
+	ID         uuid.UUID       `json:"id"`
+	ProductID  uuid.UUID       `json:"product_id"`
+	SKU        string          `json:"sku"`
+	Attributes json.RawMessage `json:"attributes"`
+	Price      decimal.Decimal `json:"price"`
+	StockQty   *int            `json:"stock_qty,omitempty"` // nil = infinite, 0 = sold out
+	IsDefault  bool            `json:"is_default"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+	DeletedAt  *time.Time      `json:"-"`
 }

@@ -6,9 +6,9 @@ import (
 )
 
 type OrderItem struct {
-	ID          uuid.UUID
-	OrderID     uuid.UUID
-	VariantID   uuid.UUID
-	Quantity    int
-	PriceAtSale decimal.Decimal
+	ID          uuid.UUID       `json:"id"`
+	OrderID     uuid.UUID       `json:"order_id"`
+	VariantID   uuid.UUID       `json:"variant_id"`
+	Quantity    int             `json:"quantity"`
+	PriceAtSale decimal.Decimal `json:"price_at_sale"`
 }

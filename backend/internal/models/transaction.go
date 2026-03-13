@@ -19,12 +19,12 @@ const (
 // Insert-only. DB Rules block UPDATE and DELETE.
 // Signature = HMAC-SHA256(amount + running_balance + prev_signature + secret).
 type Transaction struct {
-	ID             uuid.UUID
-	WalletID       uuid.UUID
-	OrderID        *uuid.UUID // nil for manual adjustments
-	Amount         decimal.Decimal
-	RunningBalance decimal.Decimal
-	Type           TransactionType
-	Signature      string
-	CreatedAt      time.Time
+	ID             uuid.UUID       `json:"id"`
+	WalletID       uuid.UUID       `json:"wallet_id"`
+	OrderID        *uuid.UUID      `json:"order_id,omitempty"`
+	Amount         decimal.Decimal `json:"amount"`
+	RunningBalance decimal.Decimal `json:"running_balance"`
+	Type           TransactionType `json:"type"`
+	Signature      string          `json:"signature"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
