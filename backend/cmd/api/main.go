@@ -63,8 +63,8 @@ func main() {
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
 	walletSvc.SetTierRepo(tierRepo)
 	walletSvc.SetAuditLogRepo(auditLogRepo)
-	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc, tierRepo, tenantRepo)
-	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc, tenantRepo, tierRepo)
+	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc)
+	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 
 	// Handlers
 	authH := handler.NewAuthHandler(userRepo, tenantRepo, log)

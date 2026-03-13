@@ -143,6 +143,10 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 // DELETE /products/{id}
 func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, true, false, false); err != nil {
+		respondErr(w, http.StatusForbidden, "inventory module not enabled")
+		return
+	}
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -254,7 +258,7 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 		Price:      req.Price,
 		StockQty:   req.StockQty,
 	}
-	if err := h.svc.UpdateVariant(r.Context(), v); err != nil {
+	if err := h.svc.UpdateVariant(r.Context(), tenant.ID, v); err != nil {
 		if errors.Is(err, service.ErrVariantNotFound) {
 			respondErr(w, http.StatusNotFound, "variant not found")
 			return
@@ -277,7 +281,7 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, "invalid variant id")
 		return
 	}
-	if err := h.svc.DeleteVariant(r.Context(), variantID); err != nil {
+	if err := h.svc.DeleteVariant(r.Context(), tenant.ID, variantID); err != nil {
 		if errors.Is(err, service.ErrVariantNotFound) {
 			respondErr(w, http.StatusNotFound, "variant not found")
 			return

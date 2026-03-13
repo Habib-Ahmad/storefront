@@ -12,10 +12,7 @@ import (
 	"storefront/backend/internal/repository"
 )
 
-var (
-	ErrPaymentVerificationFailed = errors.New("payment verification failed")
-	ErrAlreadyPaid               = errors.New("order already paid")
-)
+var ErrPaymentVerificationFailed = errors.New("payment verification failed")
 
 // PaystackClient is the subset of paystack.Client used by PaymentService.
 type PaystackClient interface {
@@ -27,18 +24,14 @@ type PaymentService struct {
 	paystack  PaystackClient
 	orders    repository.OrderRepository
 	walletSvc *WalletService
-	tiers     repository.TierRepository
-	tenants   repository.TenantRepository
 }
 
 func NewPaymentService(
 	paystackClient PaystackClient,
 	orders repository.OrderRepository,
 	walletSvc *WalletService,
-	tiers repository.TierRepository,
-	tenants repository.TenantRepository,
 ) *PaymentService {
-	return &PaymentService{paystack: paystackClient, orders: orders, walletSvc: walletSvc, tiers: tiers, tenants: tenants}
+	return &PaymentService{paystack: paystackClient, orders: orders, walletSvc: walletSvc}
 }
 
 // InitiatePayment creates a Paystack transaction and returns the redirect URL.
@@ -79,37 +72,13 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		return fmt.Errorf("get order: %w", err)
 	}
 
-	// Idempotency guard — Paystack retries charge.success up to 3×.
-	if order.PaymentStatus == models.PaymentStatusPaid {
-		return ErrAlreadyPaid
-	}
-
 	if err := s.orders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusPaid); err != nil {
 		return fmt.Errorf("update payment status: %w", err)
 	}
 
 	// walletSvc.Credit looks up the wallet by tenant ID.
-	// Deduct commission before crediting the merchant.
-	tenant, err := s.tenants.GetByID(ctx, order.TenantID)
-	if err != nil {
-		return fmt.Errorf("get tenant: %w", err)
-	}
-	tier, err := s.tiers.GetByID(ctx, tenant.TierID)
-	if err != nil {
-		return fmt.Errorf("get tier: %w", err)
-	}
-
-	commission := resp.Amount.Mul(tier.CommissionRate)
-	netAmount := resp.Amount.Sub(commission)
-
-	if _, err := s.walletSvc.Credit(ctx, order.TenantID, netAmount, &orderID); err != nil {
+	if _, err := s.walletSvc.Credit(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
 		return fmt.Errorf("credit wallet: %w", err)
-	}
-
-	if commission.IsPositive() {
-		if _, err := s.walletSvc.RecordCommission(ctx, order.TenantID, commission, &orderID); err != nil {
-			return fmt.Errorf("record commission: %w", err)
-		}
 	}
 
 	return nil

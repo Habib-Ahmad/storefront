@@ -39,9 +39,7 @@ func newPaymentSvc(ps *mockPaystackClient, orders *mockOrderRepo, wallet *models
 		&mockTenantRepo{},
 		testHMACSecret,
 	)
-	tier := &models.Tier{CommissionRate: decimal.NewFromFloat(0)}
-	tenant := &models.Tenant{ID: uuid.New()}
-	return service.NewPaymentService(ps, orders, walletSvc, &mockTierRepo{tier: tier}, &mockTenantRepo{tenant: tenant})
+	return service.NewPaymentService(ps, orders, walletSvc)
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -80,7 +78,6 @@ func TestInitiatePayment_AdapterError(t *testing.T) {
 
 func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	tenantID := uuid.New()
-	tierID := uuid.New()
 	orderID := uuid.New()
 	order := &models.Order{ID: orderID, TenantID: tenantID, TotalAmount: decimal.NewFromInt(5000)}
 	wallet := &models.Wallet{ID: uuid.New(), TenantID: tenantID}
@@ -96,14 +93,10 @@ func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	walletSvc := service.NewWalletService(
 		&mockWalletRepo{wallet: wallet},
 		txRepo,
-		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
+		&mockTenantRepo{},
 		testHMACSecret,
 	)
-	tier := &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0.05)} // 5%
-	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, walletSvc,
-		&mockTierRepo{tier: tier},
-		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
-	)
+	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, walletSvc)
 
 	err := paymentSvc.HandleChargeSuccess(context.Background(), orderID.String())
 	if err != nil {
@@ -135,76 +128,5 @@ func TestHandleChargeSuccess_InvalidReference(t *testing.T) {
 	err := svc.HandleChargeSuccess(context.Background(), "not-a-uuid")
 	if err == nil {
 		t.Fatal("expected error for invalid reference, got nil")
-	}
-}
-
-func TestHandleChargeSuccess_AlreadyPaid_IsIdempotent(t *testing.T) {
-	orderID := uuid.New()
-	order := &models.Order{
-		ID:            orderID,
-		TenantID:      uuid.New(),
-		PaymentStatus: models.PaymentStatusPaid, // already paid
-	}
-	ps := &mockPaystackClient{
-		verResp: &paystack.VerifyResponse{Status: "success", Amount: decimal.NewFromInt(5000)},
-	}
-	svc := newPaymentSvc(ps, &mockOrderRepo{order: order}, &models.Wallet{ID: uuid.New()})
-
-	err := svc.HandleChargeSuccess(context.Background(), orderID.String())
-	if !errors.Is(err, service.ErrAlreadyPaid) {
-		t.Fatalf("expected ErrAlreadyPaid on retry, got %v", err)
-	}
-}
-
-func TestHandleChargeSuccess_DeductsCommission(t *testing.T) {
-	tenantID := uuid.New()
-	tierID := uuid.New()
-	orderID := uuid.New()
-	order := &models.Order{ID: orderID, TenantID: tenantID, TotalAmount: decimal.NewFromInt(10000)}
-	wallet := &models.Wallet{ID: uuid.New(), TenantID: tenantID}
-
-	ps := &mockPaystackClient{
-		verResp: &paystack.VerifyResponse{
-			Status:    "success",
-			Amount:    decimal.NewFromInt(10000),
-			Reference: orderID.String(),
-		},
-	}
-	txRepo := &mockTxRepo{}
-	walletSvc := service.NewWalletService(
-		&mockWalletRepo{wallet: wallet},
-		txRepo,
-		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
-		testHMACSecret,
-	)
-	tier := &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0.10)} // 10%
-	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, walletSvc,
-		&mockTierRepo{tier: tier},
-		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
-	)
-
-	err := paymentSvc.HandleChargeSuccess(context.Background(), orderID.String())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Expect 2 transactions: credit (net) + commission deduction.
-	if len(txRepo.allCreated) != 2 {
-		t.Fatalf("expected 2 transactions, got %d", len(txRepo.allCreated))
-	}
-
-	creditTx := txRepo.allCreated[0]
-	commTx := txRepo.allCreated[1]
-
-	expectedNet := decimal.NewFromInt(9000)        // 10000 - 10%
-	expectedComm := decimal.NewFromInt(1000).Neg() // commission recorded as negative
-	if !creditTx.Amount.Equal(expectedNet) {
-		t.Fatalf("credit amount: want %s, got %s", expectedNet, creditTx.Amount)
-	}
-	if !commTx.Amount.Equal(expectedComm) {
-		t.Fatalf("commission amount: want %s, got %s", expectedComm, commTx.Amount)
-	}
-	if commTx.Type != models.TransactionTypeCommission {
-		t.Fatalf("commission tx type: want %s, got %s", models.TransactionTypeCommission, commTx.Type)
 	}
 }

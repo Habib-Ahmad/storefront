@@ -130,9 +130,12 @@ func (s *ProductService) ListVariants(ctx context.Context, tenantID, productID u
 	return s.products.ListVariants(ctx, productID)
 }
 
-func (s *ProductService) UpdateVariant(ctx context.Context, v *models.ProductVariant) error {
+func (s *ProductService) UpdateVariant(ctx context.Context, tenantID uuid.UUID, v *models.ProductVariant) error {
 	existing, err := s.products.GetVariantByID(ctx, v.ID)
 	if err != nil {
+		return ErrVariantNotFound
+	}
+	if _, err := s.products.GetByID(ctx, tenantID, existing.ProductID); err != nil {
 		return ErrVariantNotFound
 	}
 	existing.SKU = v.SKU
@@ -142,8 +145,12 @@ func (s *ProductService) UpdateVariant(ctx context.Context, v *models.ProductVar
 	return s.products.UpdateVariant(ctx, existing)
 }
 
-func (s *ProductService) DeleteVariant(ctx context.Context, id uuid.UUID) error {
-	if _, err := s.products.GetVariantByID(ctx, id); err != nil {
+func (s *ProductService) DeleteVariant(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
+	existing, err := s.products.GetVariantByID(ctx, id)
+	if err != nil {
+		return ErrVariantNotFound
+	}
+	if _, err := s.products.GetByID(ctx, tenantID, existing.ProductID); err != nil {
 		return ErrVariantNotFound
 	}
 	return s.products.SoftDeleteVariant(ctx, id)

@@ -22,8 +22,6 @@ type ShipmentService struct {
 	shipments repository.ShipmentRepository
 	orders    repository.OrderRepository
 	walletSvc *WalletService
-	tenants   repository.TenantRepository
-	tiers     repository.TierRepository
 }
 
 func NewShipmentService(
@@ -31,10 +29,8 @@ func NewShipmentService(
 	shipments repository.ShipmentRepository,
 	orders repository.OrderRepository,
 	walletSvc *WalletService,
-	tenants repository.TenantRepository,
-	tiers repository.TierRepository,
 ) *ShipmentService {
-	return &ShipmentService{carrier: carrier, shipments: shipments, orders: orders, walletSvc: walletSvc, tenants: tenants, tiers: tiers}
+	return &ShipmentService{carrier: carrier, shipments: shipments, orders: orders, walletSvc: walletSvc}
 }
 
 // Dispatch books a shipment with the carrier and persists the booking to the shipments table.
@@ -85,19 +81,9 @@ func (s *ShipmentService) HandleDelivered(ctx context.Context, orderID uuid.UUID
 		return fmt.Errorf("update fulfillment status: %w", err)
 	}
 
-	// Release the net amount (gross − commission) from pending to available.
-	gross := order.TotalAmount.Add(order.ShippingFee)
-	tenant, err := s.tenants.GetByID(ctx, order.TenantID)
-	if err != nil {
-		return fmt.Errorf("get tenant: %w", err)
-	}
-	tier, err := s.tiers.GetByID(ctx, tenant.TierID)
-	if err != nil {
-		return fmt.Errorf("get tier: %w", err)
-	}
-	commission := gross.Mul(tier.CommissionRate)
-	netAmount := gross.Sub(commission)
-	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, netAmount); err != nil {
+	// Release total order value (total + shipping) from pending to available balance.
+	amount := order.TotalAmount.Add(order.ShippingFee)
+	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, amount); err != nil {
 		return fmt.Errorf("release pending: %w", err)
 	}
 

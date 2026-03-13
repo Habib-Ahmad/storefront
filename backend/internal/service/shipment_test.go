@@ -54,19 +54,13 @@ func (m *mockShipmentRepo) AppendCarrierEvent(_ context.Context, _, _ uuid.UUID,
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func newShipmentSvc(carrier *mockCarrierClient, shipments *mockShipmentRepo, orders *mockOrderRepo, wallet *models.Wallet) *service.ShipmentService {
-	tenantID := uuid.New()
-	tierID := uuid.New()
 	walletSvc := service.NewWalletService(
 		&mockWalletRepo{wallet: wallet},
 		&mockTxRepo{},
-		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
+		&mockTenantRepo{},
 		testHMACSecret,
 	)
-	tier := &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0)}
-	return service.NewShipmentService(carrier, shipments, orders, walletSvc,
-		&mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}},
-		&mockTierRepo{tier: tier},
-	)
+	return service.NewShipmentService(carrier, shipments, orders, walletSvc)
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
