@@ -90,6 +90,10 @@ func (m *mockUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Us
 	return nil, m.err
 }
 func (m *mockUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return m.err }
+func (m *mockUserRepo) Update(_ context.Context, u *models.User) error {
+	m.user = u
+	return m.err
+}
 
 // ── Product repo mock ─────────────────────────────────────────
 

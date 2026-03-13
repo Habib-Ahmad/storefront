@@ -16,8 +16,10 @@ import (
 
 func New(
 	log *slog.Logger,
+	auth *handler.AuthHandler,
 	tier *handler.TierHandler,
 	tenant *handler.TenantHandler,
+	user *handler.UserHandler,
 	product *handler.ProductHandler,
 	order *handler.OrderHandler,
 	wallet *handler.WalletHandler,
@@ -58,6 +60,7 @@ func New(
 	// Authenticated but pre-tenant routes (user has no tenant yet)
 	r.Group(func(r chi.Router) {
 		r.Use(mw.Authenticate(jwtKeyFunc))
+		r.Get("/auth/me", auth.Me)
 		r.Post("/tenants/onboard", tenant.Onboard)
 	})
 
@@ -69,6 +72,9 @@ func New(
 		r.Get("/tenants/me", tenant.GetMe)
 		r.Put("/tenants/me", tenant.UpdateProfile)
 		r.Put("/tenants/me/modules", tenant.SetModules)
+
+		r.Get("/users/me", user.GetMe)
+		r.Put("/users/me", user.UpdateProfile)
 
 		r.Post("/products", product.Create)
 		r.Get("/products", product.List)

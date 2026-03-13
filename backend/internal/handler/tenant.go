@@ -63,12 +63,16 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
 	var req struct {
-		Name string `json:"name" validate:"required"`
+		Name         string  `json:"name"          validate:"required"`
+		ContactEmail *string `json:"contact_email" validate:"omitempty,email"`
+		ContactPhone *string `json:"contact_phone"`
+		Address      *string `json:"address"`
+		LogoURL      *string `json:"logo_url"      validate:"omitempty,url"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
 	}
-	if err := h.svc.UpdateProfile(r.Context(), tenant.ID, req.Name); err != nil {
+	if err := h.svc.UpdateProfile(r.Context(), tenant.ID, req.Name, req.ContactEmail, req.ContactPhone, req.Address, req.LogoURL); err != nil {
 		serverErr(w, h.log, r, err)
 		return
 	}

@@ -67,8 +67,11 @@ func main() {
 	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc, tenantRepo, tierRepo)
 
 	// Handlers
+	authH := handler.NewAuthHandler(userRepo, tenantRepo, log)
 	tierH := handler.NewTierHandler(tierRepo, log)
 	tenantH := handler.NewTenantHandler(tenantSvc, log)
+	userSvc := service.NewUserService(userRepo)
+	userH := handler.NewUserHandler(userSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
 	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, log)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
@@ -94,7 +97,7 @@ func main() {
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, tierH, tenantH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
+		Handler:      router.New(log, authH, tierH, tenantH, userH, productH, orderH, walletH, webhookH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

@@ -46,10 +46,11 @@ func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, ad
 	}
 
 	tenant := &models.Tenant{
-		TierID: tier.ID,
-		Name:   tenantName,
-		Slug:   slug,
-		Status: models.TenantStatusActive,
+		TierID:       tier.ID,
+		Name:         tenantName,
+		Slug:         slug,
+		ContactEmail: &adminEmail,
+		Status:       models.TenantStatusActive,
 	}
 	if err := s.tenants.Create(ctx, tenant); err != nil {
 		if strings.Contains(err.Error(), "tenants_slug_key") {
@@ -89,13 +90,17 @@ func (s *TenantService) SetModules(ctx context.Context, tenantID uuid.UUID, modu
 	return s.tenants.Update(ctx, tenant)
 }
 
-// UpdateProfile updates the tenant's display name.
-func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, name string) error {
+// UpdateProfile updates the tenant's editable profile fields.
+func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, name string, contactEmail, contactPhone, address, logoURL *string) error {
 	tenant, err := s.tenants.GetByID(ctx, tenantID)
 	if err != nil {
 		return ErrTenantNotFound
 	}
 	tenant.Name = name
+	tenant.ContactEmail = contactEmail
+	tenant.ContactPhone = contactPhone
+	tenant.Address = address
+	tenant.LogoURL = logoURL
 	return s.tenants.Update(ctx, tenant)
 }
 

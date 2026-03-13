@@ -82,6 +82,29 @@
               "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
             }
           }
+        },
+        {
+          "name": "Auth Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has onboarded field', () => pm.expect(body).to.have.property('onboarded'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" }
+            ]
+          }
         }
       ]
     },
@@ -171,7 +194,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Store Updated\"\n}"
+              "raw": "{\n  \"name\": \"Acme Store Updated\",\n  \"contact_email\": \"support@acme.com\",\n  \"contact_phone\": \"08012345678\",\n  \"address\": \"45 Bode Thomas, Surulere, Lagos\"\n}"
             }
           }
         },
@@ -198,6 +221,61 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"inventory\": true,\n  \"payments\": true,\n  \"logistics\": false\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User profile management",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has email', () => pm.expect(body.email).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/me",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/users/me",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Ahmad\",\n  \"last_name\": \"Habib\",\n  \"phone\": \"08098765432\"\n}"
             }
           }
         }

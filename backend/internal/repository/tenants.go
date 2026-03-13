@@ -24,15 +24,15 @@ func NewTenantRepository(db *pgxpool.Pool) TenantRepository {
 	return &tenantRepo{db: db}
 }
 
-const tenantCols = `id, tier_id, name, slug, paystack_subaccount_id,
-		active_modules, status, created_at, updated_at, deleted_at`
+const tenantCols = `id, tier_id, name, slug, contact_email, contact_phone, address, logo_url,
+		paystack_subaccount_id, active_modules, status, created_at, updated_at, deleted_at`
 
 func scanTenant(row interface{ Scan(...any) error }) (*models.Tenant, error) {
 	t := &models.Tenant{}
 	var modulesJSON []byte
 	err := row.Scan(
-		&t.ID, &t.TierID, &t.Name, &t.Slug, &t.PaystackSubaccountID,
-		&modulesJSON, &t.Status, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt,
+		&t.ID, &t.TierID, &t.Name, &t.Slug, &t.ContactEmail, &t.ContactPhone, &t.Address, &t.LogoURL,
+		&t.PaystackSubaccountID, &modulesJSON, &t.Status, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -49,10 +49,12 @@ func (r *tenantRepo) Create(ctx context.Context, t *models.Tenant) error {
 		return err
 	}
 	return r.db.QueryRow(ctx, `
-		INSERT INTO tenants (tier_id, name, slug, paystack_subaccount_id, active_modules, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO tenants (tier_id, name, slug, contact_email, contact_phone, address, logo_url,
+		                     paystack_subaccount_id, active_modules, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at, updated_at`,
-		t.TierID, t.Name, t.Slug, t.PaystackSubaccountID, modulesJSON, t.Status,
+		t.TierID, t.Name, t.Slug, t.ContactEmail, t.ContactPhone, t.Address, t.LogoURL,
+		t.PaystackSubaccountID, modulesJSON, t.Status,
 	).Scan(&t.ID, &t.CreatedAt, &t.UpdatedAt)
 }
 
@@ -73,10 +75,13 @@ func (r *tenantRepo) Update(ctx context.Context, t *models.Tenant) error {
 	}
 	_, err = r.db.Exec(ctx, `
 		UPDATE tenants
-		SET tier_id = $1, name = $2, paystack_subaccount_id = $3,
-		    active_modules = $4, status = $5, updated_at = NOW()
-		WHERE id = $6 AND deleted_at IS NULL`,
-		t.TierID, t.Name, t.PaystackSubaccountID, modulesJSON, t.Status, t.ID)
+		SET tier_id = $1, name = $2, contact_email = $3, contact_phone = $4,
+		    address = $5, logo_url = $6, paystack_subaccount_id = $7,
+		    active_modules = $8, status = $9, updated_at = NOW()
+		WHERE id = $10 AND deleted_at IS NULL`,
+		t.TierID, t.Name, t.ContactEmail, t.ContactPhone,
+		t.Address, t.LogoURL, t.PaystackSubaccountID,
+		modulesJSON, t.Status, t.ID)
 	return err
 }
 

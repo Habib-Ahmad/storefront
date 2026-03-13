@@ -69,6 +69,7 @@ func (s *stubUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Us
 	return nil, nil
 }
 func (s *stubUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (s *stubUserRepo) Update(_ context.Context, _ *models.User) error     { return nil }
 
 type stubTierRepo struct{}
 
@@ -150,6 +151,66 @@ func TestOnboard_Valid(t *testing.T) {
 	h.Onboard(rec, req)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func newTenantHandlerWithTenant(tenant *models.Tenant) *handler.TenantHandler {
+	svc := service.NewTenantService(&stubTenantRepo{tenant: tenant}, &stubTierRepo{}, &stubWalletRepo{}, &stubUserRepo{})
+	return handler.NewTenantHandler(svc, slog.Default())
+}
+
+func TestUpdateProfile_Valid(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	email := "contact@acme.com"
+	body, _ := json.Marshal(map[string]any{
+		"name":          "Acme Corp",
+		"contact_email": email,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), tenant))
+	rec := httptest.NewRecorder()
+
+	h.UpdateProfile(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateProfile_MissingName(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	body, _ := json.Marshal(map[string]any{"contact_email": "a@b.com"})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), tenant))
+	rec := httptest.NewRecorder()
+
+	h.UpdateProfile(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateProfile_InvalidEmail(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":          "Acme",
+		"contact_email": "not-an-email",
+	})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), tenant))
+	rec := httptest.NewRecorder()
+
+	h.UpdateProfile(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
