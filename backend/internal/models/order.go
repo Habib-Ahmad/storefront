@@ -40,6 +40,7 @@ type Order struct {
 	CustomerPhone     *string           `json:"customer_phone,omitempty"`
 	CustomerEmail     *string           `json:"customer_email,omitempty"`
 	ShippingAddress   *string           `json:"shipping_address,omitempty"`
+	Note              *string           `json:"note,omitempty"`
 	TotalAmount       decimal.Decimal   `json:"total_amount"`
 	ShippingFee       decimal.Decimal   `json:"shipping_fee"`
 	PaymentMethod     PaymentMethod     `json:"payment_method"`

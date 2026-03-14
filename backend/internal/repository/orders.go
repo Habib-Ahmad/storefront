@@ -27,7 +27,7 @@ func NewOrderRepository(db *pgxpool.Pool) OrderRepository {
 }
 
 const orderCols = `id, tenant_id, tracking_slug, is_delivery, customer_name,
-		customer_phone, customer_email, shipping_address,
+		customer_phone, customer_email, shipping_address, note,
 		total_amount, shipping_fee, payment_method, payment_status, fulfillment_status,
 		created_at, updated_at`
 
@@ -35,7 +35,7 @@ func scanOrder(row interface{ Scan(...any) error }) (*models.Order, error) {
 	o := &models.Order{}
 	err := row.Scan(
 		&o.ID, &o.TenantID, &o.TrackingSlug, &o.IsDelivery, &o.CustomerName,
-		&o.CustomerPhone, &o.CustomerEmail, &o.ShippingAddress,
+		&o.CustomerPhone, &o.CustomerEmail, &o.ShippingAddress, &o.Note,
 		&o.TotalAmount, &o.ShippingFee, &o.PaymentMethod, &o.PaymentStatus, &o.FulfillmentStatus,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
@@ -53,11 +53,11 @@ func (r *orderRepo) Create(ctx context.Context, o *models.Order, items []models.
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders
 		  (tenant_id, tracking_slug, is_delivery, customer_name, customer_phone,
-		   customer_email, shipping_address, total_amount, shipping_fee, payment_method)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		   customer_email, shipping_address, note, total_amount, shipping_fee, payment_method)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		RETURNING id, payment_method, payment_status, fulfillment_status, created_at, updated_at`,
 		o.TenantID, o.TrackingSlug, o.IsDelivery, o.CustomerName, o.CustomerPhone,
-		o.CustomerEmail, o.ShippingAddress, o.TotalAmount, o.ShippingFee, o.PaymentMethod,
+		o.CustomerEmail, o.ShippingAddress, o.Note, o.TotalAmount, o.ShippingFee, o.PaymentMethod,
 	).Scan(&o.ID, &o.PaymentMethod, &o.PaymentStatus, &o.FulfillmentStatus, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return err

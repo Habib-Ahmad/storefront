@@ -39,6 +39,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CustomerPhone   *string            `json:"customer_phone"`
 		CustomerEmail   *string            `json:"customer_email"`
 		ShippingAddress *string            `json:"shipping_address"`
+		Note            *string            `json:"note"`
 		ShippingFee     float64            `json:"shipping_fee"`
 		Items           []models.OrderItem `json:"items"            validate:"required,min=1"`
 	}
@@ -54,6 +55,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CustomerPhone:   req.CustomerPhone,
 		CustomerEmail:   req.CustomerEmail,
 		ShippingAddress: req.ShippingAddress,
+		Note:            req.Note,
 		ShippingFee:     shippingFee,
 	}
 
