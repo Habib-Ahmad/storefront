@@ -23,6 +23,7 @@ func New(
 	product *handler.ProductHandler,
 	order *handler.OrderHandler,
 	wallet *handler.WalletHandler,
+	analytics *handler.AnalyticsHandler,
 	webhook *handler.WebhookHandler,
 	userRepo repository.UserRepository,
 	tenantRepo repository.TenantRepository,
@@ -99,6 +100,8 @@ func New(
 
 		r.Get("/wallet", wallet.GetBalance)
 		r.Get("/wallet/transactions", wallet.ListTransactions)
+
+		r.Get("/analytics/summary", analytics.Summary)
 	})
 
 	return r

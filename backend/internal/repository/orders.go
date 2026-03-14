@@ -68,10 +68,10 @@ func (r *orderRepo) Create(ctx context.Context, o *models.Order, items []models.
 	for i := range items {
 		items[i].OrderID = o.ID
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO order_items (order_id, variant_id, quantity, price_at_sale, product_name, variant_label)
-			VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+			INSERT INTO order_items (order_id, variant_id, quantity, price_at_sale, cost_price_at_sale, product_name, variant_label)
+			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
 			items[i].OrderID, items[i].VariantID, items[i].Quantity, items[i].PriceAtSale,
-			items[i].ProductName, items[i].VariantLabel,
+			items[i].CostPriceAtSale, items[i].ProductName, items[i].VariantLabel,
 		).Scan(&items[i].ID); err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (r *orderRepo) UpdateFulfillmentStatus(ctx context.Context, tenantID, id uu
 
 func (r *orderRepo) ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, order_id, variant_id, quantity, price_at_sale, product_name, variant_label
+		SELECT id, order_id, variant_id, quantity, price_at_sale, cost_price_at_sale, product_name, variant_label
 		FROM order_items WHERE order_id = $1`, orderID)
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func (r *orderRepo) ListItems(ctx context.Context, orderID uuid.UUID) ([]models.
 	for rows.Next() {
 		var item models.OrderItem
 		if err := rows.Scan(&item.ID, &item.OrderID, &item.VariantID, &item.Quantity, &item.PriceAtSale,
-			&item.ProductName, &item.VariantLabel); err != nil {
+			&item.CostPriceAtSale, &item.ProductName, &item.VariantLabel); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

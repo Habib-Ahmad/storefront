@@ -84,6 +84,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 		}
 
 		items[i].PriceAtSale = v.Price
+		items[i].CostPriceAtSale = v.CostPrice
 		items[i].ProductName = &product.Name
 		items[i].VariantLabel = &v.SKU
 
