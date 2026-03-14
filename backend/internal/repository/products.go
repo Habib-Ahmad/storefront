@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"storefront/backend/internal/models"
@@ -20,6 +22,7 @@ type ProductRepository interface {
 	GetVariantByID(ctx context.Context, id uuid.UUID) (*models.ProductVariant, error)
 	ListVariants(ctx context.Context, productID uuid.UUID) ([]models.ProductVariant, error)
 	UpdateVariant(ctx context.Context, v *models.ProductVariant) error
+	DecrementStock(ctx context.Context, variantID uuid.UUID, qty int) error
 	SoftDeleteVariant(ctx context.Context, id uuid.UUID) error
 
 	AddImage(ctx context.Context, img *models.ProductImage) error
@@ -87,8 +90,14 @@ func (r *productRepo) Update(ctx context.Context, p *models.Product) error {
 }
 
 func (r *productRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE products SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2`, id, tenantID)
-	return err
+	tag, err := r.db.Exec(ctx, `UPDATE products SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *productRepo) CreateVariant(ctx context.Context, v *models.ProductVariant) error {
@@ -144,9 +153,29 @@ func (r *productRepo) UpdateVariant(ctx context.Context, v *models.ProductVarian
 	return err
 }
 
+func (r *productRepo) DecrementStock(ctx context.Context, variantID uuid.UUID, qty int) error {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE product_variants
+		SET stock_qty = stock_qty - $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND stock_qty >= $1`, qty, variantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient stock for variant %s", variantID)
+	}
+	return nil
+}
+
 func (r *productRepo) SoftDeleteVariant(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE product_variants SET deleted_at = NOW() WHERE id = $1`, id)
-	return err
+	tag, err := r.db.Exec(ctx, `UPDATE product_variants SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *productRepo) AddImage(ctx context.Context, img *models.ProductImage) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"storefront/backend/internal/models"
@@ -45,17 +46,29 @@ func (r *shipmentRepo) GetByOrderID(ctx context.Context, tenantID, orderID uuid.
 }
 
 func (r *shipmentRepo) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status models.ShipmentStatus) error {
-	_, err := r.db.Exec(ctx,
+	tag, err := r.db.Exec(ctx,
 		`UPDATE shipments SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`, status, id, tenantID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 // AppendCarrierEvent appends a raw JSON event to the carrier_history array.
 func (r *shipmentRepo) AppendCarrierEvent(ctx context.Context, tenantID, id uuid.UUID, event []byte) error {
-	_, err := r.db.Exec(ctx, `
+	tag, err := r.db.Exec(ctx, `
 		UPDATE shipments
 		SET carrier_history = carrier_history || $1::jsonb, updated_at = NOW()
 		WHERE id = $2 AND tenant_id = $3`,
 		event, id, tenantID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }

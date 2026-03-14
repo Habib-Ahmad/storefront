@@ -71,7 +71,8 @@ func (s *stubProductRepo) ListVariants(_ context.Context, _ uuid.UUID) ([]models
 func (s *stubProductRepo) UpdateVariant(_ context.Context, _ *models.ProductVariant) error {
 	return nil
 }
-func (s *stubProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return nil }
+func (s *stubProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error     { return nil }
+func (s *stubProductRepo) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error { return nil }
 func (s *stubProductRepo) AddImage(_ context.Context, img *models.ProductImage) error {
 	if s.addImageErr != nil {
 		return s.addImageErr

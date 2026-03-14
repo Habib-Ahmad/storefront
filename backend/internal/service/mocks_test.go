@@ -5,7 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
+	"storefront/backend/internal/repository"
 )
 
 // ── Tenant repo mock ─────────────────────────────────────────
@@ -64,10 +66,14 @@ func (m *mockWalletRepo) Create(_ context.Context, w *models.Wallet) error {
 func (m *mockWalletRepo) GetByTenantID(_ context.Context, _ uuid.UUID) (*models.Wallet, error) {
 	return m.wallet, m.err
 }
+func (m *mockWalletRepo) GetByTenantIDForUpdate(_ context.Context, _ uuid.UUID) (*models.Wallet, error) {
+	return m.wallet, m.err
+}
 func (m *mockWalletRepo) UpdateBalances(_ context.Context, w *models.Wallet) error {
 	m.updated = w
 	return m.err
 }
+func (m *mockWalletRepo) WithTx(_ db.DBTX) repository.WalletRepository { return m }
 
 // ── User repo mock ────────────────────────────────────────────
 
@@ -133,6 +139,9 @@ func (m *mockProductRepo) ListVariants(_ context.Context, _ uuid.UUID) ([]models
 }
 func (m *mockProductRepo) UpdateVariant(_ context.Context, v *models.ProductVariant) error {
 	m.variant = v
+	return m.err
+}
+func (m *mockProductRepo) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error {
 	return m.err
 }
 func (m *mockProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return m.err }
@@ -213,6 +222,7 @@ func (m *mockTxRepo) ListByWalletAsc(_ context.Context, _ uuid.UUID, _, _ int) (
 func (m *mockTxRepo) GetLatestByWallet(_ context.Context, _ uuid.UUID) (*models.Transaction, error) {
 	return m.latest, m.err
 }
+func (m *mockTxRepo) WithTx(_ db.DBTX) repository.TransactionRepository { return m }
 
 // ── Audit log repo mock ──────────────────────────────────────
 

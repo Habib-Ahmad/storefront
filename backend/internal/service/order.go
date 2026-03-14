@@ -59,8 +59,8 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	order.TrackingSlug = slug
 
 	type variantDecrement struct {
-		variant  *models.ProductVariant
-		quantity int
+		variantID uuid.UUID
+		quantity  int
 	}
 	var decrements []variantDecrement
 
@@ -87,15 +87,13 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 		items[i].VariantLabel = &v.SKU
 
 		if v.StockQty != nil {
-			decrements = append(decrements, variantDecrement{variant: v, quantity: items[i].Quantity})
+			decrements = append(decrements, variantDecrement{variantID: v.ID, quantity: items[i].Quantity})
 		}
 	}
 
 	for _, d := range decrements {
-		newQty := *d.variant.StockQty - d.quantity
-		d.variant.StockQty = &newQty
-		if err := s.products.UpdateVariant(ctx, d.variant); err != nil {
-			return nil, fmt.Errorf("decrement stock for variant %s: %w", d.variant.ID, err)
+		if err := s.products.DecrementStock(ctx, d.variantID, d.quantity); err != nil {
+			return nil, fmt.Errorf("decrement stock for variant %s: %w", d.variantID, err)
 		}
 	}
 

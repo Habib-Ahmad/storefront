@@ -14,6 +14,7 @@ const (
 	TransactionTypeDebit      TransactionType = "debit"
 	TransactionTypeCommission TransactionType = "commission"
 	TransactionTypePayout     TransactionType = "payout"
+	TransactionTypeRelease    TransactionType = "release"
 )
 
 // Insert-only. DB Rules block UPDATE and DELETE.

@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 )
 
@@ -15,12 +16,20 @@ type TransactionRepository interface {
 	ListByWallet(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error)
 	ListByWalletAsc(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error)
 	GetLatestByWallet(ctx context.Context, walletID uuid.UUID) (*models.Transaction, error)
+	WithTx(tx db.DBTX) TransactionRepository
 }
 
-type transactionRepo struct{ db *pgxpool.Pool }
+type transactionRepo struct {
+	db   db.DBTX
+	pool *pgxpool.Pool
+}
 
-func NewTransactionRepository(db *pgxpool.Pool) TransactionRepository {
-	return &transactionRepo{db: db}
+func NewTransactionRepository(pool *pgxpool.Pool) TransactionRepository {
+	return &transactionRepo{db: pool, pool: pool}
+}
+
+func (r *transactionRepo) WithTx(tx db.DBTX) TransactionRepository {
+	return &transactionRepo{db: tx, pool: r.pool}
 }
 
 func (r *transactionRepo) Create(ctx context.Context, tx *models.Transaction) error {

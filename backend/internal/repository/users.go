@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"storefront/backend/internal/models"
@@ -73,15 +74,27 @@ func (r *userRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]mode
 }
 
 func (r *userRepo) Update(ctx context.Context, u *models.User) error {
-	_, err := r.db.Exec(ctx, `
+	tag, err := r.db.Exec(ctx, `
 		UPDATE users
 		SET first_name = $1, last_name = $2, phone = $3, updated_at = NOW()
 		WHERE id = $4 AND deleted_at IS NULL`,
 		u.FirstName, u.LastName, u.Phone, u.ID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *userRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2`, id, tenantID)
-	return err
+	tag, err := r.db.Exec(ctx, `UPDATE users SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }

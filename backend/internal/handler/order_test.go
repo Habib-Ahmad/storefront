@@ -78,6 +78,9 @@ func (s *stubProductRepoForOrder) UpdateVariant(_ context.Context, _ *models.Pro
 func (s *stubProductRepoForOrder) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+func (s *stubProductRepoForOrder) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error {
+	return nil
+}
 func (s *stubProductRepoForOrder) AddImage(_ context.Context, _ *models.ProductImage) error {
 	return nil
 }

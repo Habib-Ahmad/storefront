@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"storefront/backend/internal/models"
@@ -116,15 +117,27 @@ func (r *orderRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit,
 }
 
 func (r *orderRepo) UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error {
-	_, err := r.db.Exec(ctx,
+	tag, err := r.db.Exec(ctx,
 		`UPDATE orders SET payment_status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`, status, id, tenantID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *orderRepo) UpdateFulfillmentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.FulfillmentStatus) error {
-	_, err := r.db.Exec(ctx,
+	tag, err := r.db.Exec(ctx,
 		`UPDATE orders SET fulfillment_status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`, status, id, tenantID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *orderRepo) ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error) {

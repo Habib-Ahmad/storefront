@@ -12,9 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
+	"storefront/backend/internal/repository"
 	"storefront/backend/internal/service"
 )
 
@@ -54,7 +56,11 @@ func (s *stubWalletRepo) Create(_ context.Context, w *models.Wallet) error {
 func (s *stubWalletRepo) GetByTenantID(_ context.Context, _ uuid.UUID) (*models.Wallet, error) {
 	return &models.Wallet{}, nil
 }
+func (s *stubWalletRepo) GetByTenantIDForUpdate(_ context.Context, _ uuid.UUID) (*models.Wallet, error) {
+	return &models.Wallet{}, nil
+}
 func (s *stubWalletRepo) UpdateBalances(_ context.Context, _ *models.Wallet) error { return nil }
+func (s *stubWalletRepo) WithTx(_ db.DBTX) repository.WalletRepository             { return s }
 
 type stubUserRepo struct{}
 

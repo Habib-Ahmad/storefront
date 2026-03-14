@@ -83,7 +83,7 @@ func (s *ShipmentService) HandleDelivered(ctx context.Context, orderID uuid.UUID
 
 	// Release total order value (total + shipping) from pending to available balance.
 	amount := order.TotalAmount.Add(order.ShippingFee)
-	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, amount); err != nil {
+	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, amount, &orderID); err != nil {
 		return fmt.Errorf("release pending: %w", err)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"storefront/backend/internal/models"
@@ -73,7 +74,7 @@ func (r *tenantRepo) Update(ctx context.Context, t *models.Tenant) error {
 	if err != nil {
 		return err
 	}
-	_, err = r.db.Exec(ctx, `
+	tag, err := r.db.Exec(ctx, `
 		UPDATE tenants
 		SET tier_id = $1, name = $2, contact_email = $3, contact_phone = $4,
 		    address = $5, logo_url = $6, paystack_subaccount_id = $7,
@@ -82,11 +83,23 @@ func (r *tenantRepo) Update(ctx context.Context, t *models.Tenant) error {
 		t.TierID, t.Name, t.ContactEmail, t.ContactPhone,
 		t.Address, t.LogoURL, t.PaystackSubaccountID,
 		modulesJSON, t.Status, t.ID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *tenantRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx,
-		`UPDATE tenants SET deleted_at = NOW() WHERE id = $1`, id)
-	return err
+	tag, err := r.db.Exec(ctx,
+		`UPDATE tenants SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }

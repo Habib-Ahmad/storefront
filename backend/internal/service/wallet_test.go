@@ -202,7 +202,7 @@ func TestReleasePending_MovesBalance(t *testing.T) {
 	walletRepo := &mockWalletRepo{wallet: w}
 	svc := service.NewWalletService(walletRepo, &mockTxRepo{}, &mockTenantRepo{}, testHMACSecret)
 
-	if err := svc.ReleasePending(context.Background(), tenantID, decimal.NewFromInt(1000)); err != nil {
+	if err := svc.ReleasePending(context.Background(), tenantID, decimal.NewFromInt(1000), nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if walletRepo.updated == nil {
