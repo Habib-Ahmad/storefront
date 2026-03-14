@@ -80,6 +80,8 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 
 		// Snapshot the price at sale time (spec: price_at_sale is immutable).
 		items[i].PriceAtSale = v.Price
+		items[i].ProductName = &product.Name
+		items[i].VariantLabel = &v.SKU
 
 		if v.StockQty != nil {
 			decrements = append(decrements, variantDecrement{variant: v, quantity: items[i].Quantity})
