@@ -7,6 +7,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type PaymentMethod string
+
+const (
+	PaymentMethodOnline   PaymentMethod = "online"
+	PaymentMethodCash     PaymentMethod = "cash"
+	PaymentMethodTransfer PaymentMethod = "transfer"
+)
+
 type PaymentStatus string
 
 const (
@@ -34,6 +42,7 @@ type Order struct {
 	ShippingAddress   *string           `json:"shipping_address,omitempty"`
 	TotalAmount       decimal.Decimal   `json:"total_amount"`
 	ShippingFee       decimal.Decimal   `json:"shipping_fee"`
+	PaymentMethod     PaymentMethod     `json:"payment_method"`
 	PaymentStatus     PaymentStatus     `json:"payment_status"`
 	FulfillmentStatus FulfillmentStatus `json:"fulfillment_status"`
 	CreatedAt         time.Time         `json:"created_at"`
