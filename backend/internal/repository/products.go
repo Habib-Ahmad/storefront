@@ -93,19 +93,19 @@ func (r *productRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) er
 
 func (r *productRepo) CreateVariant(ctx context.Context, v *models.ProductVariant) error {
 	return r.db.QueryRow(ctx, `
-		INSERT INTO product_variants (product_id, sku, attributes, price, stock_qty, is_default)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO product_variants (product_id, sku, attributes, price, cost_price, stock_qty, is_default)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at`,
-		v.ProductID, v.SKU, v.Attributes, v.Price, v.StockQty, v.IsDefault,
+		v.ProductID, v.SKU, v.Attributes, v.Price, v.CostPrice, v.StockQty, v.IsDefault,
 	).Scan(&v.ID, &v.CreatedAt, &v.UpdatedAt)
 }
 
 func (r *productRepo) GetVariantByID(ctx context.Context, id uuid.UUID) (*models.ProductVariant, error) {
 	v := &models.ProductVariant{}
 	err := r.db.QueryRow(ctx, `
-		SELECT id, product_id, sku, attributes, price, stock_qty, is_default, created_at, updated_at, deleted_at
+		SELECT id, product_id, sku, attributes, price, cost_price, stock_qty, is_default, created_at, updated_at, deleted_at
 		FROM product_variants WHERE id = $1 AND deleted_at IS NULL`, id,
-	).Scan(&v.ID, &v.ProductID, &v.SKU, &v.Attributes, &v.Price,
+	).Scan(&v.ID, &v.ProductID, &v.SKU, &v.Attributes, &v.Price, &v.CostPrice,
 		&v.StockQty, &v.IsDefault, &v.CreatedAt, &v.UpdatedAt, &v.DeletedAt)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (r *productRepo) GetVariantByID(ctx context.Context, id uuid.UUID) (*models
 
 func (r *productRepo) ListVariants(ctx context.Context, productID uuid.UUID) ([]models.ProductVariant, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, product_id, sku, attributes, price, stock_qty, is_default, created_at, updated_at, deleted_at
+		SELECT id, product_id, sku, attributes, price, cost_price, stock_qty, is_default, created_at, updated_at, deleted_at
 		FROM product_variants WHERE product_id = $1 AND deleted_at IS NULL ORDER BY is_default DESC, created_at`,
 		productID)
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *productRepo) ListVariants(ctx context.Context, productID uuid.UUID) ([]
 	var variants []models.ProductVariant
 	for rows.Next() {
 		var v models.ProductVariant
-		if err := rows.Scan(&v.ID, &v.ProductID, &v.SKU, &v.Attributes, &v.Price,
+		if err := rows.Scan(&v.ID, &v.ProductID, &v.SKU, &v.Attributes, &v.Price, &v.CostPrice,
 			&v.StockQty, &v.IsDefault, &v.CreatedAt, &v.UpdatedAt, &v.DeletedAt); err != nil {
 			return nil, err
 		}
@@ -138,9 +138,9 @@ func (r *productRepo) ListVariants(ctx context.Context, productID uuid.UUID) ([]
 func (r *productRepo) UpdateVariant(ctx context.Context, v *models.ProductVariant) error {
 	_, err := r.db.Exec(ctx, `
 		UPDATE product_variants
-		SET sku = $1, attributes = $2, price = $3, stock_qty = $4, updated_at = NOW()
-		WHERE id = $5 AND deleted_at IS NULL`,
-		v.SKU, v.Attributes, v.Price, v.StockQty, v.ID)
+		SET sku = $1, attributes = $2, price = $3, cost_price = $4, stock_qty = $5, updated_at = NOW()
+		WHERE id = $6 AND deleted_at IS NULL`,
+		v.SKU, v.Attributes, v.Price, v.CostPrice, v.StockQty, v.ID)
 	return err
 }
 

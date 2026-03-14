@@ -168,10 +168,11 @@ func (h *ProductHandler) CreateVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		SKU        string          `json:"sku"        validate:"required"`
-		Attributes json.RawMessage `json:"attributes"`
-		Price      decimal.Decimal `json:"price"      validate:"required"`
-		StockQty   *int            `json:"stock_qty"`
+		SKU        string           `json:"sku"        validate:"required"`
+		Attributes json.RawMessage  `json:"attributes"`
+		Price      decimal.Decimal  `json:"price"      validate:"required"`
+		CostPrice  *decimal.Decimal `json:"cost_price"`
+		StockQty   *int             `json:"stock_qty"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
@@ -181,6 +182,7 @@ func (h *ProductHandler) CreateVariant(w http.ResponseWriter, r *http.Request) {
 		SKU:        req.SKU,
 		Attributes: req.Attributes,
 		Price:      req.Price,
+		CostPrice:  req.CostPrice,
 		StockQty:   req.StockQty,
 	}
 	if err := h.svc.CreateVariant(r.Context(), tenant.ID, v); err != nil {
@@ -226,10 +228,11 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		SKU        string          `json:"sku"        validate:"required"`
-		Attributes json.RawMessage `json:"attributes"`
-		Price      decimal.Decimal `json:"price"      validate:"required"`
-		StockQty   *int            `json:"stock_qty"`
+		SKU        string           `json:"sku"        validate:"required"`
+		Attributes json.RawMessage  `json:"attributes"`
+		Price      decimal.Decimal  `json:"price"      validate:"required"`
+		CostPrice  *decimal.Decimal `json:"cost_price"`
+		StockQty   *int             `json:"stock_qty"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
@@ -239,6 +242,7 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 		SKU:        req.SKU,
 		Attributes: req.Attributes,
 		Price:      req.Price,
+		CostPrice:  req.CostPrice,
 		StockQty:   req.StockQty,
 	}
 	if err := h.svc.UpdateVariant(r.Context(), tenant.ID, v); err != nil {
