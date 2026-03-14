@@ -130,3 +130,27 @@ func TestHandleChargeSuccess_InvalidReference(t *testing.T) {
 		t.Fatal("expected error for invalid reference, got nil")
 	}
 }
+
+func TestHandleChargeSuccess_AmountMismatch(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	order := &models.Order{
+		ID:          orderID,
+		TenantID:    tenantID,
+		TotalAmount: decimal.NewFromInt(5000),
+		ShippingFee: decimal.NewFromInt(500),
+	}
+	ps := &mockPaystackClient{
+		verResp: &paystack.VerifyResponse{
+			Status:    "success",
+			Amount:    decimal.NewFromInt(3000), // mismatch: order expects 5500
+			Reference: orderID.String(),
+		},
+	}
+	svc := newPaymentSvc(ps, &mockOrderRepo{order: order}, &models.Wallet{ID: uuid.New(), TenantID: tenantID})
+
+	err := svc.HandleChargeSuccess(context.Background(), orderID.String())
+	if !errors.Is(err, service.ErrPaymentAmountMismatch) {
+		t.Fatalf("expected ErrPaymentAmountMismatch, got %v", err)
+	}
+}

@@ -108,6 +108,7 @@ type mockProductRepo struct {
 	variant        *models.ProductVariant
 	variantCreated *models.ProductVariant
 	err            error
+	restocked      map[uuid.UUID]int
 }
 
 func (m *mockProductRepo) Create(_ context.Context, p *models.Product) error {
@@ -147,7 +148,11 @@ func (m *mockProductRepo) UpdateVariant(_ context.Context, v *models.ProductVari
 func (m *mockProductRepo) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error {
 	return m.err
 }
-func (m *mockProductRepo) RestoreStock(_ context.Context, _ uuid.UUID, _ int) error {
+func (m *mockProductRepo) RestoreStock(_ context.Context, id uuid.UUID, qty int) error {
+	if m.restocked == nil {
+		m.restocked = make(map[uuid.UUID]int)
+	}
+	m.restocked[id] += qty
 	return m.err
 }
 func (m *mockProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return m.err }
@@ -166,9 +171,11 @@ func (m *mockProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage)
 // ── Order repo mock ───────────────────────────────────────────
 
 type mockOrderRepo struct {
-	order *models.Order
-	items []models.OrderItem
-	err   error
+	order             *models.Order
+	items             []models.OrderItem
+	err               error
+	paymentStatus     models.PaymentStatus
+	fulfillmentStatus models.FulfillmentStatus
 }
 
 func (m *mockOrderRepo) Create(_ context.Context, o *models.Order, items []models.OrderItem) error {
@@ -192,14 +199,22 @@ func (m *mockOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) (
 func (m *mockOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, m.err
 }
-func (m *mockOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ models.PaymentStatus) error {
+func (m *mockOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, s models.PaymentStatus) error {
+	m.paymentStatus = s
+	if m.order != nil {
+		m.order.PaymentStatus = s
+	}
 	return m.err
 }
-func (m *mockOrderRepo) UpdateFulfillmentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ models.FulfillmentStatus) error {
+func (m *mockOrderRepo) UpdateFulfillmentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, s models.FulfillmentStatus) error {
+	m.fulfillmentStatus = s
+	if m.order != nil {
+		m.order.FulfillmentStatus = s
+	}
 	return m.err
 }
 func (m *mockOrderRepo) ListItems(_ context.Context, _ uuid.UUID) ([]models.OrderItem, error) {
-	return nil, m.err
+	return m.items, m.err
 }
 
 // ── Transaction repo mock ─────────────────────────────────────

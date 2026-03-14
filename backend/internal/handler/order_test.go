@@ -217,3 +217,71 @@ func TestCreateOrder_QuickSale_MissingAmount(t *testing.T) {
 		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestCreateOrder_InvalidVariantID(t *testing.T) {
+	h := newOrderHandler(nil)
+	body, _ := json.Marshal(map[string]any{
+		"items": []map[string]any{{"variant_id": "not-a-uuid", "quantity": 1}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateOrder_ZeroQuantity(t *testing.T) {
+	variantID := uuid.New()
+	h := newOrderHandler(&models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000)})
+	body, _ := json.Marshal(map[string]any{
+		"items": []map[string]any{{"variant_id": variantID, "quantity": 0}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateOrder_InvalidPaymentMethod(t *testing.T) {
+	variantID := uuid.New()
+	h := newOrderHandler(&models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000)})
+	body, _ := json.Marshal(map[string]any{
+		"payment_method": "bitcoin",
+		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateOrder_BadJSON(t *testing.T) {
+	h := newOrderHandler(nil)
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte("{not json")))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateOrder_EmptyBody(t *testing.T) {
+	h := newOrderHandler(nil)
+	body, _ := json.Marshal(map[string]any{})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

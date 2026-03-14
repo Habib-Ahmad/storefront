@@ -235,3 +235,172 @@ func TestCreateOrder_QuickSale_NoItems(t *testing.T) {
 		t.Fatalf("quick cash sale should be paid, got %s", out.PaymentStatus)
 	}
 }
+
+// ── 6c: Order lifecycle tests ─────────────────────────────────────────────────
+
+func TestCancelOrder_PaidOrder_RefundsAndRestocks(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	variantID := uuid.New()
+
+	orderRepo := &mockOrderRepo{
+		order: &models.Order{
+			ID:                orderID,
+			TenantID:          tenantID,
+			FulfillmentStatus: models.FulfillmentStatusProcessing,
+			PaymentStatus:     models.PaymentStatusPaid,
+			TotalAmount:       decimal.NewFromInt(3000),
+		},
+		items: []models.OrderItem{
+			{VariantID: variantID, Quantity: 2},
+		},
+	}
+	productRepo := &mockProductRepo{}
+	txRepo := &mockTxRepo{}
+	walletRepo := &mockWalletRepo{wallet: &models.Wallet{ID: uuid.New(), TenantID: tenantID}}
+	walletSvc := service.NewWalletService(walletRepo, txRepo, &mockTenantRepo{}, testHMACSecret)
+
+	svc := service.NewOrderService(orderRepo, productRepo)
+	svc.SetWalletService(walletSvc)
+
+	err := svc.Cancel(context.Background(), tenantID, orderID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if orderRepo.fulfillmentStatus != models.FulfillmentStatusCancelled {
+		t.Fatalf("expected cancelled, got %s", orderRepo.fulfillmentStatus)
+	}
+	if orderRepo.paymentStatus != models.PaymentStatusRefunded {
+		t.Fatalf("expected refunded, got %s", orderRepo.paymentStatus)
+	}
+	if productRepo.restocked[variantID] != 2 {
+		t.Fatalf("expected restock of 2, got %d", productRepo.restocked[variantID])
+	}
+	if txRepo.created == nil {
+		t.Fatal("expected wallet refund transaction")
+	}
+}
+
+func TestCancelOrder_PendingPayment_NoRefund(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	variantID := uuid.New()
+
+	orderRepo := &mockOrderRepo{
+		order: &models.Order{
+			ID:                orderID,
+			TenantID:          tenantID,
+			FulfillmentStatus: models.FulfillmentStatusProcessing,
+			PaymentStatus:     models.PaymentStatusPending,
+			TotalAmount:       decimal.NewFromInt(2000),
+		},
+		items: []models.OrderItem{
+			{VariantID: variantID, Quantity: 1},
+		},
+	}
+	productRepo := &mockProductRepo{}
+	svc := service.NewOrderService(orderRepo, productRepo)
+
+	err := svc.Cancel(context.Background(), tenantID, orderID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if orderRepo.fulfillmentStatus != models.FulfillmentStatusCancelled {
+		t.Fatalf("expected cancelled, got %s", orderRepo.fulfillmentStatus)
+	}
+	if productRepo.restocked[variantID] != 1 {
+		t.Fatalf("expected restock of 1, got %d", productRepo.restocked[variantID])
+	}
+	// payment status should NOT be updated (no refund needed for unpaid order)
+	if orderRepo.paymentStatus == models.PaymentStatusRefunded {
+		t.Fatal("pending order should not be refunded")
+	}
+}
+
+func TestCancelOrder_ShippedOrder_Fails(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+
+	orderRepo := &mockOrderRepo{
+		order: &models.Order{
+			ID:                orderID,
+			TenantID:          tenantID,
+			FulfillmentStatus: models.FulfillmentStatusShipped,
+			PaymentStatus:     models.PaymentStatusPaid,
+		},
+	}
+	svc := service.NewOrderService(orderRepo, &mockProductRepo{})
+
+	err := svc.Cancel(context.Background(), tenantID, orderID)
+	if !errors.Is(err, service.ErrOrderNotCancellable) {
+		t.Fatalf("expected ErrOrderNotCancellable, got %v", err)
+	}
+}
+
+// ── 6d: Offline payment path tests ───────────────────────────────────────────
+
+func TestCreateOrder_TransferSale_CreditsWallet(t *testing.T) {
+	variantID := uuid.New()
+	tenantID := uuid.New()
+	walletID := uuid.New()
+
+	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1500), StockQty: nil}}
+	orderRepo := &mockOrderRepo{}
+	txRepo := &mockTxRepo{}
+	walletRepo := &mockWalletRepo{wallet: &models.Wallet{ID: walletID, TenantID: tenantID}}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: uuid.New()}}
+	tierRepo := &mockTierRepo{tier: &models.Tier{CommissionRate: decimal.NewFromFloat(0.10)}}
+
+	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, testHMACSecret)
+	walletSvc.SetTierRepo(tierRepo)
+
+	svc := service.NewOrderService(orderRepo, productRepo)
+	svc.SetWalletService(walletSvc)
+	svc.SetTenantRepo(tenantRepo)
+	svc.SetTierRepo(tierRepo)
+
+	order := &models.Order{TenantID: tenantID, PaymentMethod: models.PaymentMethodTransfer}
+	_, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 2}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(txRepo.allCreated) != 2 {
+		t.Fatalf("expected 2 transactions (credit + commission), got %d", len(txRepo.allCreated))
+	}
+	// 1500 * 2 = 3000; commission = 300 (10%); net credit = 2700
+	credit := txRepo.allCreated[0]
+	if !credit.Amount.Equal(decimal.NewFromInt(2700)) {
+		t.Fatalf("net credit: want 2700, got %s", credit.Amount)
+	}
+	comm := txRepo.allCreated[1]
+	if !comm.Amount.Equal(decimal.NewFromInt(-300)) {
+		t.Fatalf("commission: want -300, got %s", comm.Amount)
+	}
+}
+
+func TestCreateOrder_OnlineSale_NoWalletCredit(t *testing.T) {
+	variantID := uuid.New()
+	tenantID := uuid.New()
+
+	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000), StockQty: nil}}
+	orderRepo := &mockOrderRepo{}
+	txRepo := &mockTxRepo{}
+	walletRepo := &mockWalletRepo{wallet: &models.Wallet{ID: uuid.New(), TenantID: tenantID}}
+	walletSvc := service.NewWalletService(walletRepo, txRepo, &mockTenantRepo{}, testHMACSecret)
+
+	svc := service.NewOrderService(orderRepo, productRepo)
+	svc.SetWalletService(walletSvc)
+
+	order := &models.Order{TenantID: tenantID, PaymentMethod: models.PaymentMethodOnline}
+	out, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.PaymentStatus != models.PaymentStatusPending {
+		t.Fatalf("online sale should be pending, got %s", out.PaymentStatus)
+	}
+	if txRepo.created != nil {
+		t.Fatal("online sale should not create wallet transaction at order time")
+	}
+}
