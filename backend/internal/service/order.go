@@ -51,7 +51,6 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	}
 	order.TrackingSlug = slug
 
-	// Validate stock and collect variant prices before persisting.
 	type variantDecrement struct {
 		variant  *models.ProductVariant
 		quantity int
@@ -64,7 +63,6 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 			return nil, fmt.Errorf("variant %s: %w", items[i].VariantID, ErrVariantNotFound)
 		}
 
-		// Check parent product availability.
 		product, err := s.products.GetByID(ctx, order.TenantID, v.ProductID)
 		if err != nil {
 			return nil, fmt.Errorf("product for variant %s: %w", v.ID, ErrVariantNotFound)
@@ -73,12 +71,10 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 			return nil, fmt.Errorf("variant %s: %w", v.ID, ErrProductUnavailable)
 		}
 
-		// nil = infinite; 0 = sold out; < qty = insufficient stock
 		if v.StockQty != nil && (*v.StockQty == 0 || *v.StockQty < items[i].Quantity) {
 			return nil, fmt.Errorf("variant %s: %w", v.ID, ErrSoldOut)
 		}
 
-		// Snapshot the price at sale time (spec: price_at_sale is immutable).
 		items[i].PriceAtSale = v.Price
 		items[i].ProductName = &product.Name
 		items[i].VariantLabel = &v.SKU
@@ -88,7 +84,6 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 		}
 	}
 
-	// Decrement stock for all finite-stock variants.
 	for _, d := range decrements {
 		newQty := *d.variant.StockQty - d.quantity
 		d.variant.StockQty = &newQty
@@ -97,12 +92,14 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 		}
 	}
 
-	// Compute order total from snapshotted prices.
-	var total decimal.Decimal
-	for _, item := range items {
-		total = total.Add(item.PriceAtSale.Mul(decimal.NewFromInt(int64(item.Quantity))))
+	if len(items) > 0 {
+		var total decimal.Decimal
+		for _, item := range items {
+			total = total.Add(item.PriceAtSale.Mul(decimal.NewFromInt(int64(item.Quantity))))
+		}
+		order.TotalAmount = total
 	}
-	order.TotalAmount = total
+	// When items is empty, order.TotalAmount is already set by the handler (quick sale).
 
 	order.PaymentStatus = models.PaymentStatusPending
 	order.FulfillmentStatus = models.FulfillmentStatusProcessing

@@ -35,28 +35,46 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		IsDelivery      bool               `json:"is_delivery"`
+		PaymentMethod   string             `json:"payment_method"   validate:"omitempty,oneof=online cash transfer"`
 		CustomerName    *string            `json:"customer_name"`
 		CustomerPhone   *string            `json:"customer_phone"`
 		CustomerEmail   *string            `json:"customer_email"`
 		ShippingAddress *string            `json:"shipping_address"`
 		Note            *string            `json:"note"`
 		ShippingFee     float64            `json:"shipping_fee"`
-		Items           []models.OrderItem `json:"items"            validate:"required,min=1"`
+		TotalAmount     *float64           `json:"total_amount"`
+		Items           []models.OrderItem `json:"items"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
 	}
 
+	if len(req.Items) == 0 && (req.TotalAmount == nil || *req.TotalAmount <= 0) {
+		respondErr(w, http.StatusUnprocessableEntity, "items or total_amount required")
+		return
+	}
+
+	paymentMethod := models.PaymentMethodOnline
+	if req.PaymentMethod != "" {
+		paymentMethod = models.PaymentMethod(req.PaymentMethod)
+	}
+
 	shippingFee := decimal.NewFromFloat(req.ShippingFee)
+	var totalAmount decimal.Decimal
+	if req.TotalAmount != nil {
+		totalAmount = decimal.NewFromFloat(*req.TotalAmount)
+	}
 	order := &models.Order{
 		TenantID:        tenant.ID,
 		IsDelivery:      req.IsDelivery,
+		PaymentMethod:   paymentMethod,
 		CustomerName:    req.CustomerName,
 		CustomerPhone:   req.CustomerPhone,
 		CustomerEmail:   req.CustomerEmail,
 		ShippingAddress: req.ShippingAddress,
 		Note:            req.Note,
 		ShippingFee:     shippingFee,
+		TotalAmount:     totalAmount,
 	}
 
 	out, err := h.svc.Create(r.Context(), order, req.Items)
