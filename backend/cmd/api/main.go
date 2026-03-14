@@ -63,6 +63,9 @@ func main() {
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
 	walletSvc.SetTierRepo(tierRepo)
 	walletSvc.SetAuditLogRepo(auditLogRepo)
+	orderSvc.SetWalletService(walletSvc)
+	orderSvc.SetTenantRepo(tenantRepo)
+	orderSvc.SetTierRepo(tierRepo)
 	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc)
 	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 

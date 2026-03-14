@@ -83,18 +83,21 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email := "guest@storefront.ng"
-	if req.CustomerEmail != nil && *req.CustomerEmail != "" {
-		email = *req.CustomerEmail
-	}
-	subaccount := ""
-	if tenant.PaystackSubaccountID != nil {
-		subaccount = *tenant.PaystackSubaccountID
-	}
-	authURL, err := h.paymentSvc.InitiatePayment(r.Context(), out, email, subaccount)
-	if err != nil {
-		h.log.Error("initiate payment", "order_id", out.ID, "error", err)
-		authURL = ""
+	var authURL string
+	if out.PaymentMethod == models.PaymentMethodOnline {
+		email := "guest@storefront.ng"
+		if req.CustomerEmail != nil && *req.CustomerEmail != "" {
+			email = *req.CustomerEmail
+		}
+		subaccount := ""
+		if tenant.PaystackSubaccountID != nil {
+			subaccount = *tenant.PaystackSubaccountID
+		}
+		authURL, err = h.paymentSvc.InitiatePayment(r.Context(), out, email, subaccount)
+		if err != nil {
+			h.log.Error("initiate payment", "order_id", out.ID, "error", err)
+			authURL = ""
+		}
 	}
 
 	type orderCreateResp struct {

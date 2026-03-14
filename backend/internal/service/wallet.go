@@ -53,6 +53,11 @@ func (s *WalletService) Credit(ctx context.Context, walletID uuid.UUID, amount d
 	return s.record(ctx, walletID, amount, models.TransactionTypeCredit, true, orderID)
 }
 
+// CreditAvailable adds funds directly to available balance (for offline/cash/transfer sales).
+func (s *WalletService) CreditAvailable(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	return s.record(ctx, walletID, amount, models.TransactionTypeCredit, false, orderID)
+}
+
 // Debit subtracts amount from available balance and appends a signed ledger entry.
 // It enforces the tier debt ceiling: available_balance - amount must not fall below -debtCeiling.
 func (s *WalletService) Debit(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {

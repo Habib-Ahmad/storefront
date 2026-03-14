@@ -137,3 +137,64 @@ func TestCreateOrder_Valid(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestCreateOrder_CashSale_NoPaystackURL(t *testing.T) {
+	variantID := uuid.New()
+	h := newOrderHandler(&models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1500), StockQty: nil})
+	body, _ := json.Marshal(map[string]any{
+		"payment_method": "cash",
+		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if url, ok := resp["authorization_url"]; ok && url != "" {
+		t.Fatal("cash sale should not return authorization_url")
+	}
+	if resp["payment_status"] != "paid" {
+		t.Fatalf("cash sale should be paid, got %v", resp["payment_status"])
+	}
+}
+
+func TestCreateOrder_QuickSale_AmountOnly(t *testing.T) {
+	h := newOrderHandler(nil)
+	body, _ := json.Marshal(map[string]any{
+		"payment_method": "cash",
+		"total_amount":   3500.00,
+		"note":           "walk-in customer",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp["payment_status"] != "paid" {
+		t.Fatalf("quick cash sale should be paid, got %v", resp["payment_status"])
+	}
+}
+
+func TestCreateOrder_QuickSale_MissingAmount(t *testing.T) {
+	h := newOrderHandler(nil)
+	body, _ := json.Marshal(map[string]any{
+		"payment_method": "cash",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

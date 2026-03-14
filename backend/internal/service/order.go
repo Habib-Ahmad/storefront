@@ -30,13 +30,20 @@ func generateTrackingSlug() (string, error) {
 }
 
 type OrderService struct {
-	orders   repository.OrderRepository
-	products repository.ProductRepository
+	orders    repository.OrderRepository
+	products  repository.ProductRepository
+	walletSvc *WalletService
+	tenants   repository.TenantRepository
+	tiers     repository.TierRepository
 }
 
 func NewOrderService(orders repository.OrderRepository, products repository.ProductRepository) *OrderService {
 	return &OrderService{orders: orders, products: products}
 }
+
+func (s *OrderService) SetWalletService(w *WalletService)           { s.walletSvc = w }
+func (s *OrderService) SetTenantRepo(t repository.TenantRepository) { s.tenants = t }
+func (s *OrderService) SetTierRepo(t repository.TierRepository)     { s.tiers = t }
 
 // Create validates and persists a new order with its line items.
 // All orders are 100% prepaid — payment_status starts as "pending" until Paystack confirms.
@@ -101,13 +108,60 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	}
 	// When items is empty, order.TotalAmount is already set by the handler (quick sale).
 
-	order.PaymentStatus = models.PaymentStatusPending
+	if order.PaymentMethod == models.PaymentMethodOnline || order.PaymentMethod == "" {
+		order.PaymentStatus = models.PaymentStatusPending
+	} else {
+		order.PaymentStatus = models.PaymentStatusPaid
+	}
 	order.FulfillmentStatus = models.FulfillmentStatusProcessing
 
 	if err := s.orders.Create(ctx, order, items); err != nil {
 		return nil, fmt.Errorf("persist order: %w", err)
 	}
+
+	if order.PaymentMethod != models.PaymentMethodOnline && order.PaymentMethod != "" {
+		if err := s.settleOffline(ctx, order); err != nil {
+			return nil, fmt.Errorf("settle offline: %w", err)
+		}
+	}
+
 	return order, nil
+}
+
+// settleOffline credits the tenant wallet for a cash/transfer sale.
+// Funds go to available_balance (not pending) since payment is already received.
+// Commission is deducted if tiers are configured.
+func (s *OrderService) settleOffline(ctx context.Context, order *models.Order) error {
+	if s.walletSvc == nil {
+		return nil
+	}
+
+	amount := order.TotalAmount
+	orderID := order.ID
+
+	var commission decimal.Decimal
+	if s.tenants != nil && s.tiers != nil {
+		tenant, err := s.tenants.GetByID(ctx, order.TenantID)
+		if err == nil {
+			tier, err := s.tiers.GetByID(ctx, tenant.TierID)
+			if err == nil && tier.CommissionRate.IsPositive() {
+				commission = amount.Mul(tier.CommissionRate)
+			}
+		}
+	}
+
+	netAmount := amount.Sub(commission)
+	if _, err := s.walletSvc.CreditAvailable(ctx, order.TenantID, netAmount, &orderID); err != nil {
+		return fmt.Errorf("credit wallet: %w", err)
+	}
+
+	if commission.IsPositive() {
+		if _, err := s.walletSvc.RecordCommission(ctx, order.TenantID, commission, &orderID); err != nil {
+			return fmt.Errorf("record commission: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func validateDelivery(o *models.Order) error {

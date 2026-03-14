@@ -141,3 +141,97 @@ func TestCreateOrder_TotalAmount(t *testing.T) {
 		t.Fatalf("total_amount: want %s, got %s", expected, out.TotalAmount)
 	}
 }
+
+func TestCreateOrder_CashSale_PaidImmediately(t *testing.T) {
+	variantID := uuid.New()
+	repo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(500), StockQty: nil}}
+	svc := service.NewOrderService(&mockOrderRepo{}, repo)
+
+	order := &models.Order{TenantID: uuid.New(), PaymentMethod: models.PaymentMethodCash}
+	out, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 2}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.PaymentStatus != models.PaymentStatusPaid {
+		t.Fatalf("cash sale should be paid immediately, got %s", out.PaymentStatus)
+	}
+}
+
+func TestCreateOrder_TransferSale_PaidImmediately(t *testing.T) {
+	variantID := uuid.New()
+	repo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000), StockQty: nil}}
+	svc := service.NewOrderService(&mockOrderRepo{}, repo)
+
+	order := &models.Order{TenantID: uuid.New(), PaymentMethod: models.PaymentMethodTransfer}
+	out, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.PaymentStatus != models.PaymentStatusPaid {
+		t.Fatalf("transfer sale should be paid immediately, got %s", out.PaymentStatus)
+	}
+}
+
+func TestCreateOrder_CashSale_CreditsWallet(t *testing.T) {
+	variantID := uuid.New()
+	tenantID := uuid.New()
+	walletID := uuid.New()
+
+	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2000), StockQty: nil}}
+	orderRepo := &mockOrderRepo{}
+	txRepo := &mockTxRepo{}
+	walletRepo := &mockWalletRepo{wallet: &models.Wallet{ID: walletID, TenantID: tenantID}}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: uuid.New()}}
+	tierRepo := &mockTierRepo{tier: &models.Tier{CommissionRate: decimal.NewFromFloat(0.05)}}
+
+	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, testHMACSecret)
+	walletSvc.SetTierRepo(tierRepo)
+
+	svc := service.NewOrderService(orderRepo, productRepo)
+	svc.SetWalletService(walletSvc)
+	svc.SetTenantRepo(tenantRepo)
+	svc.SetTierRepo(tierRepo)
+
+	order := &models.Order{TenantID: tenantID, PaymentMethod: models.PaymentMethodCash}
+	_, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if txRepo.created == nil {
+		t.Fatal("expected wallet transaction to be created")
+	}
+	// 2000 * 0.05 = 100 commission; net credit = 1900
+	// But commission is recorded as a separate entry, so the credit is 1900
+	// and then a commission debit of -100.
+	// allCreated should have 2 entries.
+	if len(txRepo.allCreated) != 2 {
+		t.Fatalf("expected 2 transactions (credit + commission), got %d", len(txRepo.allCreated))
+	}
+	credit := txRepo.allCreated[0]
+	if !credit.Amount.Equal(decimal.NewFromInt(1900)) {
+		t.Fatalf("net credit: want 1900, got %s", credit.Amount)
+	}
+	comm := txRepo.allCreated[1]
+	if !comm.Amount.Equal(decimal.NewFromInt(-100)) {
+		t.Fatalf("commission: want -100, got %s", comm.Amount)
+	}
+}
+
+func TestCreateOrder_QuickSale_NoItems(t *testing.T) {
+	orderRepo := &mockOrderRepo{}
+	svc := service.NewOrderService(orderRepo, &mockProductRepo{})
+
+	total := decimal.NewFromInt(5000)
+	order := &models.Order{TenantID: uuid.New(), PaymentMethod: models.PaymentMethodCash, TotalAmount: total}
+	out, err := svc.Create(context.Background(), order, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !out.TotalAmount.Equal(total) {
+		t.Fatalf("total_amount: want %s, got %s", total, out.TotalAmount)
+	}
+	if out.PaymentStatus != models.PaymentStatusPaid {
+		t.Fatalf("quick cash sale should be paid, got %s", out.PaymentStatus)
+	}
+}
