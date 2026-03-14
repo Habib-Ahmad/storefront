@@ -36,7 +36,7 @@ type Order struct {
 	TenantID          uuid.UUID         `json:"tenant_id"`
 	TrackingSlug      string            `json:"tracking_slug"`
 	IsDelivery        bool              `json:"is_delivery"`
-	CustomerName      string            `json:"customer_name"`
+	CustomerName      *string           `json:"customer_name,omitempty"`
 	CustomerPhone     *string           `json:"customer_phone,omitempty"`
 	CustomerEmail     *string           `json:"customer_email,omitempty"`
 	ShippingAddress   *string           `json:"shipping_address,omitempty"`

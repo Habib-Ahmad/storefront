@@ -100,18 +100,6 @@ func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
 	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, slog.Default())
 }
 
-func TestCreateOrder_MissingCustomerName(t *testing.T) {
-	h := newOrderHandler(nil)
-	body, _ := json.Marshal(map[string]any{"is_delivery": false})
-	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
-	rec := httptest.NewRecorder()
-	h.Create(rec, req)
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422, got %d", rec.Code)
-	}
-}
-
 func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {
 	variantID := uuid.New()
 	h := newOrderHandler(&models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000), StockQty: nil})

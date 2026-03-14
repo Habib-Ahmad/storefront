@@ -14,6 +14,7 @@ import (
 
 func phone(s string) *string { return &s }
 func addr(s string) *string  { return &s }
+func name(s string) *string  { return &s }
 
 func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {
 	svc := service.NewOrderService(&mockOrderRepo{}, &mockProductRepo{})
@@ -44,7 +45,7 @@ func TestCreateOrder_DeliveryValid(t *testing.T) {
 		IsDelivery:      true,
 		CustomerPhone:   phone("08012345678"),
 		ShippingAddress: addr("123 Lagos"),
-		CustomerName:    "Ade",
+		CustomerName:    name("Ade"),
 	}
 	items := []models.OrderItem{{VariantID: variantID, Quantity: 1}}
 	out, err := svc.Create(context.Background(), order, items)
@@ -64,7 +65,7 @@ func TestCreateOrder_PickupNoValidation(t *testing.T) {
 	repo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000), StockQty: nil}}
 	svc := service.NewOrderService(&mockOrderRepo{}, repo)
 
-	order := &models.Order{TenantID: uuid.New(), IsDelivery: false, CustomerName: "Bola"}
+	order := &models.Order{TenantID: uuid.New(), IsDelivery: false, CustomerName: name("Bola")}
 	_, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
 	if err != nil {
 		t.Fatalf("pickup order should not require phone/address: %v", err)
@@ -77,7 +78,7 @@ func TestCreateOrder_SoldOutVariant(t *testing.T) {
 	repo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, StockQty: &zero}}
 	svc := service.NewOrderService(&mockOrderRepo{}, repo)
 
-	order := &models.Order{TenantID: uuid.New(), IsDelivery: false, CustomerName: "Chidi"}
+	order := &models.Order{TenantID: uuid.New(), IsDelivery: false, CustomerName: name("Chidi")}
 	_, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
 	if err == nil {
 		t.Fatal("expected sold-out error")
@@ -91,7 +92,7 @@ func TestCreateOrder_InsufficientStock(t *testing.T) {
 	repo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(500), StockQty: &qty}}
 	svc := service.NewOrderService(&mockOrderRepo{}, repo)
 
-	order := &models.Order{TenantID: uuid.New(), CustomerName: "Chidi"}
+	order := &models.Order{TenantID: uuid.New(), CustomerName: name("Chidi")}
 	_, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 10}})
 	if err == nil {
 		t.Fatal("expected error: requested quantity exceeds available stock")
@@ -109,7 +110,7 @@ func TestCreateOrder_PriceSnapshotOnItem(t *testing.T) {
 	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: price, StockQty: nil}}
 	svc := service.NewOrderService(orderRepo, productRepo)
 
-	order := &models.Order{TenantID: uuid.New(), CustomerName: "Ade"}
+	order := &models.Order{TenantID: uuid.New(), CustomerName: name("Ade")}
 	_, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -130,7 +131,7 @@ func TestCreateOrder_TotalAmount(t *testing.T) {
 	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: price, StockQty: nil}}
 	svc := service.NewOrderService(orderRepo, productRepo)
 
-	order := &models.Order{TenantID: uuid.New(), CustomerName: "Bola"}
+	order := &models.Order{TenantID: uuid.New(), CustomerName: name("Bola")}
 	out, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 3}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

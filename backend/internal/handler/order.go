@@ -35,7 +35,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		IsDelivery      bool               `json:"is_delivery"`
-		CustomerName    string             `json:"customer_name"    validate:"required"`
+		CustomerName    *string            `json:"customer_name"`
 		CustomerPhone   *string            `json:"customer_phone"`
 		CustomerEmail   *string            `json:"customer_email"`
 		ShippingAddress *string            `json:"shipping_address"`
@@ -132,7 +132,7 @@ func (h *OrderHandler) Track(w http.ResponseWriter, r *http.Request) {
 	// Return only the fields a customer needs — no internal IDs or financial data.
 	type trackingResp struct {
 		TrackingSlug      string                   `json:"tracking_slug"`
-		CustomerName      string                   `json:"customer_name"`
+		CustomerName      *string                  `json:"customer_name,omitempty"`
 		PaymentStatus     models.PaymentStatus     `json:"payment_status"`
 		FulfillmentStatus models.FulfillmentStatus `json:"fulfillment_status"`
 	}
