@@ -1,979 +1,1129 @@
 {
-	"info": {
-		"name": "Storefront API",
-		"description": "Full-flow testing: Auth \u2192 Tenant \u2192 Products \u2192 Variants \u2192 Orders \u2192 Wallet.\n\nSetup:\n1. Fill in supabase_url + supabase_anon_key in collection variables.\n2. Run \"Sign Up\" then \"Sign In\" (or just Sign In if already registered).\n3. Run \"Onboard Tenant\" once.\n4. Run remaining requests in order.\n\nThe collection auto-captures IDs so requests chain together.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:8090"
-		},
-		{
-			"key": "supabase_url",
-			"value": ""
-		},
-		{
-			"key": "supabase_anon_key",
-			"value": ""
-		},
-		{
-			"key": "admin_email",
-			"value": "admin@acme.com"
-		},
-		{
-			"key": "admin_password",
-			"value": "password123"
-		},
-		{
-			"key": "jwt",
-			"value": ""
-		},
-		{
-			"key": "user_id",
-			"value": ""
-		},
-		{
-			"key": "tenant_id",
-			"value": ""
-		},
-		{
-			"key": "product_id",
-			"value": ""
-		},
-		{
-			"key": "variant_id",
-			"value": ""
-		},
-		{
-			"key": "order_id",
-			"value": ""
-		}
-	],
-	"item": [
-		{
-			"name": "Auth",
-			"description": "Supabase GoTrue auth. Sign up once, then sign in to get JWT.",
-			"item": [
-				{
-					"name": "Sign Up",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"  const body = pm.response.json();",
-									"  pm.collectionVariables.set('jwt', body.access_token);",
-									"  pm.collectionVariables.set('user_id', body.user.id);",
-									"  pm.test('Sign up successful', () => pm.expect(body.access_token).to.be.a('string'));",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "apikey",
-								"value": "{{supabase_anon_key}}"
-							}
-						],
-						"url": "{{supabase_url}}/auth/v1/signup",
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
-						}
-					}
-				},
-				{
-					"name": "Sign In",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"const body = pm.response.json();",
-									"pm.collectionVariables.set('jwt', body.access_token);",
-									"pm.collectionVariables.set('user_id', body.user.id);",
-									"pm.test('Sign in successful', () => pm.expect(body.access_token).to.be.a('string'));",
-									"pm.test('Has user id', () => pm.expect(body.user.id).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "apikey",
-								"value": "{{supabase_anon_key}}"
-							}
-						],
-						"url": "{{supabase_url}}/auth/v1/token?grant_type=password",
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
-						}
-					}
-				},
-				{
-					"name": "Auth Me",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"const body = pm.response.json();",
-									"pm.test('Status 200', () => pm.response.to.have.status(200));",
-									"pm.test('Has onboarded field', () => pm.expect(body).to.have.property('onboarded'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"url": "{{base_url}}/auth/me",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "Health",
-			"request": {
-				"method": "GET",
-				"url": "{{base_url}}/health"
-			}
-		},
-		{
-			"name": "Tenants",
-			"description": "Onboard \u2192 Get \u2192 Update Profile \u2192 Set Modules",
-			"item": [
-				{
-					"name": "Onboard Tenant",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"if (pm.response.code === 201) {",
-									"  const body = pm.response.json();",
-									"  pm.collectionVariables.set('tenant_id', body.ID || body.id);",
-									"  pm.test('Tenant created', () => pm.expect(body.Name || body.name).to.equal('Acme Store'));",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"url": "{{base_url}}/tenants/onboard",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Acme Store\",\n  \"slug\": \"acme\",\n  \"admin_email\": \"{{admin_email}}\"\n}"
-						}
-					}
-				},
-				{
-					"name": "Get My Tenant",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));",
-									"const body = pm.response.json();",
-									"pm.test('Tenant returned', () => pm.expect(body.ID || body.id).to.not.be.empty);"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"url": "{{base_url}}/tenants/me",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						]
-					}
-				},
-				{
-					"name": "Update Profile",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"url": "{{base_url}}/tenants/me",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Acme Store Updated\",\n  \"contact_email\": \"support@acme.com\",\n  \"contact_phone\": \"08012345678\",\n  \"address\": \"45 Bode Thomas, Surulere, Lagos\"\n}"
-						}
-					}
-				},
-				{
-					"name": "Set Modules",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"url": "{{base_url}}/tenants/me/modules",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"inventory\": true,\n  \"payments\": true,\n  \"logistics\": false\n}"
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Users",
-			"description": "User profile management",
-			"item": [
-				{
-					"name": "Get My Profile",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));",
-									"const body = pm.response.json();",
-									"pm.test('Has email', () => pm.expect(body.email).to.be.a('string'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"url": "{{base_url}}/users/me",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						]
-					}
-				},
-				{
-					"name": "Update My Profile",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"url": "{{base_url}}/users/me",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"first_name\": \"Ahmad\",\n  \"last_name\": \"Habib\",\n  \"phone\": \"08098765432\"\n}"
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Products",
-			"description": "CRUD products. Run 'Set Modules' first to enable inventory.",
-			"item": [
-				{
-					"name": "Create Product (auto default variant)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"if (pm.response.code === 201) {",
-									"  const body = pm.response.json();",
-									"  pm.collectionVariables.set('product_id', body.ID || body.id);",
-									"  pm.test('Product created', () => pm.expect(body.Name || body.name).to.equal('Classic Tee'));",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"url": "{{base_url}}/products",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Classic Tee\",\n  \"description\": \"100% cotton\",\n  \"category\": \"Fashion\",\n  \"is_available\": true\n}"
-						}
-					}
-				},
-				{
-					"name": "Create Product (explicit variants)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"if (pm.response.code === 201) {",
-									"  const body = pm.response.json();",
-									"  pm.test('Product created', () => pm.expect(body.ID || body.id).to.not.be.empty);",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"url": "{{base_url}}/products",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Hoodie\",\n  \"category\": \"Fashion\",\n  \"is_available\": true,\n  \"variants\": [\n    { \"sku\": \"HD-M\", \"attributes\": {\"size\": \"M\"}, \"price\": 8500, \"stock_qty\": 20 },\n    { \"sku\": \"HD-L\", \"attributes\": {\"size\": \"L\"}, \"price\": 8500, \"stock_qty\": 15 }\n  ]\n}"
-						}
-					}
-				},
-				{
-					"name": "List Products",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));",
-									"const body = pm.response.json();",
-									"pm.test('Is array', () => pm.expect(body).to.be.an('array'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"url": "{{base_url}}/products",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						]
-					}
-				},
-				{
-					"name": "Get Product",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));",
-									"const body = pm.response.json();",
-									"pm.test('Has product', () => pm.expect(body.product).to.not.be.undefined);",
-									"pm.test('Has variants', () => pm.expect(body.variants).to.be.an('array'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}"
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Product",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Classic Tee V2\",\n  \"description\": \"Premium 100% organic cotton\",\n  \"category\": \"Fashion\",\n  \"is_available\": true\n}"
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Product Variants",
-			"description": "Variant CRUD. Create a product first, then use its product_id.",
-			"item": [
-				{
-					"name": "Create Variant",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"if (pm.response.code === 201) {",
-									"  const body = pm.response.json();",
-									"  pm.collectionVariables.set('variant_id', body.ID || body.id);",
-									"  pm.test('Variant created', () => pm.expect(body.SKU || body.sku).to.equal('TEE-RED-M'));",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}/variants",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}",
-								"variants"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"sku\": \"TEE-RED-M\",\n  \"attributes\": {\"color\": \"red\", \"size\": \"M\"},\n  \"price\": 5500,\n  \"stock_qty\": 30\n}"
-						}
-					}
-				},
-				{
-					"name": "List Variants",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));",
-									"const body = pm.response.json();",
-									"pm.test('Is array', () => pm.expect(body).to.be.an('array'));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}/variants",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}",
-								"variants"
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Variant",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}/variants/{{variant_id}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}",
-								"variants",
-								"{{variant_id}}"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"sku\": \"TEE-RED-M-V2\",\n  \"attributes\": {\"color\": \"red\", \"size\": \"M\"},\n  \"price\": 6000,\n  \"stock_qty\": 25\n}"
-						}
-					}
-				},
-				{
-					"name": "Delete Variant",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}/variants/{{variant_id}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}",
-								"variants",
-								"{{variant_id}}"
-							]
-						}
-					}
-				},
-				{
-					"name": "Delete Product",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 204', () => pm.response.to.have.status(204));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/{{product_id}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"products",
-								"{{product_id}}"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Orders",
-			"item": [
-				{
-					"name": "Create Order (delivery)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"if (pm.response.code === 201) {",
-									"  const body = pm.response.json();",
-									"  const order = body.order || body;",
-									"  pm.collectionVariables.set('order_id', order.ID || order.id);",
-									"  pm.test('Order created', () => pm.expect(order.ID || order.id).to.not.be.empty);",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"url": "{{base_url}}/orders",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"customer_name\": \"Ade Bello\",\n  \"customer_phone\": \"08012345678\",\n  \"customer_email\": \"ade@example.com\",\n  \"is_delivery\": true,\n  \"shipping_address\": \"45 Bode Thomas, Surulere, Lagos\",\n  \"shipping_fee\": 1500,\n  \"items\": [\n    { \"variant_id\": \"{{variant_id}}\", \"quantity\": 1 }\n  ]\n}"
-						}
-					}
-				},
-				{
-					"name": "Create Order (store pickup)",
-					"request": {
-						"method": "POST",
-						"url": "{{base_url}}/orders",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"customer_name\": \"Chidi Okeke\",\n  \"is_delivery\": false,\n  \"items\": [\n    { \"variant_id\": \"{{variant_id}}\", \"quantity\": 2 }\n  ]\n}"
-						}
-					}
-				},
-				{
-					"name": "List Orders",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/orders?limit=20&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"orders"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "20"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Order",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/orders/{{order_id}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"orders",
-								"{{order_id}}"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Wallet",
-			"item": [
-				{
-					"name": "Get Balance",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"url": "{{base_url}}/wallet",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						]
-					}
-				},
-				{
-					"name": "List Transactions",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status 200', () => pm.response.to.have.status(200));"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/wallet/transactions?limit=20&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"wallet",
-								"transactions"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "20"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Public",
-			"item": [
-				{
-					"name": "Track Order",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{base_url}}/track/:slug",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"track",
-								":slug"
-							],
-							"variable": [
-								{
-									"key": "slug",
-									"value": "<tracking-slug>"
-								}
-							]
-						}
-					}
-				}
-			]
-		}
-	]
+  "info": {
+    "name": "Storefront API",
+    "description": "Full-flow testing: Auth \u2192 Tenant \u2192 Products \u2192 Variants \u2192 Orders \u2192 Wallet.\n\nSetup:\n1. Fill in supabase_url + supabase_anon_key in collection variables.\n2. Run \"Sign Up\" then \"Sign In\" (or just Sign In if already registered).\n3. Run \"Onboard Tenant\" once.\n4. Run remaining requests in order.\n\nThe collection auto-captures IDs so requests chain together.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8090"
+    },
+    {
+      "key": "supabase_url",
+      "value": ""
+    },
+    {
+      "key": "supabase_anon_key",
+      "value": ""
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@acme.com"
+    },
+    {
+      "key": "admin_password",
+      "value": "password123"
+    },
+    {
+      "key": "jwt",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "tenant_id",
+      "value": ""
+    },
+    {
+      "key": "product_id",
+      "value": ""
+    },
+    {
+      "key": "variant_id",
+      "value": ""
+    },
+    {
+      "key": "order_id",
+      "value": ""
+    },
+    {
+      "key": "image_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Supabase GoTrue auth. Sign up once, then sign in to get JWT.",
+      "item": [
+        {
+          "name": "Sign Up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('jwt', body.access_token);",
+                  "  pm.collectionVariables.set('user_id', body.user.id);",
+                  "  pm.test('Sign up successful', () => pm.expect(body.access_token).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "apikey",
+                "value": "{{supabase_anon_key}}"
+              }
+            ],
+            "url": "{{supabase_url}}/auth/v1/signup",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Sign In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('jwt', body.access_token);",
+                  "pm.collectionVariables.set('user_id', body.user.id);",
+                  "pm.test('Sign in successful', () => pm.expect(body.access_token).to.be.a('string'));",
+                  "pm.test('Has user id', () => pm.expect(body.user.id).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "apikey",
+                "value": "{{supabase_anon_key}}"
+              }
+            ],
+            "url": "{{supabase_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Auth Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has onboarded field', () => pm.expect(body).to.have.property('onboarded'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Tenants",
+      "description": "Onboard \u2192 Get \u2192 Update Profile \u2192 Set Modules",
+      "item": [
+        {
+          "name": "Onboard Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('tenant_id', body.ID || body.id);",
+                  "  pm.test('Tenant created', () => pm.expect(body.Name || body.name).to.equal('Acme Store'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tenants/onboard",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Store\",\n  \"slug\": \"acme\",\n  \"admin_email\": \"{{admin_email}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Tenant returned', () => pm.expect(body.ID || body.id).to.not.be.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tenants/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Update Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/tenants/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Store Updated\",\n  \"contact_email\": \"support@acme.com\",\n  \"contact_phone\": \"08012345678\",\n  \"address\": \"45 Bode Thomas, Surulere, Lagos\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Set Modules",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/tenants/me/modules",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inventory\": true,\n  \"payments\": true,\n  \"logistics\": false\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User profile management",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has email', () => pm.expect(body.email).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/users/me",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Ahmad\",\n  \"last_name\": \"Habib\",\n  \"phone\": \"08098765432\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "description": "CRUD products. Run 'Set Modules' first to enable inventory.",
+      "item": [
+        {
+          "name": "Create Product (auto default variant)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('product_id', body.ID || body.id);",
+                  "  pm.test('Product created', () => pm.expect(body.Name || body.name).to.equal('Classic Tee'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/products",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Classic Tee\",\n  \"description\": \"100% cotton\",\n  \"category\": \"Fashion\",\n  \"is_available\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Product (explicit variants)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Product created', () => pm.expect(body.ID || body.id).to.not.be.empty);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/products",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hoodie\",\n  \"description\": \"A high-quality product\",\n  \"category\": \"Fashion\",\n  \"is_available\": true,\n  \"variants\": [\n    {\n      \"sku\": \"HD-M\",\n      \"attributes\": {\n        \"size\": \"M\"\n      },\n      \"price\": 8500,\n      \"stock_qty\": 20\n    },\n    {\n      \"sku\": \"HD-L\",\n      \"attributes\": {\n        \"size\": \"L\"\n      },\n      \"price\": 8500,\n      \"stock_qty\": 15\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Is array', () => pm.expect(body).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/products",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has product', () => pm.expect(body.product).to.not.be.undefined);",
+                  "pm.test('Has variants', () => pm.expect(body.variants).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Classic Tee V2\",\n  \"description\": \"Premium 100% organic cotton\",\n  \"category\": \"Fashion\",\n  \"is_available\": true\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Product Variants",
+      "description": "Variant CRUD. Create a product first, then use its product_id.",
+      "item": [
+        {
+          "name": "Create Variant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('variant_id', body.ID || body.id);",
+                  "  pm.test('Variant created', () => pm.expect(body.SKU || body.sku).to.equal('TEE-RED-M'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"TEE-RED-M\",\n  \"attributes\": {\"color\": \"red\", \"size\": \"M\"},\n  \"price\": 5500,\n  \"stock_qty\": 30\n}"
+            }
+          }
+        },
+        {
+          "name": "List Variants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Is array', () => pm.expect(body).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Variant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants/{{variant_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants",
+                "{{variant_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"TEE-RED-M-V2\",\n  \"attributes\": {\"color\": \"red\", \"size\": \"M\"},\n  \"price\": 6000,\n  \"stock_qty\": 25\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Variant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants/{{variant_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants",
+                "{{variant_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Product Images",
+      "item": [
+        {
+          "name": "Add Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Tenant-Slug",
+                "value": "{{tenant_slug}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/images/product-hero.jpg\",\n  \"sort_order\": 0,\n  \"is_primary\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "images"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var body = pm.response.json();",
+                  "    pm.collectionVariables.set(\"image_id\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Images",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Tenant-Slug",
+                "value": "{{tenant_slug}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "images"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Image",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Tenant-Slug",
+                "value": "{{tenant_slug}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/images/product-updated.jpg\",\n  \"sort_order\": 1,\n  \"is_primary\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Image",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Tenant-Slug",
+                "value": "{{tenant_slug}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/images/{{image_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "images",
+                "{{image_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Order (delivery)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  const order = body.order || body;",
+                  "  pm.collectionVariables.set('order_id', order.ID || order.id);",
+                  "  pm.test('Order created', () => pm.expect(order.ID || order.id).to.not.be.empty);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/orders",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Ade Bello\",\n  \"customer_phone\": \"08012345678\",\n  \"customer_email\": \"ade@example.com\",\n  \"is_delivery\": true,\n  \"shipping_address\": \"45 Bode Thomas, Surulere, Lagos\",\n  \"shipping_fee\": 1500,\n  \"items\": [\n    { \"variant_id\": \"{{variant_id}}\", \"quantity\": 1 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Order (store pickup)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/orders",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Chidi Okeke\",\n  \"is_delivery\": false,\n  \"items\": [\n    { \"variant_id\": \"{{variant_id}}\", \"quantity\": 2 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "item": [
+        {
+          "name": "Get Balance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/wallet",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "List Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/wallet/transactions?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wallet",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Track Order",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/track/:slug",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "track",
+                ":slug"
+              ],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": "<tracking-slug>"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
 }

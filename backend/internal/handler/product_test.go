@@ -69,6 +69,15 @@ func (s *stubProductRepo) UpdateVariant(_ context.Context, _ *models.ProductVari
 	return nil
 }
 func (s *stubProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return nil }
+func (s *stubProductRepo) AddImage(_ context.Context, img *models.ProductImage) error {
+	img.ID = uuid.New()
+	return nil
+}
+func (s *stubProductRepo) ListImagesByProduct(_ context.Context, _ uuid.UUID) ([]models.ProductImage, error) {
+	return nil, nil
+}
+func (s *stubProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error            { return nil }
+func (s *stubProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error { return nil }
 
 var _ repository.ProductRepository = (*stubProductRepo)(nil)
 
@@ -495,5 +504,167 @@ func TestDeleteVariant_ModuleDisabled(t *testing.T) {
 	h.DeleteVariant(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+}
+
+// ── Image CRUD Tests ──────────────────────────────────────────────────────────
+
+func TestAddImage_Valid(t *testing.T) {
+	repo := &stubProductRepo{}
+	h := newProductHandler(repo)
+	productID := uuid.New()
+	body, _ := json.Marshal(map[string]any{
+		"url":        "https://example.com/images/hero.jpg",
+		"sort_order": 0,
+		"is_primary": true,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/products/"+productID.String()+"/images", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", productID.String())
+	rec := httptest.NewRecorder()
+	h.AddImage(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAddImage_MissingURL(t *testing.T) {
+	h := newProductHandler(&stubProductRepo{})
+	body, _ := json.Marshal(map[string]any{"sort_order": 1})
+	req := httptest.NewRequest(http.MethodPost, "/products/"+uuid.New().String()+"/images", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", uuid.New().String())
+	rec := httptest.NewRecorder()
+	h.AddImage(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAddImage_ProductNotFound(t *testing.T) {
+	repo := &stubProductRepo{getErr: errNotFound}
+	h := newProductHandler(repo)
+	body, _ := json.Marshal(map[string]any{"url": "https://example.com/img.jpg"})
+	req := httptest.NewRequest(http.MethodPost, "/products/"+uuid.New().String()+"/images", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", uuid.New().String())
+	rec := httptest.NewRecorder()
+	h.AddImage(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAddImage_ModuleDisabled(t *testing.T) {
+	h := newProductHandler(&stubProductRepo{})
+	body, _ := json.Marshal(map[string]any{"url": "https://example.com/img.jpg"})
+	req := httptest.NewRequest(http.MethodPost, "/products/"+uuid.New().String()+"/images", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), noInventoryTenant()))
+	req = withChiParam(req, "id", uuid.New().String())
+	rec := httptest.NewRecorder()
+	h.AddImage(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+}
+
+func TestListImages_OK(t *testing.T) {
+	repo := &stubProductRepo{}
+	h := newProductHandler(repo)
+	productID := uuid.New()
+	req := httptest.NewRequest(http.MethodGet, "/products/"+productID.String()+"/images", nil)
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", productID.String())
+	rec := httptest.NewRecorder()
+	h.ListImages(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestListImages_ProductNotFound(t *testing.T) {
+	repo := &stubProductRepo{getErr: errNotFound}
+	h := newProductHandler(repo)
+	req := httptest.NewRequest(http.MethodGet, "/products/"+uuid.New().String()+"/images", nil)
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", uuid.New().String())
+	rec := httptest.NewRecorder()
+	h.ListImages(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestUpdateImage_Valid(t *testing.T) {
+	repo := &stubProductRepo{}
+	h := newProductHandler(repo)
+	productID := uuid.New()
+	imageID := uuid.New()
+	body, _ := json.Marshal(map[string]any{
+		"url":        "https://example.com/images/updated.jpg",
+		"sort_order": 2,
+		"is_primary": false,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/products/"+productID.String()+"/images/"+imageID.String(), bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParams(req, map[string]string{"id": productID.String(), "imageId": imageID.String()})
+	rec := httptest.NewRecorder()
+	h.UpdateImage(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateImage_ProductNotFound(t *testing.T) {
+	repo := &stubProductRepo{getErr: errNotFound}
+	h := newProductHandler(repo)
+	body, _ := json.Marshal(map[string]any{"url": "https://example.com/img.jpg", "sort_order": 0})
+	req := httptest.NewRequest(http.MethodPut, "/products/"+uuid.New().String()+"/images/"+uuid.New().String(), bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParams(req, map[string]string{"id": uuid.New().String(), "imageId": uuid.New().String()})
+	rec := httptest.NewRecorder()
+	h.UpdateImage(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestDeleteImage_Valid(t *testing.T) {
+	repo := &stubProductRepo{}
+	h := newProductHandler(repo)
+	productID := uuid.New()
+	imageID := uuid.New()
+	req := httptest.NewRequest(http.MethodDelete, "/products/"+productID.String()+"/images/"+imageID.String(), nil)
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParams(req, map[string]string{"id": productID.String(), "imageId": imageID.String()})
+	rec := httptest.NewRecorder()
+	h.DeleteImage(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteImage_ProductNotFound(t *testing.T) {
+	repo := &stubProductRepo{getErr: errNotFound}
+	h := newProductHandler(repo)
+	req := httptest.NewRequest(http.MethodDelete, "/products/"+uuid.New().String()+"/images/"+uuid.New().String(), nil)
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParams(req, map[string]string{"id": uuid.New().String(), "imageId": uuid.New().String()})
+	rec := httptest.NewRecorder()
+	h.DeleteImage(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestDeleteImage_InvalidImageID(t *testing.T) {
+	h := newProductHandler(&stubProductRepo{})
+	req := httptest.NewRequest(http.MethodDelete, "/products/"+uuid.New().String()+"/images/not-a-uuid", nil)
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParams(req, map[string]string{"id": uuid.New().String(), "imageId": "not-a-uuid"})
+	rec := httptest.NewRecorder()
+	h.DeleteImage(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }

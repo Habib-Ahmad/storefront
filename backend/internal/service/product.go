@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/models"
@@ -17,7 +18,14 @@ var (
 	ErrProductNotFound = errors.New("product not found")
 	ErrVariantNotFound = errors.New("variant not found")
 	ErrSoldOut         = errors.New("variant is sold out")
+	ErrDuplicateSKU    = errors.New("a variant with this SKU already exists for this product")
 )
+
+// isUniqueViolation checks if err is a Postgres unique_violation (23505).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 type ProductService struct {
 	products repository.ProductRepository
@@ -45,6 +53,9 @@ func (s *ProductService) Create(ctx context.Context, p *models.Product, variants
 	for i := range variants {
 		variants[i].ProductID = p.ID
 		if err := s.products.CreateVariant(ctx, &variants[i]); err != nil {
+			if isUniqueViolation(err) {
+				return nil, ErrDuplicateSKU
+			}
 			return nil, fmt.Errorf("create variant: %w", err)
 		}
 	}
@@ -87,6 +98,34 @@ func (s *ProductService) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*
 	return p, variants, nil
 }
 
+func (s *ProductService) GetImagesByProduct(ctx context.Context, tenantID, productID uuid.UUID) ([]models.ProductImage, error) {
+	if _, err := s.products.GetByID(ctx, tenantID, productID); err != nil {
+		return nil, ErrProductNotFound
+	}
+	return s.products.ListImagesByProduct(ctx, productID)
+}
+
+func (s *ProductService) AddImage(ctx context.Context, tenantID uuid.UUID, img *models.ProductImage) error {
+	if _, err := s.products.GetByID(ctx, tenantID, img.ProductID); err != nil {
+		return ErrProductNotFound
+	}
+	return s.products.AddImage(ctx, img)
+}
+
+func (s *ProductService) DeleteImage(ctx context.Context, tenantID, productID, imageID uuid.UUID) error {
+	if _, err := s.products.GetByID(ctx, tenantID, productID); err != nil {
+		return ErrProductNotFound
+	}
+	return s.products.DeleteImage(ctx, imageID)
+}
+
+func (s *ProductService) UpdateImage(ctx context.Context, tenantID uuid.UUID, img *models.ProductImage) error {
+	if _, err := s.products.GetByID(ctx, tenantID, img.ProductID); err != nil {
+		return ErrProductNotFound
+	}
+	return s.products.UpdateImage(ctx, img)
+}
+
 func (s *ProductService) Update(ctx context.Context, p *models.Product) error {
 	existing, err := s.products.GetByID(ctx, p.TenantID, p.ID)
 	if err != nil {
@@ -120,7 +159,13 @@ func (s *ProductService) CreateVariant(ctx context.Context, tenantID uuid.UUID, 
 	if _, err := s.products.GetByID(ctx, tenantID, v.ProductID); err != nil {
 		return ErrProductNotFound
 	}
-	return s.products.CreateVariant(ctx, v)
+	if err := s.products.CreateVariant(ctx, v); err != nil {
+		if isUniqueViolation(err) {
+			return ErrDuplicateSKU
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *ProductService) ListVariants(ctx context.Context, tenantID, productID uuid.UUID) ([]models.ProductVariant, error) {

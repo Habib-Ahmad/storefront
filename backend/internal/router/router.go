@@ -85,6 +85,10 @@ func New(
 		r.Get("/products/{id}/variants", product.ListVariants)
 		r.Put("/products/{id}/variants/{variantId}", product.UpdateVariant)
 		r.Delete("/products/{id}/variants/{variantId}", product.DeleteVariant)
+		r.Post("/products/{id}/images", product.AddImage)
+		r.Get("/products/{id}/images", product.ListImages)
+		r.Put("/products/{id}/images/{imageId}", product.UpdateImage)
+		r.Delete("/products/{id}/images/{imageId}", product.DeleteImage)
 
 		r.Post("/orders", order.Create)
 		r.Get("/orders", order.List)

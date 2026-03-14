@@ -78,6 +78,16 @@ func (s *stubProductRepoForOrder) UpdateVariant(_ context.Context, _ *models.Pro
 func (s *stubProductRepoForOrder) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+func (s *stubProductRepoForOrder) AddImage(_ context.Context, _ *models.ProductImage) error {
+	return nil
+}
+func (s *stubProductRepoForOrder) ListImagesByProduct(_ context.Context, _ uuid.UUID) ([]models.ProductImage, error) {
+	return nil, nil
+}
+func (s *stubProductRepoForOrder) DeleteImage(_ context.Context, _ uuid.UUID) error { return nil }
+func (s *stubProductRepoForOrder) UpdateImage(_ context.Context, _ *models.ProductImage) error {
+	return nil
+}
 
 type stubPaymentInitiator struct{}
 

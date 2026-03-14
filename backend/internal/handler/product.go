@@ -52,6 +52,10 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := h.svc.Create(r.Context(), p, req.Variants)
 	if err != nil {
+		if errors.Is(err, service.ErrDuplicateSKU) {
+			respondErr(w, http.StatusConflict, "a variant with this SKU already exists")
+			return
+		}
 		serverErr(w, h.log, r, err)
 		return
 	}
@@ -97,7 +101,11 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, h.log, r, err)
 		return
 	}
-	respond(w, http.StatusOK, map[string]any{"product": p, "variants": variants})
+	images, _ := h.svc.GetImagesByProduct(r.Context(), tenant.ID, id)
+	if images == nil {
+		images = []models.ProductImage{}
+	}
+	respond(w, http.StatusOK, map[string]any{"product": p, "variants": variants, "images": images})
 }
 
 // PUT /products/{id}
@@ -197,6 +205,10 @@ func (h *ProductHandler) CreateVariant(w http.ResponseWriter, r *http.Request) {
 			respondErr(w, http.StatusNotFound, "product not found")
 			return
 		}
+		if errors.Is(err, service.ErrDuplicateSKU) {
+			respondErr(w, http.StatusConflict, "a variant with this SKU already exists for this product")
+			return
+		}
 		serverErr(w, h.log, r, err)
 		return
 	}
@@ -284,6 +296,141 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.DeleteVariant(r.Context(), tenant.ID, variantID); err != nil {
 		if errors.Is(err, service.ErrVariantNotFound) {
 			respondErr(w, http.StatusNotFound, "variant not found")
+			return
+		}
+		serverErr(w, h.log, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// POST /products/{id}/images
+func (h *ProductHandler) AddImage(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, true, false, false); err != nil {
+		respondErr(w, http.StatusForbidden, "inventory module not enabled")
+		return
+	}
+	productID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid product id")
+		return
+	}
+	var req struct {
+		URL       string `json:"url"       validate:"required,url"`
+		SortOrder int    `json:"sort_order"`
+		IsPrimary bool   `json:"is_primary"`
+	}
+	if !decodeValid(w, r, &req) {
+		return
+	}
+	img := &models.ProductImage{
+		ProductID: productID,
+		URL:       req.URL,
+		SortOrder: req.SortOrder,
+		IsPrimary: req.IsPrimary,
+	}
+	if err := h.svc.AddImage(r.Context(), tenant.ID, img); err != nil {
+		if errors.Is(err, service.ErrProductNotFound) {
+			respondErr(w, http.StatusNotFound, "product not found")
+			return
+		}
+		serverErr(w, h.log, r, err)
+		return
+	}
+	respond(w, http.StatusCreated, img)
+}
+
+// GET /products/{id}/images
+func (h *ProductHandler) ListImages(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, true, false, false); err != nil {
+		respondErr(w, http.StatusForbidden, "inventory module not enabled")
+		return
+	}
+	productID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid product id")
+		return
+	}
+	images, err := h.svc.GetImagesByProduct(r.Context(), tenant.ID, productID)
+	if err != nil {
+		if errors.Is(err, service.ErrProductNotFound) {
+			respondErr(w, http.StatusNotFound, "product not found")
+			return
+		}
+		serverErr(w, h.log, r, err)
+		return
+	}
+	if images == nil {
+		images = []models.ProductImage{}
+	}
+	respond(w, http.StatusOK, images)
+}
+
+// PUT /products/{id}/images/{imageId}
+func (h *ProductHandler) UpdateImage(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, true, false, false); err != nil {
+		respondErr(w, http.StatusForbidden, "inventory module not enabled")
+		return
+	}
+	productID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid product id")
+		return
+	}
+	imageID, err := uuid.Parse(chi.URLParam(r, "imageId"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid image id")
+		return
+	}
+	var req struct {
+		URL       string `json:"url"       validate:"required,url"`
+		SortOrder int    `json:"sort_order"`
+		IsPrimary bool   `json:"is_primary"`
+	}
+	if !decodeValid(w, r, &req) {
+		return
+	}
+	img := &models.ProductImage{
+		ID:        imageID,
+		ProductID: productID,
+		URL:       req.URL,
+		SortOrder: req.SortOrder,
+		IsPrimary: req.IsPrimary,
+	}
+	if err := h.svc.UpdateImage(r.Context(), tenant.ID, img); err != nil {
+		if errors.Is(err, service.ErrProductNotFound) {
+			respondErr(w, http.StatusNotFound, "product not found")
+			return
+		}
+		serverErr(w, h.log, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DELETE /products/{id}/images/{imageId}
+func (h *ProductHandler) DeleteImage(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, true, false, false); err != nil {
+		respondErr(w, http.StatusForbidden, "inventory module not enabled")
+		return
+	}
+	productID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid product id")
+		return
+	}
+	imageID, err := uuid.Parse(chi.URLParam(r, "imageId"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid image id")
+		return
+	}
+	if err := h.svc.DeleteImage(r.Context(), tenant.ID, productID, imageID); err != nil {
+		if errors.Is(err, service.ErrProductNotFound) {
+			respondErr(w, http.StatusNotFound, "product not found")
 			return
 		}
 		serverErr(w, h.log, r, err)

@@ -136,6 +136,17 @@ func (m *mockProductRepo) UpdateVariant(_ context.Context, v *models.ProductVari
 	return m.err
 }
 func (m *mockProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return m.err }
+func (m *mockProductRepo) AddImage(_ context.Context, img *models.ProductImage) error {
+	img.ID = uuid.New()
+	return m.err
+}
+func (m *mockProductRepo) ListImagesByProduct(_ context.Context, _ uuid.UUID) ([]models.ProductImage, error) {
+	return nil, m.err
+}
+func (m *mockProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error { return m.err }
+func (m *mockProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error {
+	return m.err
+}
 
 // ── Order repo mock ───────────────────────────────────────────
 

@@ -21,6 +21,11 @@ type ProductRepository interface {
 	ListVariants(ctx context.Context, productID uuid.UUID) ([]models.ProductVariant, error)
 	UpdateVariant(ctx context.Context, v *models.ProductVariant) error
 	SoftDeleteVariant(ctx context.Context, id uuid.UUID) error
+
+	AddImage(ctx context.Context, img *models.ProductImage) error
+	ListImagesByProduct(ctx context.Context, productID uuid.UUID) ([]models.ProductImage, error)
+	UpdateImage(ctx context.Context, img *models.ProductImage) error
+	DeleteImage(ctx context.Context, id uuid.UUID) error
 }
 
 type productRepo struct{ db *pgxpool.Pool }
@@ -141,5 +146,50 @@ func (r *productRepo) UpdateVariant(ctx context.Context, v *models.ProductVarian
 
 func (r *productRepo) SoftDeleteVariant(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.Exec(ctx, `UPDATE product_variants SET deleted_at = NOW() WHERE id = $1`, id)
+	return err
+}
+
+func (r *productRepo) AddImage(ctx context.Context, img *models.ProductImage) error {
+	return r.db.QueryRow(ctx, `
+		INSERT INTO product_images (product_id, url, sort_order, is_primary)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at`,
+		img.ProductID, img.URL, img.SortOrder, img.IsPrimary,
+	).Scan(&img.ID, &img.CreatedAt)
+}
+
+func (r *productRepo) ListImagesByProduct(ctx context.Context, productID uuid.UUID) ([]models.ProductImage, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, product_id, url, sort_order, is_primary, created_at
+		FROM product_images WHERE product_id = $1
+		ORDER BY sort_order, created_at`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var images []models.ProductImage
+	for rows.Next() {
+		var img models.ProductImage
+		if err := rows.Scan(&img.ID, &img.ProductID, &img.URL, &img.SortOrder,
+			&img.IsPrimary, &img.CreatedAt); err != nil {
+			return nil, err
+		}
+		images = append(images, img)
+	}
+	return images, rows.Err()
+}
+
+func (r *productRepo) DeleteImage(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM product_images WHERE id = $1`, id)
+	return err
+}
+
+func (r *productRepo) UpdateImage(ctx context.Context, img *models.ProductImage) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE product_images
+		SET url = $1, sort_order = $2, is_primary = $3
+		WHERE id = $4`,
+		img.URL, img.SortOrder, img.IsPrimary, img.ID)
 	return err
 }
