@@ -41,16 +41,19 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
 
 	var req struct {
-		IsDelivery      bool               `json:"is_delivery"`
-		PaymentMethod   string             `json:"payment_method"   validate:"omitempty,oneof=online cash transfer"`
-		CustomerName    *string            `json:"customer_name"`
-		CustomerPhone   *string            `json:"customer_phone"`
-		CustomerEmail   *string            `json:"customer_email"`
-		ShippingAddress *string            `json:"shipping_address"`
-		Note            *string            `json:"note"`
-		ShippingFee     float64            `json:"shipping_fee"`
-		TotalAmount     *float64           `json:"total_amount"`
-		Items           []models.OrderItem `json:"items"`
+		IsDelivery      bool     `json:"is_delivery"`
+		PaymentMethod   string   `json:"payment_method"   validate:"omitempty,oneof=online cash transfer"`
+		CustomerName    *string  `json:"customer_name"`
+		CustomerPhone   *string  `json:"customer_phone"`
+		CustomerEmail   *string  `json:"customer_email"`
+		ShippingAddress *string  `json:"shipping_address"`
+		Note            *string  `json:"note"`
+		ShippingFee     float64  `json:"shipping_fee"`
+		TotalAmount     *float64 `json:"total_amount"`
+		Items           []struct {
+			VariantID string `json:"variant_id"`
+			Quantity  int    `json:"quantity"`
+		} `json:"items"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
@@ -59,6 +62,20 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if len(req.Items) == 0 && (req.TotalAmount == nil || *req.TotalAmount <= 0) {
 		respondErr(w, http.StatusUnprocessableEntity, "items or total_amount required")
 		return
+	}
+
+	var items []models.OrderItem
+	for _, ri := range req.Items {
+		vid, err := uuid.Parse(ri.VariantID)
+		if err != nil {
+			respondErr(w, http.StatusBadRequest, "invalid variant_id: "+ri.VariantID)
+			return
+		}
+		if ri.Quantity <= 0 {
+			respondErr(w, http.StatusBadRequest, "quantity must be positive")
+			return
+		}
+		items = append(items, models.OrderItem{VariantID: vid, Quantity: ri.Quantity})
 	}
 
 	paymentMethod := models.PaymentMethodOnline
@@ -84,7 +101,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		TotalAmount:     totalAmount,
 	}
 
-	out, err := h.svc.Create(r.Context(), order, req.Items)
+	out, err := h.svc.Create(r.Context(), order, items)
 	if err != nil {
 		handleErr(w, h.log, r, err)
 		return
