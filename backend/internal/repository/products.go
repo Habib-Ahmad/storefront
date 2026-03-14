@@ -14,7 +14,8 @@ import (
 type ProductRepository interface {
 	Create(ctx context.Context, p *models.Product) error
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Product, error)
-	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error)
+	ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Product, error)
+	CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	Update(ctx context.Context, p *models.Product) error
 	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
 
@@ -23,6 +24,7 @@ type ProductRepository interface {
 	ListVariants(ctx context.Context, productID uuid.UUID) ([]models.ProductVariant, error)
 	UpdateVariant(ctx context.Context, v *models.ProductVariant) error
 	DecrementStock(ctx context.Context, variantID uuid.UUID, qty int) error
+	RestoreStock(ctx context.Context, variantID uuid.UUID, qty int) error
 	SoftDeleteVariant(ctx context.Context, id uuid.UUID) error
 
 	AddImage(ctx context.Context, img *models.ProductImage) error
@@ -59,10 +61,10 @@ func (r *productRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*mod
 	return p, nil
 }
 
-func (r *productRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error) {
+func (r *productRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Product, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, tenant_id, name, description, category, is_available, created_at, updated_at, deleted_at
-		FROM products WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, tenantID)
+		FROM products WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $2 OFFSET $3`, tenantID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +80,12 @@ func (r *productRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]m
 		products = append(products, p)
 	}
 	return products, rows.Err()
+}
+
+func (r *productRepo) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM products WHERE tenant_id = $1 AND deleted_at IS NULL`, tenantID).Scan(&count)
+	return count, err
 }
 
 func (r *productRepo) Update(ctx context.Context, p *models.Product) error {
@@ -165,6 +173,14 @@ func (r *productRepo) DecrementStock(ctx context.Context, variantID uuid.UUID, q
 		return fmt.Errorf("insufficient stock for variant %s", variantID)
 	}
 	return nil
+}
+
+func (r *productRepo) RestoreStock(ctx context.Context, variantID uuid.UUID, qty int) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE product_variants
+		SET stock_qty = stock_qty + $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND stock_qty IS NOT NULL`, qty, variantID)
+	return err
 }
 
 func (r *productRepo) SoftDeleteVariant(ctx context.Context, id uuid.UUID) error {

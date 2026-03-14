@@ -72,7 +72,7 @@ func TestDispatch_BookAndSave(t *testing.T) {
 		resp: &terminalaf.BookResponse{CarrierRef: "TA-001", TrackingNumber: "TRK-001", Status: "queued"},
 	}
 	shipments := &mockShipmentRepo{}
-	orders := &mockOrderRepo{order: &models.Order{ID: orderID, TenantID: tenantID}}
+	orders := &mockOrderRepo{order: &models.Order{ID: orderID, TenantID: tenantID, FulfillmentStatus: models.FulfillmentStatusProcessing}}
 
 	svc := newShipmentSvc(carrier, shipments, orders, &models.Wallet{ID: uuid.New(), TenantID: tenantID})
 
@@ -90,9 +90,10 @@ func TestDispatch_BookAndSave(t *testing.T) {
 
 func TestDispatch_CarrierError(t *testing.T) {
 	carrier := &mockCarrierClient{err: errors.New("carrier unavailable")}
-	svc := newShipmentSvc(carrier, &mockShipmentRepo{}, &mockOrderRepo{}, &models.Wallet{ID: uuid.New()})
+	order := &models.Order{ID: uuid.New(), TenantID: uuid.New(), FulfillmentStatus: models.FulfillmentStatusProcessing}
+	svc := newShipmentSvc(carrier, &mockShipmentRepo{}, &mockOrderRepo{order: order}, &models.Wallet{ID: uuid.New()})
 
-	_, err := svc.Dispatch(context.Background(), uuid.New(), uuid.New(), terminalaf.BookRequest{})
+	_, err := svc.Dispatch(context.Background(), order.ID, order.TenantID, terminalaf.BookRequest{})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

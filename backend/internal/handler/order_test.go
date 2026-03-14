@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"storefront/backend/internal/adapter/terminalaf"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/service"
@@ -38,6 +39,9 @@ func (s *stubOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.
 func (s *stubOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
 	return nil, nil
 }
+func (s *stubOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
 func (s *stubOrderRepo) UpdatePaymentStatus(_ context.Context, _, _ uuid.UUID, _ models.PaymentStatus) error {
 	return nil
 }
@@ -57,8 +61,11 @@ func (s *stubProductRepoForOrder) Create(_ context.Context, p *models.Product) e
 func (s *stubProductRepoForOrder) GetByID(_ context.Context, _, id uuid.UUID) (*models.Product, error) {
 	return &models.Product{ID: id, IsAvailable: true}, nil
 }
-func (s *stubProductRepoForOrder) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
+func (s *stubProductRepoForOrder) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Product, error) {
 	return nil, nil
+}
+func (s *stubProductRepoForOrder) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
 }
 func (s *stubProductRepoForOrder) Update(_ context.Context, _ *models.Product) error  { return nil }
 func (s *stubProductRepoForOrder) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
@@ -81,6 +88,9 @@ func (s *stubProductRepoForOrder) SoftDeleteVariant(_ context.Context, _ uuid.UU
 func (s *stubProductRepoForOrder) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error {
 	return nil
 }
+func (s *stubProductRepoForOrder) RestoreStock(_ context.Context, _ uuid.UUID, _ int) error {
+	return nil
+}
 func (s *stubProductRepoForOrder) AddImage(_ context.Context, _ *models.ProductImage) error {
 	return nil
 }
@@ -98,9 +108,15 @@ func (s *stubPaymentInitiator) InitiatePayment(_ context.Context, _ *models.Orde
 	return "https://paystack.com/pay/stub", nil
 }
 
+type stubDispatcher struct{}
+
+func (s *stubDispatcher) Dispatch(_ context.Context, _, _ uuid.UUID, _ terminalaf.BookRequest) (*models.Shipment, error) {
+	return &models.Shipment{ID: uuid.New()}, nil
+}
+
 func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
-	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, slog.Default())
+	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, &stubDispatcher{}, slog.Default())
 }
 
 func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {

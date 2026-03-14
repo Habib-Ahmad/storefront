@@ -16,6 +16,7 @@ type OrderRepository interface {
 	GetByIDInternal(ctx context.Context, id uuid.UUID) (*models.Order, error)
 	GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error)
 	ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error)
+	CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error
 	UpdateFulfillmentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.FulfillmentStatus) error
 	ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error)
@@ -114,6 +115,12 @@ func (r *orderRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit,
 		orders = append(orders, *o)
 	}
 	return orders, rows.Err()
+}
+
+func (r *orderRepo) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE tenant_id = $1`, tenantID).Scan(&count)
+	return count, err
 }
 
 func (r *orderRepo) UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error {

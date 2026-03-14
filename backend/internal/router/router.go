@@ -93,6 +93,9 @@ func New(
 		r.Post("/orders", order.Create)
 		r.Get("/orders", order.List)
 		r.Get("/orders/{id}", order.Get)
+		r.Get("/orders/{id}/items", order.ListItems)
+		r.Post("/orders/{id}/cancel", order.Cancel)
+		r.Post("/orders/{id}/dispatch", order.Dispatch)
 
 		r.Get("/wallet", wallet.GetBalance)
 		r.Get("/wallet/transactions", wallet.ListTransactions)

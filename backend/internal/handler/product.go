@@ -64,7 +64,9 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusForbidden, "inventory module not enabled")
 		return
 	}
-	products, err := h.svc.List(r.Context(), tenant.ID)
+	limit := queryInt(r, "limit", 20)
+	offset := queryInt(r, "offset", 0)
+	products, err := h.svc.List(r.Context(), tenant.ID, limit, offset)
 	if err != nil {
 		serverErr(w, h.log, r, err)
 		return
@@ -72,7 +74,12 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	if products == nil {
 		products = []models.Product{}
 	}
-	respond(w, http.StatusOK, products)
+	total, err := h.svc.CountByTenant(r.Context(), tenant.ID)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	respondPage(w, products, total, limit, offset)
 }
 
 // GET /products/{id}

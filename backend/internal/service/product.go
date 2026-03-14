@@ -157,8 +157,12 @@ func (s *ProductService) SoftDelete(ctx context.Context, tenantID, id uuid.UUID)
 	return s.products.SoftDelete(ctx, tenantID, id)
 }
 
-func (s *ProductService) List(ctx context.Context, tenantID uuid.UUID) ([]models.Product, error) {
-	return s.products.ListByTenant(ctx, tenantID)
+func (s *ProductService) List(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Product, error) {
+	return s.products.ListByTenant(ctx, tenantID, limit, offset)
+}
+
+func (s *ProductService) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	return s.products.CountByTenant(ctx, tenantID)
 }
 
 func (s *ProductService) CreateVariant(ctx context.Context, tenantID uuid.UUID, v *models.ProductVariant) error {

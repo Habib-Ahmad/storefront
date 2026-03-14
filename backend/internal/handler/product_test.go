@@ -50,8 +50,11 @@ func (s *stubProductRepo) GetByID(_ context.Context, _, id uuid.UUID) (*models.P
 	}
 	return &models.Product{ID: id, IsAvailable: true}, nil
 }
-func (s *stubProductRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
+func (s *stubProductRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Product, error) {
 	return s.products, nil
+}
+func (s *stubProductRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+	return len(s.products), nil
 }
 func (s *stubProductRepo) Update(_ context.Context, _ *models.Product) error  { return nil }
 func (s *stubProductRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
@@ -73,6 +76,7 @@ func (s *stubProductRepo) UpdateVariant(_ context.Context, _ *models.ProductVari
 }
 func (s *stubProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error     { return nil }
 func (s *stubProductRepo) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error { return nil }
+func (s *stubProductRepo) RestoreStock(_ context.Context, _ uuid.UUID, _ int) error   { return nil }
 func (s *stubProductRepo) AddImage(_ context.Context, img *models.ProductImage) error {
 	if s.addImageErr != nil {
 		return s.addImageErr
@@ -183,10 +187,12 @@ func TestListProducts_OK(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
-	var got []models.Product
+	var got struct {
+		Data []models.Product `json:"data"`
+	}
 	_ = json.NewDecoder(rec.Body).Decode(&got)
-	if len(got) != 2 {
-		t.Fatalf("expected 2 products, got %d", len(got))
+	if len(got.Data) != 2 {
+		t.Fatalf("expected 2 products, got %d", len(got.Data))
 	}
 }
 

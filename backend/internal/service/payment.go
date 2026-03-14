@@ -25,15 +25,17 @@ type PaystackClient interface {
 type PaymentService struct {
 	paystack  PaystackClient
 	orders    repository.OrderRepository
+	products  repository.ProductRepository
 	walletSvc *WalletService
 }
 
 func NewPaymentService(
 	paystackClient PaystackClient,
 	orders repository.OrderRepository,
+	products repository.ProductRepository,
 	walletSvc *WalletService,
 ) *PaymentService {
-	return &PaymentService{paystack: paystackClient, orders: orders, walletSvc: walletSvc}
+	return &PaymentService{paystack: paystackClient, orders: orders, products: products, walletSvc: walletSvc}
 }
 
 // InitiatePayment creates a Paystack transaction and returns the redirect URL.
@@ -90,6 +92,37 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 	// walletSvc.Credit looks up the wallet by tenant ID.
 	if _, err := s.walletSvc.Credit(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
 		return fmt.Errorf("credit wallet: %w", err)
+	}
+
+	return nil
+}
+
+// HandleChargeFailed marks the order as payment-failed and restores stock.
+func (s *PaymentService) HandleChargeFailed(ctx context.Context, reference string) error {
+	orderID, err := uuid.Parse(reference)
+	if err != nil {
+		return fmt.Errorf("invalid reference: %w", err)
+	}
+
+	order, err := s.orders.GetByIDInternal(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("get order: %w", err)
+	}
+
+	if order.PaymentStatus != models.PaymentStatusPending {
+		return nil
+	}
+
+	if err := s.orders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusFailed); err != nil {
+		return fmt.Errorf("update payment status: %w", err)
+	}
+
+	items, err := s.orders.ListItems(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("list items for restock: %w", err)
+	}
+	for _, item := range items {
+		_ = s.products.RestoreStock(ctx, item.VariantID, item.Quantity)
 	}
 
 	return nil

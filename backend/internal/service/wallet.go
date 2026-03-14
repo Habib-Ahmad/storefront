@@ -58,20 +58,20 @@ func (s *WalletService) SetAuditLogRepo(al repository.AuditLogRepository) { s.au
 
 // Credit adds funds to the wallet's pending balance and appends a signed ledger entry.
 // Funds stay in pending until delivery is confirmed; use ReleasePending to make them available.
-func (s *WalletService) Credit(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	return s.record(ctx, walletID, amount, models.TransactionTypeCredit, true, orderID)
+func (s *WalletService) Credit(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	return s.record(ctx, tenantID, amount, models.TransactionTypeCredit, true, orderID)
 }
 
 // CreditAvailable adds funds directly to available balance (for offline/cash/transfer sales).
-func (s *WalletService) CreditAvailable(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	return s.record(ctx, walletID, amount, models.TransactionTypeCredit, false, orderID)
+func (s *WalletService) CreditAvailable(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	return s.record(ctx, tenantID, amount, models.TransactionTypeCredit, false, orderID)
 }
 
 // Debit subtracts amount from available balance and appends a signed ledger entry.
 // It enforces the tier debt ceiling: available_balance - amount must not fall below -debtCeiling.
-func (s *WalletService) Debit(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+func (s *WalletService) Debit(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
 	if s.tiers != nil {
-		w, err := s.wallets.GetByTenantID(ctx, walletID)
+		w, err := s.wallets.GetByTenantID(ctx, tenantID)
 		if err != nil {
 			return nil, ErrWalletNotFound
 		}
@@ -88,24 +88,29 @@ func (s *WalletService) Debit(ctx context.Context, walletID uuid.UUID, amount de
 			return nil, ErrDebtCeilingExceeded
 		}
 	}
-	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeDebit, false, orderID)
+	return s.record(ctx, tenantID, amount.Neg(), models.TransactionTypeDebit, false, orderID)
 }
 
 // RecordCommission appends a commission deduction entry to the ledger (available side, not escrow).
-func (s *WalletService) RecordCommission(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	return s.record(ctx, walletID, amount.Neg(), models.TransactionTypeCommission, false, orderID)
+func (s *WalletService) RecordCommission(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	return s.record(ctx, tenantID, amount.Neg(), models.TransactionTypeCommission, false, orderID)
+}
+
+// Refund debits the wallet for a cancelled order's refund.
+func (s *WalletService) Refund(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	return s.record(ctx, tenantID, amount.Neg(), models.TransactionTypeRefund, false, orderID)
 }
 
 // ReleasePending moves amount from pending to available (post-delivery settlement).
 // Records a zero-amount ledger entry (release doesn't change net flow, only reclassifies).
-func (s *WalletService) ReleasePending(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) error {
+func (s *WalletService) ReleasePending(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) error {
 	doRelease := func(wallets repository.WalletRepository, transactions repository.TransactionRepository) error {
 		var w *models.Wallet
 		var err error
 		if s.pool != nil {
-			w, err = wallets.GetByTenantIDForUpdate(ctx, walletID)
+			w, err = wallets.GetByTenantIDForUpdate(ctx, tenantID)
 		} else {
-			w, err = wallets.GetByTenantID(ctx, walletID)
+			w, err = wallets.GetByTenantID(ctx, tenantID)
 		}
 		if err != nil {
 			return ErrWalletNotFound
@@ -194,14 +199,14 @@ func (s *WalletService) VerifyChain(ctx context.Context, walletID uuid.UUID, ten
 // toPending controls whether the credit goes to pending_balance (true) or available_balance (false).
 // When a pool is configured, the entire operation runs inside a DB transaction with
 // SELECT ... FOR UPDATE on the wallet row to prevent concurrent balance corruption.
-func (s *WalletService) record(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
+func (s *WalletService) record(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
 	if s.pool != nil {
-		return s.recordTx(ctx, walletID, amount, txType, toPending, orderID)
+		return s.recordTx(ctx, tenantID, amount, txType, toPending, orderID)
 	}
-	return s.doRecord(ctx, s.wallets, s.transactions, walletID, amount, txType, toPending, orderID)
+	return s.doRecord(ctx, s.wallets, s.transactions, tenantID, amount, txType, toPending, orderID)
 }
 
-func (s *WalletService) recordTx(ctx context.Context, walletID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
+func (s *WalletService) recordTx(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
 	dbTx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
@@ -211,7 +216,7 @@ func (s *WalletService) recordTx(ctx context.Context, walletID uuid.UUID, amount
 	wallets := s.wallets.WithTx(dbTx)
 	transactions := s.transactions.WithTx(dbTx)
 
-	result, err := s.doRecordForUpdate(ctx, wallets, transactions, walletID, amount, txType, toPending, orderID)
+	result, err := s.doRecordForUpdate(ctx, wallets, transactions, tenantID, amount, txType, toPending, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -222,16 +227,16 @@ func (s *WalletService) recordTx(ctx context.Context, walletID uuid.UUID, amount
 	return result, nil
 }
 
-func (s *WalletService) doRecordForUpdate(ctx context.Context, wallets repository.WalletRepository, transactions repository.TransactionRepository, walletID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
-	w, err := wallets.GetByTenantIDForUpdate(ctx, walletID)
+func (s *WalletService) doRecordForUpdate(ctx context.Context, wallets repository.WalletRepository, transactions repository.TransactionRepository, tenantID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
+	w, err := wallets.GetByTenantIDForUpdate(ctx, tenantID)
 	if err != nil {
 		return nil, ErrWalletNotFound
 	}
 	return s.doRecordWithWallet(ctx, wallets, transactions, w, amount, txType, toPending, orderID)
 }
 
-func (s *WalletService) doRecord(ctx context.Context, wallets repository.WalletRepository, transactions repository.TransactionRepository, walletID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
-	w, err := wallets.GetByTenantID(ctx, walletID)
+func (s *WalletService) doRecord(ctx context.Context, wallets repository.WalletRepository, transactions repository.TransactionRepository, tenantID uuid.UUID, amount decimal.Decimal, txType models.TransactionType, toPending bool, orderID *uuid.UUID) (*models.Transaction, error) {
+	w, err := wallets.GetByTenantID(ctx, tenantID)
 	if err != nil {
 		return nil, ErrWalletNotFound
 	}

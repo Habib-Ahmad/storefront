@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"storefront/backend/internal/adapter/terminalaf"
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
@@ -34,7 +35,16 @@ func NewShipmentService(
 }
 
 // Dispatch books a shipment with the carrier and persists the booking to the shipments table.
+// Only allowed when the order is still in processing state (initial or after a failed shipment).
 func (s *ShipmentService) Dispatch(ctx context.Context, orderID, tenantID uuid.UUID, req terminalaf.BookRequest) (*models.Shipment, error) {
+	order, err := s.orders.GetByID(ctx, tenantID, orderID)
+	if err != nil {
+		return nil, ErrOrderNotFound
+	}
+	if order.FulfillmentStatus != models.FulfillmentStatusProcessing {
+		return nil, apperr.Unprocessable("order is not in a dispatchable state")
+	}
+
 	resp, err := s.carrier.BookShipment(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("book shipment: %w", err)
@@ -85,6 +95,30 @@ func (s *ShipmentService) HandleDelivered(ctx context.Context, orderID uuid.UUID
 	amount := order.TotalAmount.Add(order.ShippingFee)
 	if err := s.walletSvc.ReleasePending(ctx, order.TenantID, amount, &orderID); err != nil {
 		return fmt.Errorf("release pending: %w", err)
+	}
+
+	return nil
+}
+
+// HandleShipmentFailed marks the shipment as failed and resets the order to processing
+// so that the user can re-dispatch.
+func (s *ShipmentService) HandleShipmentFailed(ctx context.Context, orderID uuid.UUID) error {
+	order, err := s.orders.GetByIDInternal(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("get order: %w", err)
+	}
+
+	shipment, err := s.shipments.GetByOrderID(ctx, order.TenantID, orderID)
+	if err != nil {
+		return fmt.Errorf("get shipment: %w", err)
+	}
+
+	if err := s.shipments.UpdateStatus(ctx, order.TenantID, shipment.ID, models.ShipmentStatusFailed); err != nil {
+		return fmt.Errorf("update shipment status: %w", err)
+	}
+
+	if err := s.orders.UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusProcessing); err != nil {
+		return fmt.Errorf("reset fulfillment status: %w", err)
 	}
 
 	return nil

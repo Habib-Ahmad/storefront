@@ -18,6 +18,7 @@ var (
 	ErrDeliveryFieldsMissing = apperr.Unprocessable("customer_phone and shipping_address are required for delivery orders")
 	ErrOrderNotFound         = apperr.NotFound("order not found")
 	ErrProductUnavailable    = apperr.Unprocessable("product is not available")
+	ErrOrderNotCancellable   = apperr.Conflict("only processing orders can be cancelled")
 )
 
 // generateTrackingSlug returns a 12-character lowercase hex string (48 bits of entropy).
@@ -185,4 +186,49 @@ func (s *OrderService) GetByTrackingSlug(ctx context.Context, slug string) (*mod
 
 func (s *OrderService) List(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error) {
 	return s.orders.ListByTenant(ctx, tenantID, limit, offset)
+}
+
+func (s *OrderService) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	return s.orders.CountByTenant(ctx, tenantID)
+}
+
+func (s *OrderService) ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error) {
+	return s.orders.ListItems(ctx, orderID)
+}
+
+// Cancel cancels a processing order: marks it cancelled/refunded, restocks items, and refunds wallet.
+func (s *OrderService) Cancel(ctx context.Context, tenantID, orderID uuid.UUID) error {
+	order, err := s.orders.GetByID(ctx, tenantID, orderID)
+	if err != nil {
+		return ErrOrderNotFound
+	}
+	if order.FulfillmentStatus != models.FulfillmentStatusProcessing {
+		return ErrOrderNotCancellable
+	}
+
+	if err := s.orders.UpdateFulfillmentStatus(ctx, tenantID, orderID, models.FulfillmentStatusCancelled); err != nil {
+		return fmt.Errorf("cancel fulfillment: %w", err)
+	}
+
+	items, err := s.orders.ListItems(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("list items for restock: %w", err)
+	}
+	for _, item := range items {
+		_ = s.products.RestoreStock(ctx, item.VariantID, item.Quantity)
+	}
+
+	if order.PaymentStatus == models.PaymentStatusPaid {
+		if err := s.orders.UpdatePaymentStatus(ctx, tenantID, orderID, models.PaymentStatusRefunded); err != nil {
+			return fmt.Errorf("refund payment status: %w", err)
+		}
+		if s.walletSvc != nil {
+			amount := order.TotalAmount.Add(order.ShippingFee)
+			if _, err := s.walletSvc.Refund(ctx, tenantID, amount, &orderID); err != nil {
+				return fmt.Errorf("refund wallet: %w", err)
+			}
+		}
+	}
+
+	return nil
 }

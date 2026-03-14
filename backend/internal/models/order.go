@@ -18,9 +18,10 @@ const (
 type PaymentStatus string
 
 const (
-	PaymentStatusPending PaymentStatus = "pending"
-	PaymentStatusPaid    PaymentStatus = "paid"
-	PaymentStatusFailed  PaymentStatus = "failed"
+	PaymentStatusPending  PaymentStatus = "pending"
+	PaymentStatusPaid     PaymentStatus = "paid"
+	PaymentStatusFailed   PaymentStatus = "failed"
+	PaymentStatusRefunded PaymentStatus = "refunded"
 )
 
 type FulfillmentStatus string
@@ -29,6 +30,7 @@ const (
 	FulfillmentStatusProcessing FulfillmentStatus = "processing"
 	FulfillmentStatusShipped    FulfillmentStatus = "shipped"
 	FulfillmentStatusDelivered  FulfillmentStatus = "delivered"
+	FulfillmentStatusCancelled  FulfillmentStatus = "cancelled"
 )
 
 type Order struct {

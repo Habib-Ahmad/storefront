@@ -48,7 +48,12 @@ func (h *WalletHandler) ListTransactions(w http.ResponseWriter, r *http.Request)
 		serverErr(w, h.log, r, err)
 		return
 	}
-	respond(w, http.StatusOK, txs)
+	total, err := h.transactions.CountByWallet(r.Context(), wallet.ID)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	respondPage(w, txs, total, limit, offset)
 }
 
 func queryInt(r *http.Request, key string, def int) int {

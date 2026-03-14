@@ -121,8 +121,11 @@ func (m *mockProductRepo) GetByID(_ context.Context, _ uuid.UUID, id uuid.UUID) 
 	}
 	return &models.Product{ID: id, IsAvailable: true}, m.err
 }
-func (m *mockProductRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Product, error) {
+func (m *mockProductRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Product, error) {
 	return nil, m.err
+}
+func (m *mockProductRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, m.err
 }
 func (m *mockProductRepo) Update(_ context.Context, _ *models.Product) error  { return m.err }
 func (m *mockProductRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return m.err }
@@ -142,6 +145,9 @@ func (m *mockProductRepo) UpdateVariant(_ context.Context, v *models.ProductVari
 	return m.err
 }
 func (m *mockProductRepo) DecrementStock(_ context.Context, _ uuid.UUID, _ int) error {
+	return m.err
+}
+func (m *mockProductRepo) RestoreStock(_ context.Context, _ uuid.UUID, _ int) error {
 	return m.err
 }
 func (m *mockProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return m.err }
@@ -183,6 +189,9 @@ func (m *mockOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.
 func (m *mockOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
 	return nil, m.err
 }
+func (m *mockOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, m.err
+}
 func (m *mockOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ models.PaymentStatus) error {
 	return m.err
 }
@@ -215,6 +224,9 @@ func (m *mockTxRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Transactio
 }
 func (m *mockTxRepo) ListByWallet(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Transaction, error) {
 	return m.txs, m.err
+}
+func (m *mockTxRepo) CountByWallet(_ context.Context, _ uuid.UUID) (int, error) {
+	return len(m.txs), m.err
 }
 func (m *mockTxRepo) ListByWalletAsc(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Transaction, error) {
 	return m.txs, m.err

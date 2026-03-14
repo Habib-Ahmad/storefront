@@ -89,3 +89,15 @@ func handleErr(w http.ResponseWriter, log *slog.Logger, r *http.Request, err err
 	}
 	serverErr(w, log, r, err)
 }
+
+type pageResponse struct {
+	Data    any `json:"data"`
+	Total   int `json:"total"`
+	Page    int `json:"page"`
+	PerPage int `json:"per_page"`
+}
+
+func respondPage(w http.ResponseWriter, data any, total, limit, offset int) {
+	page := offset/limit + 1
+	respond(w, http.StatusOK, pageResponse{Data: data, Total: total, Page: page, PerPage: limit})
+}

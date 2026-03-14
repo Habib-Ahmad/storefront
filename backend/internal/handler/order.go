@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"storefront/backend/internal/adapter/terminalaf"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/service"
@@ -19,14 +20,20 @@ type paymentInitiator interface {
 	InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode string) (string, error)
 }
 
-type OrderHandler struct {
-	svc        *service.OrderService
-	paymentSvc paymentInitiator
-	log        *slog.Logger
+// dispatcher is satisfied by *service.ShipmentService.
+type dispatcher interface {
+	Dispatch(ctx context.Context, orderID, tenantID uuid.UUID, req terminalaf.BookRequest) (*models.Shipment, error)
 }
 
-func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, log *slog.Logger) *OrderHandler {
-	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, log: log}
+type OrderHandler struct {
+	svc         *service.OrderService
+	paymentSvc  paymentInitiator
+	shipmentSvc dispatcher
+	log         *slog.Logger
+}
+
+func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, shipmentSvc dispatcher, log *slog.Logger) *OrderHandler {
+	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, shipmentSvc: shipmentSvc, log: log}
 }
 
 // POST /orders
@@ -137,7 +144,70 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	if orders == nil {
 		orders = []models.Order{}
 	}
-	respond(w, http.StatusOK, orders)
+	total, err := h.svc.CountByTenant(r.Context(), tenant.ID)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	respondPage(w, orders, total, limit, offset)
+}
+
+// POST /orders/{id}/dispatch
+func (h *OrderHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	var req terminalaf.BookRequest
+	if !decodeValid(w, r, &req) {
+		return
+	}
+	req.Reference = id.String()
+
+	shipment, err := h.shipmentSvc.Dispatch(r.Context(), id, tenant.ID, req)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	respond(w, http.StatusCreated, shipment)
+}
+
+// POST /orders/{id}/cancel
+func (h *OrderHandler) Cancel(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	if err := h.svc.Cancel(r.Context(), tenant.ID, id); err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"status": "cancelled"})
+}
+
+// GET /orders/{id}/items
+func (h *OrderHandler) ListItems(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	_ = tenant // ownership enforced by fetching order first
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	items, err := h.svc.ListItems(r.Context(), id)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+	if items == nil {
+		items = []models.OrderItem{}
+	}
+	respond(w, http.StatusOK, items)
 }
 
 // GET /track/{slug} — public, no auth

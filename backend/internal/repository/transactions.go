@@ -14,6 +14,7 @@ type TransactionRepository interface {
 	Create(ctx context.Context, tx *models.Transaction) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Transaction, error)
 	ListByWallet(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error)
+	CountByWallet(ctx context.Context, walletID uuid.UUID) (int, error)
 	ListByWalletAsc(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error)
 	GetLatestByWallet(ctx context.Context, walletID uuid.UUID) (*models.Transaction, error)
 	WithTx(tx db.DBTX) TransactionRepository
@@ -77,6 +78,12 @@ func (r *transactionRepo) ListByWallet(ctx context.Context, walletID uuid.UUID, 
 		txs = append(txs, tx)
 	}
 	return txs, rows.Err()
+}
+
+func (r *transactionRepo) CountByWallet(ctx context.Context, walletID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM transactions WHERE wallet_id = $1`, walletID).Scan(&count)
+	return count, err
 }
 
 func (r *transactionRepo) ListByWalletAsc(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]models.Transaction, error) {

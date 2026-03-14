@@ -39,7 +39,7 @@ func newPaymentSvc(ps *mockPaystackClient, orders *mockOrderRepo, wallet *models
 		&mockTenantRepo{},
 		testHMACSecret,
 	)
-	return service.NewPaymentService(ps, orders, walletSvc)
+	return service.NewPaymentService(ps, orders, &mockProductRepo{}, walletSvc)
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 		&mockTenantRepo{},
 		testHMACSecret,
 	)
-	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, walletSvc)
+	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, &mockProductRepo{}, walletSvc)
 
 	err := paymentSvc.HandleChargeSuccess(context.Background(), orderID.String())
 	if err != nil {

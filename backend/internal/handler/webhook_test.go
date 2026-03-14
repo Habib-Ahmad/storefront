@@ -20,17 +20,33 @@ type stubWebhookVerifier struct{ valid bool }
 
 func (s *stubWebhookVerifier) VerifyWebhookSignature(_ []byte, _ string) bool { return s.valid }
 
-type stubPaymentWebhookSvc struct{ called bool }
+type stubPaymentWebhookSvc struct {
+	called       bool
+	failedCalled bool
+}
 
 func (s *stubPaymentWebhookSvc) HandleChargeSuccess(_ context.Context, _ string) error {
 	s.called = true
 	return nil
 }
 
-type stubShipmentWebhookSvc struct{ called bool }
+func (s *stubPaymentWebhookSvc) HandleChargeFailed(_ context.Context, _ string) error {
+	s.failedCalled = true
+	return nil
+}
+
+type stubShipmentWebhookSvc struct {
+	called       bool
+	failedCalled bool
+}
 
 func (s *stubShipmentWebhookSvc) HandleDelivered(_ context.Context, _ uuid.UUID) error {
 	s.called = true
+	return nil
+}
+
+func (s *stubShipmentWebhookSvc) HandleShipmentFailed(_ context.Context, _ uuid.UUID) error {
+	s.failedCalled = true
 	return nil
 }
 

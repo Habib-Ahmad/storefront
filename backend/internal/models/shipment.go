@@ -14,6 +14,7 @@ const (
 	ShipmentStatusPickedUp  ShipmentStatus = "picked_up"
 	ShipmentStatusInTransit ShipmentStatus = "in_transit"
 	ShipmentStatusDelivered ShipmentStatus = "delivered"
+	ShipmentStatusFailed    ShipmentStatus = "failed"
 )
 
 type Shipment struct {

@@ -10,14 +10,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// chargeSuccessHandler is satisfied by *service.PaymentService.
-type chargeSuccessHandler interface {
+// chargeHandler is satisfied by *service.PaymentService.
+type chargeHandler interface {
 	HandleChargeSuccess(ctx context.Context, reference string) error
+	HandleChargeFailed(ctx context.Context, reference string) error
 }
 
 // deliveredHandler is satisfied by *service.ShipmentService.
 type deliveredHandler interface {
 	HandleDelivered(ctx context.Context, orderID uuid.UUID) error
+	HandleShipmentFailed(ctx context.Context, orderID uuid.UUID) error
 }
 
 type webhookVerifier interface {
@@ -27,7 +29,7 @@ type webhookVerifier interface {
 type WebhookHandler struct {
 	paystackClient webhookVerifier
 	terminalClient webhookVerifier
-	paymentSvc     chargeSuccessHandler
+	paymentSvc     chargeHandler
 	shipmentSvc    deliveredHandler
 	log            *slog.Logger
 }
@@ -35,7 +37,7 @@ type WebhookHandler struct {
 func NewWebhookHandler(
 	paystackClient webhookVerifier,
 	terminalClient webhookVerifier,
-	paymentSvc chargeSuccessHandler,
+	paymentSvc chargeHandler,
 	shipmentSvc deliveredHandler,
 	log *slog.Logger,
 ) *WebhookHandler {
@@ -83,6 +85,17 @@ func (h *WebhookHandler) Paystack(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if event.Event == "charge.failed" {
+		var data struct {
+			Reference string `json:"reference"`
+		}
+		if err := json.Unmarshal(event.Data, &data); err == nil && data.Reference != "" {
+			if err := h.paymentSvc.HandleChargeFailed(r.Context(), data.Reference); err != nil {
+				h.log.Error("paystack webhook: charge.failed", "error", err)
+			}
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -105,14 +118,21 @@ func (h *WebhookHandler) TerminalAf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if event.Event == "shipment.delivered" {
+	if event.Event == "shipment.delivered" || event.Event == "shipment.failed" {
 		var data struct {
 			Reference string `json:"metadata_reference"`
 		}
 		if err := json.Unmarshal(event.Data, &data); err == nil && data.Reference != "" {
 			if orderID, err := uuid.Parse(data.Reference); err == nil {
-				if err := h.shipmentSvc.HandleDelivered(r.Context(), orderID); err != nil {
-					h.log.Error("terminalaf webhook: shipment.delivered", "error", err)
+				switch event.Event {
+				case "shipment.delivered":
+					if err := h.shipmentSvc.HandleDelivered(r.Context(), orderID); err != nil {
+						h.log.Error("terminalaf webhook: shipment.delivered", "error", err)
+					}
+				case "shipment.failed":
+					if err := h.shipmentSvc.HandleShipmentFailed(r.Context(), orderID); err != nil {
+						h.log.Error("terminalaf webhook: shipment.failed", "error", err)
+					}
 				}
 			}
 		}

@@ -67,7 +67,7 @@ func main() {
 	orderSvc.SetWalletService(walletSvc)
 	orderSvc.SetTenantRepo(tenantRepo)
 	orderSvc.SetTierRepo(tierRepo)
-	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, walletSvc)
+	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, productRepo, walletSvc)
 	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 
 	// Handlers
@@ -77,7 +77,7 @@ func main() {
 	userSvc := service.NewUserService(userRepo)
 	userH := handler.NewUserHandler(userSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
-	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, log)
+	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, shipmentSvc, log)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 	webhookH := handler.NewWebhookHandler(paystackClient, terminalClient, paymentSvc, shipmentSvc, log)
 
