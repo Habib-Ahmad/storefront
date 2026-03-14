@@ -2,12 +2,11 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
@@ -15,10 +14,10 @@ import (
 const defaultTierName = "Standard"
 
 var (
-	ErrTenantNotFound = errors.New("tenant not found")
-	ErrModuleDisabled = errors.New("module not enabled for this tenant")
-	ErrSlugTaken      = errors.New("slug already in use")
-	ErrUserExists     = errors.New("user already belongs to a tenant")
+	ErrTenantNotFound = apperr.NotFound("tenant not found")
+	ErrModuleDisabled = apperr.Forbidden("module not enabled for this tenant")
+	ErrSlugTaken      = apperr.Conflict("slug already in use")
+	ErrUserExists     = apperr.Conflict("user already belongs to a tenant")
 )
 
 type TenantService struct {
@@ -53,7 +52,7 @@ func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, ad
 		Status:       models.TenantStatusActive,
 	}
 	if err := s.tenants.Create(ctx, tenant); err != nil {
-		if strings.Contains(err.Error(), "tenants_slug_key") {
+		if apperr.IsUniqueViolation(err) {
 			return nil, ErrSlugTaken
 		}
 		return nil, fmt.Errorf("create tenant: %w", err)
@@ -66,7 +65,7 @@ func (s *TenantService) Onboard(ctx context.Context, tenantName, slug string, ad
 		Role:     models.UserRoleAdmin,
 	}
 	if err := s.users.Create(ctx, user); err != nil {
-		if strings.Contains(err.Error(), "users_pkey") {
+		if apperr.IsUniqueViolation(err) {
 			return nil, ErrUserExists
 		}
 		return nil, fmt.Errorf("create admin user: %w", err)

@@ -135,7 +135,7 @@ func TestUserUpdateProfile_UserNotFound(t *testing.T) {
 
 	h.UpdateProfile(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", rec.Code)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
 	}
 }

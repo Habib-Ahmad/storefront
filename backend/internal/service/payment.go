@@ -2,17 +2,18 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 
 	paystack "storefront/backend/internal/adapter/paystack"
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
 
-var ErrPaymentVerificationFailed = errors.New("payment verification failed")
+var ErrPaymentVerificationFailed = apperr.New(http.StatusBadGateway, "payment verification failed")
 
 // PaystackClient is the subset of paystack.Client used by PaymentService.
 type PaystackClient interface {

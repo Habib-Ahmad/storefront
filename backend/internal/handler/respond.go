@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+
+	"storefront/backend/internal/apperr"
 )
 
 var validate = validator.New(validator.WithRequiredStructEnabled())
@@ -78,4 +80,12 @@ func serverErr(w http.ResponseWriter, log *slog.Logger, r *http.Request, err err
 		"error", err.Error(),
 	)
 	respondErr(w, http.StatusInternalServerError, "internal server error")
+}
+
+func handleErr(w http.ResponseWriter, log *slog.Logger, r *http.Request, err error) {
+	if status, msg := apperr.HTTPError(err); status != 0 {
+		respondErr(w, status, msg)
+		return
+	}
+	serverErr(w, log, r, err)
 }

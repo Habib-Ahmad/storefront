@@ -40,7 +40,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.UpdateProfile(r.Context(), userID, req.FirstName, req.LastName, req.Phone); err != nil {
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

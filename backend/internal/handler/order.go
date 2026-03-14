@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 
@@ -60,14 +59,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	out, err := h.svc.Create(r.Context(), order, req.Items)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrDeliveryFieldsMissing):
-			respondErr(w, http.StatusUnprocessableEntity, err.Error())
-		case errors.Is(err, service.ErrSoldOut):
-			respondErr(w, http.StatusConflict, err.Error())
-		default:
-			serverErr(w, h.log, r, err)
-		}
+		handleErr(w, h.log, r, err)
 		return
 	}
 

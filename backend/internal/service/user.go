@@ -2,15 +2,15 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
 
-var ErrUserNotFound = errors.New("user not found")
+var ErrUserNotFound = apperr.NotFound("user not found")
 
 type UserService struct {
 	users repository.UserRepository

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 
@@ -52,11 +51,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := h.svc.Create(r.Context(), p, req.Variants)
 	if err != nil {
-		if errors.Is(err, service.ErrDuplicateSKU) {
-			respondErr(w, http.StatusConflict, "a variant with this SKU already exists")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusCreated, out)
@@ -94,11 +89,7 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	p, variants, err := h.svc.GetByID(r.Context(), tenant.ID, id)
 	if err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	images, _ := h.svc.GetImagesByProduct(r.Context(), tenant.ID, id)
@@ -138,11 +129,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IsAvailable: req.IsAvailable,
 	}
 	if err := h.svc.Update(r.Context(), p); err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -162,11 +149,7 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.SoftDelete(r.Context(), tenant.ID, id); err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		respondErr(w, http.StatusInternalServerError, "delete failed")
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -201,15 +184,7 @@ func (h *ProductHandler) CreateVariant(w http.ResponseWriter, r *http.Request) {
 		StockQty:   req.StockQty,
 	}
 	if err := h.svc.CreateVariant(r.Context(), tenant.ID, v); err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		if errors.Is(err, service.ErrDuplicateSKU) {
-			respondErr(w, http.StatusConflict, "a variant with this SKU already exists for this product")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusCreated, v)
@@ -229,11 +204,7 @@ func (h *ProductHandler) ListVariants(w http.ResponseWriter, r *http.Request) {
 	}
 	variants, err := h.svc.ListVariants(r.Context(), tenant.ID, productID)
 	if err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	if variants == nil {
@@ -271,11 +242,7 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 		StockQty:   req.StockQty,
 	}
 	if err := h.svc.UpdateVariant(r.Context(), tenant.ID, v); err != nil {
-		if errors.Is(err, service.ErrVariantNotFound) {
-			respondErr(w, http.StatusNotFound, "variant not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -294,11 +261,7 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.DeleteVariant(r.Context(), tenant.ID, variantID); err != nil {
-		if errors.Is(err, service.ErrVariantNotFound) {
-			respondErr(w, http.StatusNotFound, "variant not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -331,15 +294,7 @@ func (h *ProductHandler) AddImage(w http.ResponseWriter, r *http.Request) {
 		IsPrimary: req.IsPrimary,
 	}
 	if err := h.svc.AddImage(r.Context(), tenant.ID, img); err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		if errors.Is(err, service.ErrDuplicateSortOrder) {
-			respondErr(w, http.StatusConflict, "an image with this sort order already exists")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusCreated, img)
@@ -359,11 +314,7 @@ func (h *ProductHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 	}
 	images, err := h.svc.GetImagesByProduct(r.Context(), tenant.ID, productID)
 	if err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	if images == nil {
@@ -405,15 +356,7 @@ func (h *ProductHandler) UpdateImage(w http.ResponseWriter, r *http.Request) {
 		IsPrimary: req.IsPrimary,
 	}
 	if err := h.svc.UpdateImage(r.Context(), tenant.ID, img); err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		if errors.Is(err, service.ErrDuplicateSortOrder) {
-			respondErr(w, http.StatusConflict, "an image with this sort order already exists")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -437,11 +380,7 @@ func (h *ProductHandler) DeleteImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.DeleteImage(r.Context(), tenant.ID, productID, imageID); err != nil {
-		if errors.Is(err, service.ErrProductNotFound) {
-			respondErr(w, http.StatusNotFound, "product not found")
-			return
-		}
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

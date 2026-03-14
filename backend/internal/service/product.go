@@ -3,30 +3,23 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
 
 var (
-	ErrProductNotFound    = errors.New("product not found")
-	ErrVariantNotFound    = errors.New("variant not found")
-	ErrSoldOut            = errors.New("variant is sold out")
-	ErrDuplicateSKU       = errors.New("a variant with this SKU already exists for this product")
-	ErrDuplicateSortOrder = errors.New("an image with this sort order already exists for this product")
+	ErrProductNotFound    = apperr.NotFound("product not found")
+	ErrVariantNotFound    = apperr.NotFound("variant not found")
+	ErrSoldOut            = apperr.Conflict("variant is sold out")
+	ErrDuplicateSKU       = apperr.Conflict("a variant with this SKU already exists for this product")
+	ErrDuplicateSortOrder = apperr.Conflict("an image with this sort order already exists for this product")
 )
-
-// isUniqueViolation checks if err is a Postgres unique_violation (23505).
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
 
 type ProductService struct {
 	products repository.ProductRepository
@@ -54,7 +47,7 @@ func (s *ProductService) Create(ctx context.Context, p *models.Product, variants
 	for i := range variants {
 		variants[i].ProductID = p.ID
 		if err := s.products.CreateVariant(ctx, &variants[i]); err != nil {
-			if isUniqueViolation(err) {
+			if apperr.IsUniqueViolation(err) {
 				return nil, ErrDuplicateSKU
 			}
 			return nil, fmt.Errorf("create variant: %w", err)
@@ -111,7 +104,7 @@ func (s *ProductService) AddImage(ctx context.Context, tenantID uuid.UUID, img *
 		return ErrProductNotFound
 	}
 	if err := s.products.AddImage(ctx, img); err != nil {
-		if isUniqueViolation(err) {
+		if apperr.IsUniqueViolation(err) {
 			return ErrDuplicateSortOrder
 		}
 		return err
@@ -131,7 +124,7 @@ func (s *ProductService) UpdateImage(ctx context.Context, tenantID uuid.UUID, im
 		return ErrProductNotFound
 	}
 	if err := s.products.UpdateImage(ctx, img); err != nil {
-		if isUniqueViolation(err) {
+		if apperr.IsUniqueViolation(err) {
 			return ErrDuplicateSortOrder
 		}
 		return err
@@ -173,7 +166,7 @@ func (s *ProductService) CreateVariant(ctx context.Context, tenantID uuid.UUID, 
 		return ErrProductNotFound
 	}
 	if err := s.products.CreateVariant(ctx, v); err != nil {
-		if isUniqueViolation(err) {
+		if apperr.IsUniqueViolation(err) {
 			return ErrDuplicateSKU
 		}
 		return err

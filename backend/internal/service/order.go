@@ -4,20 +4,20 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
 
 var (
-	ErrDeliveryFieldsMissing = errors.New("customer_phone and shipping_address are required for delivery orders")
-	ErrOrderNotFound         = errors.New("order not found")
-	ErrProductUnavailable    = errors.New("product is not available")
+	ErrDeliveryFieldsMissing = apperr.Unprocessable("customer_phone and shipping_address are required for delivery orders")
+	ErrOrderNotFound         = apperr.NotFound("order not found")
+	ErrProductUnavailable    = apperr.Unprocessable("product is not available")
 )
 
 // generateTrackingSlug returns a 12-character lowercase hex string (48 bits of entropy).

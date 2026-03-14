@@ -6,20 +6,21 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"storefront/backend/internal/apperr"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
 
 var (
-	ErrChainTampered       = errors.New("ledger chain integrity violation")
-	ErrWalletNotFound      = errors.New("wallet not found")
-	ErrDebtCeilingExceeded = errors.New("debt ceiling exceeded")
+	ErrChainTampered       = apperr.New(http.StatusInternalServerError, "ledger chain integrity violation")
+	ErrWalletNotFound      = apperr.NotFound("wallet not found")
+	ErrDebtCeilingExceeded = apperr.Unprocessable("debt ceiling exceeded")
 )
 
 type WalletService struct {

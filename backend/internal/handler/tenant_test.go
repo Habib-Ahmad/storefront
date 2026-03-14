@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/middleware"
@@ -119,8 +119,7 @@ func TestOnboard_MissingFields(t *testing.T) {
 }
 
 func TestOnboard_DuplicateSlug_Returns409(t *testing.T) {
-	// Duplicate slug must return 409 Conflict, not 500 — the service detects the DB constraint name.
-	createErr := errors.New(`ERROR: duplicate key value violates unique constraint "tenants_slug_key" (SQLSTATE 23505)`)
+	createErr := &pgconn.PgError{Code: "23505", ConstraintName: "tenants_slug_key"}
 	svc := service.NewTenantService(&stubTenantRepo{createErr: createErr}, &stubTierRepo{}, &stubWalletRepo{}, &stubUserRepo{})
 	h := handler.NewTenantHandler(svc, slog.Default())
 
