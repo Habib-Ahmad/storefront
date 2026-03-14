@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/handler"
@@ -22,12 +23,14 @@ import (
 )
 
 type stubProductRepo struct {
-	product   *models.Product
-	products  []models.Product
-	variant   *models.ProductVariant
-	variants  []models.ProductVariant
-	createErr error
-	getErr    error
+	product        *models.Product
+	products       []models.Product
+	variant        *models.ProductVariant
+	variants       []models.ProductVariant
+	createErr      error
+	getErr         error
+	addImageErr    error
+	updateImageErr error
 }
 
 func (s *stubProductRepo) Create(_ context.Context, p *models.Product) error {
@@ -70,14 +73,19 @@ func (s *stubProductRepo) UpdateVariant(_ context.Context, _ *models.ProductVari
 }
 func (s *stubProductRepo) SoftDeleteVariant(_ context.Context, _ uuid.UUID) error { return nil }
 func (s *stubProductRepo) AddImage(_ context.Context, img *models.ProductImage) error {
+	if s.addImageErr != nil {
+		return s.addImageErr
+	}
 	img.ID = uuid.New()
 	return nil
 }
 func (s *stubProductRepo) ListImagesByProduct(_ context.Context, _ uuid.UUID) ([]models.ProductImage, error) {
 	return nil, nil
 }
-func (s *stubProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error            { return nil }
-func (s *stubProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error { return nil }
+func (s *stubProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error { return nil }
+func (s *stubProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error {
+	return s.updateImageErr
+}
 
 var _ repository.ProductRepository = (*stubProductRepo)(nil)
 
@@ -568,6 +576,22 @@ func TestAddImage_ModuleDisabled(t *testing.T) {
 	}
 }
 
+func TestAddImage_DuplicateSortOrder(t *testing.T) {
+	pgErr := &pgconn.PgError{Code: "23505"}
+	repo := &stubProductRepo{addImageErr: pgErr}
+	h := newProductHandler(repo)
+	productID := uuid.New()
+	body, _ := json.Marshal(map[string]any{"url": "https://example.com/img.jpg", "sort_order": 1})
+	req := httptest.NewRequest(http.MethodPost, "/products/"+productID.String()+"/images", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", productID.String())
+	rec := httptest.NewRecorder()
+	h.AddImage(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestListImages_OK(t *testing.T) {
 	repo := &stubProductRepo{}
 	h := newProductHandler(repo)
@@ -626,6 +650,23 @@ func TestUpdateImage_ProductNotFound(t *testing.T) {
 	h.UpdateImage(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestUpdateImage_DuplicateSortOrder(t *testing.T) {
+	pgErr := &pgconn.PgError{Code: "23505"}
+	repo := &stubProductRepo{updateImageErr: pgErr}
+	h := newProductHandler(repo)
+	productID := uuid.New()
+	imageID := uuid.New()
+	body, _ := json.Marshal(map[string]any{"url": "https://example.com/img.jpg", "sort_order": 1})
+	req := httptest.NewRequest(http.MethodPut, "/products/"+productID.String()+"/images/"+imageID.String(), bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParams(req, map[string]string{"id": productID.String(), "imageId": imageID.String()})
+	rec := httptest.NewRecorder()
+	h.UpdateImage(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

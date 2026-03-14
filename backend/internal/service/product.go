@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	ErrProductNotFound = errors.New("product not found")
-	ErrVariantNotFound = errors.New("variant not found")
-	ErrSoldOut         = errors.New("variant is sold out")
-	ErrDuplicateSKU    = errors.New("a variant with this SKU already exists for this product")
+	ErrProductNotFound    = errors.New("product not found")
+	ErrVariantNotFound    = errors.New("variant not found")
+	ErrSoldOut            = errors.New("variant is sold out")
+	ErrDuplicateSKU       = errors.New("a variant with this SKU already exists for this product")
+	ErrDuplicateSortOrder = errors.New("an image with this sort order already exists for this product")
 )
 
 // isUniqueViolation checks if err is a Postgres unique_violation (23505).
@@ -109,7 +110,13 @@ func (s *ProductService) AddImage(ctx context.Context, tenantID uuid.UUID, img *
 	if _, err := s.products.GetByID(ctx, tenantID, img.ProductID); err != nil {
 		return ErrProductNotFound
 	}
-	return s.products.AddImage(ctx, img)
+	if err := s.products.AddImage(ctx, img); err != nil {
+		if isUniqueViolation(err) {
+			return ErrDuplicateSortOrder
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *ProductService) DeleteImage(ctx context.Context, tenantID, productID, imageID uuid.UUID) error {
@@ -123,7 +130,13 @@ func (s *ProductService) UpdateImage(ctx context.Context, tenantID uuid.UUID, im
 	if _, err := s.products.GetByID(ctx, tenantID, img.ProductID); err != nil {
 		return ErrProductNotFound
 	}
-	return s.products.UpdateImage(ctx, img)
+	if err := s.products.UpdateImage(ctx, img); err != nil {
+		if isUniqueViolation(err) {
+			return ErrDuplicateSortOrder
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *ProductService) Update(ctx context.Context, p *models.Product) error {

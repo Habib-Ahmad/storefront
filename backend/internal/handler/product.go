@@ -335,6 +335,10 @@ func (h *ProductHandler) AddImage(w http.ResponseWriter, r *http.Request) {
 			respondErr(w, http.StatusNotFound, "product not found")
 			return
 		}
+		if errors.Is(err, service.ErrDuplicateSortOrder) {
+			respondErr(w, http.StatusConflict, "an image with this sort order already exists")
+			return
+		}
 		serverErr(w, h.log, r, err)
 		return
 	}
@@ -403,6 +407,10 @@ func (h *ProductHandler) UpdateImage(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.UpdateImage(r.Context(), tenant.ID, img); err != nil {
 		if errors.Is(err, service.ErrProductNotFound) {
 			respondErr(w, http.StatusNotFound, "product not found")
+			return
+		}
+		if errors.Is(err, service.ErrDuplicateSortOrder) {
+			respondErr(w, http.StatusConflict, "an image with this sort order already exists")
 			return
 		}
 		serverErr(w, h.log, r, err)
