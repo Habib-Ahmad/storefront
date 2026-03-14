@@ -186,7 +186,7 @@ func (h *OrderHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 
 	shipment, err := h.shipmentSvc.Dispatch(r.Context(), id, tenant.ID, req)
 	if err != nil {
-		serverErr(w, h.log, r, err)
+		handleErr(w, h.log, r, err)
 		return
 	}
 	respond(w, http.StatusCreated, shipment)
