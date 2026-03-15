@@ -78,6 +78,11 @@ func (s *ShipmentService) HandleDelivered(ctx context.Context, orderID uuid.UUID
 		return fmt.Errorf("get order: %w", err)
 	}
 
+	// Idempotency: if already delivered, skip.
+	if order.FulfillmentStatus == models.FulfillmentStatusDelivered {
+		return nil
+	}
+
 	shipment, err := s.shipments.GetByOrderID(ctx, order.TenantID, orderID)
 	if err != nil {
 		return fmt.Errorf("get shipment: %w", err)

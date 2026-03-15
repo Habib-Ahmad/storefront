@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
@@ -41,6 +42,7 @@ func (m *userHandlerRepo) Update(_ context.Context, u *models.User) error {
 	return m.updErr
 }
 func (m *userHandlerRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *userHandlerRepo) WithTx(_ db.DBTX) repository.UserRepository         { return m }
 
 var _ repository.UserRepository = (*userHandlerRepo)(nil)
 

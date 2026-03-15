@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
@@ -34,6 +35,7 @@ func (m *authUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Us
 }
 func (m *authUserRepo) Update(_ context.Context, _ *models.User) error     { return nil }
 func (m *authUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *authUserRepo) WithTx(_ db.DBTX) repository.UserRepository         { return m }
 
 var _ repository.UserRepository = (*authUserRepo)(nil)
 
@@ -51,6 +53,7 @@ func (m *authTenantRepo) GetBySlug(_ context.Context, _ string) (*models.Tenant,
 }
 func (m *authTenantRepo) Update(_ context.Context, _ *models.Tenant) error { return nil }
 func (m *authTenantRepo) SoftDelete(_ context.Context, _ uuid.UUID) error  { return nil }
+func (m *authTenantRepo) WithTx(_ db.DBTX) repository.TenantRepository     { return m }
 
 var _ repository.TenantRepository = (*authTenantRepo)(nil)
 

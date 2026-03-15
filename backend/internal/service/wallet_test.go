@@ -169,12 +169,16 @@ func TestDebit_ChainEntry(t *testing.T) {
 	// Debit must produce a signed negative-amount ledger entry that chains correctly.
 	// running_balance tracks cumulative net flow, not wallet balance.
 	walletID := uuid.New()
-	w := &models.Wallet{ID: walletID, TenantID: uuid.New(), AvailableBalance: decimal.NewFromInt(1000)}
+	tenantID := uuid.New()
+	tierID := uuid.New()
+	w := &models.Wallet{ID: walletID, TenantID: tenantID, AvailableBalance: decimal.NewFromInt(1000)}
 	txRepo := &mockTxRepo{}
-	svc := newWalletSvc(w, txRepo, &mockTenantRepo{})
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}}
+	svc := newWalletSvc(w, txRepo, tenantRepo)
+	svc.SetTierRepo(&mockTierRepo{tier: &models.Tier{ID: tierID, DebtCeiling: decimal.Zero}})
 
 	debitAmount := decimal.NewFromInt(300)
-	tx, err := svc.Debit(context.Background(), walletID, debitAmount, nil)
+	tx, err := svc.Debit(context.Background(), tenantID, debitAmount, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

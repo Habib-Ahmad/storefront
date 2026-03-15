@@ -46,8 +46,11 @@ func Authenticate(keyFunc jwt.Keyfunc) func(http.Handler) http.Handler {
 			}
 
 			role := models.UserRoleStaff
-			if r, ok := claims["role"].(string); ok && r != "" {
-				role = models.UserRole(r)
+			if roleStr, ok := claims["role"].(string); ok && roleStr != "" {
+				parsed := models.UserRole(roleStr)
+				if parsed == models.UserRoleAdmin || parsed == models.UserRoleStaff || parsed == models.UserRoleManager {
+					role = parsed
+				}
 			}
 
 			ctx := context.WithValue(r.Context(), ctxKeyUserID, userID)

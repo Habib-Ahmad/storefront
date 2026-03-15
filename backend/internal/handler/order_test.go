@@ -13,8 +13,10 @@ import (
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/adapter/terminalaf"
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/models"
+	"storefront/backend/internal/repository"
 	"storefront/backend/internal/service"
 )
 
@@ -51,6 +53,7 @@ func (s *stubOrderRepo) UpdateFulfillmentStatus(_ context.Context, _, _ uuid.UUI
 func (s *stubOrderRepo) ListItems(_ context.Context, _ uuid.UUID) ([]models.OrderItem, error) {
 	return nil, nil
 }
+func (s *stubOrderRepo) WithTx(_ db.DBTX) repository.OrderRepository { return s }
 
 type stubProductRepoForOrder struct{ variant *models.ProductVariant }
 
@@ -129,7 +132,7 @@ func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -149,7 +152,7 @@ func TestCreateOrder_Valid(t *testing.T) {
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -165,7 +168,7 @@ func TestCreateOrder_CashSale_NoPaystackURL(t *testing.T) {
 		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -190,7 +193,7 @@ func TestCreateOrder_QuickSale_AmountOnly(t *testing.T) {
 		"note":           "walk-in customer",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -210,7 +213,7 @@ func TestCreateOrder_QuickSale_MissingAmount(t *testing.T) {
 		"payment_method": "cash",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -224,7 +227,7 @@ func TestCreateOrder_InvalidVariantID(t *testing.T) {
 		"items": []map[string]any{{"variant_id": "not-a-uuid", "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -239,7 +242,7 @@ func TestCreateOrder_ZeroQuantity(t *testing.T) {
 		"items": []map[string]any{{"variant_id": variantID, "quantity": 0}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -255,7 +258,7 @@ func TestCreateOrder_InvalidPaymentMethod(t *testing.T) {
 		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -266,7 +269,7 @@ func TestCreateOrder_InvalidPaymentMethod(t *testing.T) {
 func TestCreateOrder_BadJSON(t *testing.T) {
 	h := newOrderHandler(nil)
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte("{not json")))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -278,7 +281,7 @@ func TestCreateOrder_EmptyBody(t *testing.T) {
 	h := newOrderHandler(nil)
 	body, _ := json.Marshal(map[string]any{})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {

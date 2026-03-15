@@ -27,6 +27,7 @@ type PaymentService struct {
 	orders    repository.OrderRepository
 	products  repository.ProductRepository
 	walletSvc *WalletService
+	pool      TxBeginner
 }
 
 func NewPaymentService(
@@ -37,6 +38,8 @@ func NewPaymentService(
 ) *PaymentService {
 	return &PaymentService{paystack: paystackClient, orders: orders, products: products, walletSvc: walletSvc}
 }
+
+func (s *PaymentService) SetPool(pool TxBeginner) { s.pool = pool }
 
 // InitiatePayment creates a Paystack transaction and returns the redirect URL.
 // The Paystack reference equals the order UUID so webhook callbacks can reverse-map it.
@@ -85,11 +88,30 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		return ErrPaymentAmountMismatch
 	}
 
+	// Atomic: update payment status + credit wallet in a single DB transaction.
+	if s.pool != nil {
+		dbTx, err := s.pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx: %w", err)
+		}
+		defer dbTx.Rollback(ctx) //nolint:errcheck
+
+		if err := s.orders.WithTx(dbTx).UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusPaid); err != nil {
+			return fmt.Errorf("update payment status: %w", err)
+		}
+
+		if _, err := s.walletSvc.CreditWithTx(ctx, dbTx, order.TenantID, resp.Amount, &orderID); err != nil {
+			return fmt.Errorf("credit wallet: %w", err)
+		}
+
+		return dbTx.Commit(ctx)
+	}
+
+	// Fallback (no pool): non-atomic path for tests / simple setups.
 	if err := s.orders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusPaid); err != nil {
 		return fmt.Errorf("update payment status: %w", err)
 	}
 
-	// walletSvc.Credit looks up the wallet by tenant ID.
 	if _, err := s.walletSvc.Credit(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
 		return fmt.Errorf("credit wallet: %w", err)
 	}

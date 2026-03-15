@@ -9,8 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
+	"storefront/backend/internal/repository"
 )
 
 type mockUserRepo struct {
@@ -30,6 +32,7 @@ func (m *mockUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Us
 }
 func (m *mockUserRepo) Update(_ context.Context, _ *models.User) error     { return nil }
 func (m *mockUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockUserRepo) WithTx(_ db.DBTX) repository.UserRepository         { return m }
 
 type mockTenantRepo struct {
 	tenant *models.Tenant
@@ -45,6 +48,7 @@ func (m *mockTenantRepo) GetBySlug(_ context.Context, _ string) (*models.Tenant,
 }
 func (m *mockTenantRepo) Update(_ context.Context, _ *models.Tenant) error { return nil }
 func (m *mockTenantRepo) SoftDelete(_ context.Context, _ uuid.UUID) error  { return nil }
+func (m *mockTenantRepo) WithTx(_ db.DBTX) repository.TenantRepository     { return m }
 
 func reqWithUserID(userID uuid.UUID) *http.Request {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

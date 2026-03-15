@@ -34,6 +34,7 @@ func (m *mockTenantRepo) Update(_ context.Context, t *models.Tenant) error {
 	return m.err
 }
 func (m *mockTenantRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return m.err }
+func (m *mockTenantRepo) WithTx(_ db.DBTX) repository.TenantRepository    { return m }
 
 // ── Tier repo mock ─────────────────────────────────────────
 
@@ -74,6 +75,9 @@ func (m *mockWalletRepo) UpdateBalances(_ context.Context, w *models.Wallet) err
 	return m.err
 }
 func (m *mockWalletRepo) WithTx(_ db.DBTX) repository.WalletRepository { return m }
+func (m *mockWalletRepo) ListActiveWallets(_ context.Context) ([]repository.ActiveWallet, error) {
+	return nil, m.err
+}
 
 // ── User repo mock ────────────────────────────────────────────
 
@@ -100,6 +104,7 @@ func (m *mockUserRepo) Update(_ context.Context, u *models.User) error {
 	m.user = u
 	return m.err
 }
+func (m *mockUserRepo) WithTx(_ db.DBTX) repository.UserRepository { return m }
 
 // ── Product repo mock ─────────────────────────────────────────
 
@@ -216,6 +221,7 @@ func (m *mockOrderRepo) UpdateFulfillmentStatus(_ context.Context, _ uuid.UUID, 
 func (m *mockOrderRepo) ListItems(_ context.Context, _ uuid.UUID) ([]models.OrderItem, error) {
 	return m.items, m.err
 }
+func (m *mockOrderRepo) WithTx(_ db.DBTX) repository.OrderRepository { return m }
 
 // ── Transaction repo mock ─────────────────────────────────────
 

@@ -7,6 +7,7 @@ import (
 
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/repository"
+	"storefront/backend/internal/service"
 )
 
 type WalletHandler struct {
@@ -22,6 +23,10 @@ func NewWalletHandler(wallets repository.WalletRepository, txs repository.Transa
 // GET /wallet
 func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, true, false); err != nil {
+		respondErr(w, http.StatusForbidden, "payments module not enabled")
+		return
+	}
 	wallet, err := h.wallets.GetByTenantID(r.Context(), tenant.ID)
 	if err != nil {
 		respondErr(w, http.StatusNotFound, "wallet not found")
@@ -33,6 +38,10 @@ func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 // GET /wallet/transactions?limit=20&offset=0
 func (h *WalletHandler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, true, false); err != nil {
+		respondErr(w, http.StatusForbidden, "payments module not enabled")
+		return
+	}
 
 	wallet, err := h.wallets.GetByTenantID(r.Context(), tenant.ID)
 	if err != nil {
@@ -60,6 +69,9 @@ func queryInt(r *http.Request, key string, def int) int {
 	v, err := strconv.Atoi(r.URL.Query().Get(key))
 	if err != nil || v < 0 {
 		return def
+	}
+	if key == "limit" && v > 100 {
+		return 100
 	}
 	return v
 }

@@ -16,7 +16,14 @@ type WalletRepository interface {
 	GetByTenantID(ctx context.Context, tenantID uuid.UUID) (*models.Wallet, error)
 	GetByTenantIDForUpdate(ctx context.Context, tenantID uuid.UUID) (*models.Wallet, error)
 	UpdateBalances(ctx context.Context, w *models.Wallet) error
+	ListActiveWallets(ctx context.Context) ([]ActiveWallet, error)
 	WithTx(tx db.DBTX) WalletRepository
+}
+
+// ActiveWallet is a lightweight projection for the chain verifier.
+type ActiveWallet struct {
+	WalletID uuid.UUID
+	TenantID uuid.UUID
 }
 
 type walletRepo struct {
@@ -83,4 +90,26 @@ func (r *walletRepo) UpdateBalances(ctx context.Context, w *models.Wallet) error
 		return fmt.Errorf("wallet %s not found", w.ID)
 	}
 	return nil
+}
+
+func (r *walletRepo) ListActiveWallets(ctx context.Context) ([]ActiveWallet, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT w.id, w.tenant_id
+		FROM wallets w
+		JOIN tenants t ON t.id = w.tenant_id
+		WHERE t.status = 'active' AND t.deleted_at IS NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var wallets []ActiveWallet
+	for rows.Next() {
+		var aw ActiveWallet
+		if err := rows.Scan(&aw.WalletID, &aw.TenantID); err != nil {
+			return nil, err
+		}
+		wallets = append(wallets, aw)
+	}
+	return wallets, rows.Err()
 }

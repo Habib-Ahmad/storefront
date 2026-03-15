@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 )
 
@@ -17,12 +18,20 @@ type UserRepository interface {
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.User, error)
 	Update(ctx context.Context, u *models.User) error
 	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
+	WithTx(tx db.DBTX) UserRepository
 }
 
-type userRepo struct{ db *pgxpool.Pool }
+type userRepo struct {
+	db   db.DBTX
+	pool *pgxpool.Pool
+}
 
-func NewUserRepository(db *pgxpool.Pool) UserRepository {
-	return &userRepo{db: db}
+func NewUserRepository(pool *pgxpool.Pool) UserRepository {
+	return &userRepo{db: pool, pool: pool}
+}
+
+func (r *userRepo) WithTx(tx db.DBTX) UserRepository {
+	return &userRepo{db: tx, pool: r.pool}
 }
 
 func scanUser(row interface{ Scan(...any) error }) (*models.User, error) {

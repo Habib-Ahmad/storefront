@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	"storefront/backend/migrations"
@@ -55,7 +55,7 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is not set")
 	}
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}

@@ -115,8 +115,24 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	}
 	order.FulfillmentStatus = models.FulfillmentStatusProcessing
 
-	if err := s.orders.Create(ctx, order, items); err != nil {
-		return nil, fmt.Errorf("persist order: %w", err)
+	// Retry with a new slug on unique-constraint collision (unlikely but possible).
+	const maxSlugRetries = 3
+	for attempt := 0; attempt < maxSlugRetries; attempt++ {
+		err = s.orders.Create(ctx, order, items)
+		if err == nil {
+			break
+		}
+		if !apperr.IsUniqueViolation(err) {
+			return nil, fmt.Errorf("persist order: %w", err)
+		}
+		slug, slugErr := generateTrackingSlug()
+		if slugErr != nil {
+			return nil, slugErr
+		}
+		order.TrackingSlug = slug
+	}
+	if err != nil {
+		return nil, fmt.Errorf("persist order after retries: %w", err)
 	}
 
 	if order.PaymentMethod != models.PaymentMethodOnline && order.PaymentMethod != "" {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -56,8 +57,17 @@ func main() {
 	paystackClient := paystack.New(cfg.PaystackSecretKey)
 	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
 
+	// M17: warn if adapter API keys are missing
+	if cfg.PaystackSecretKey == "" {
+		log.Warn("PAYSTACK_SECRET_KEY is empty — payment webhooks will fail")
+	}
+	if cfg.TerminalAfricaAPIKey == "" {
+		log.Warn("TERMINAL_AFRICA_API_KEY is empty — shipping features will fail")
+	}
+
 	// Services
 	tenantSvc := service.NewTenantService(tenantRepo, tierRepo, walletRepo, userRepo)
+	tenantSvc.SetPool(pool)
 	productSvc := service.NewProductService(productRepo)
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
@@ -68,6 +78,7 @@ func main() {
 	orderSvc.SetTenantRepo(tenantRepo)
 	orderSvc.SetTierRepo(tierRepo)
 	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, productRepo, walletSvc)
+	paymentSvc.SetPool(pool)
 	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 
 	// Handlers
@@ -89,9 +100,17 @@ func main() {
 	}
 
 	// Monthly audit log partitions
-	go scheduler.RunMonthlyPartitioner(ctx, pool)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		scheduler.RunMonthlyPartitioner(ctx, pool, log)
+	}()
 	// Daily HMAC chain verification across all active tenants — run once on startup too.
-	go scheduler.RunDailyChainVerifier(ctx, pool, walletSvc)
+	go func() {
+		defer wg.Done()
+		scheduler.RunDailyChainVerifier(ctx, walletRepo, walletSvc, log)
+	}()
 
 	// Fetch Supabase JWKS (ES256 public key) for JWT verification
 	ecKey, err := config.FetchJWKS(cfg.SupabaseURL)
@@ -109,20 +128,24 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
+	errCh := make(chan error, 1)
 	go func() {
 		log.Info("listening", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("server", "error", err)
-			os.Exit(1)
+			errCh <- err
 		}
 	}()
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case err := <-errCh:
+		log.Error("server", "error", err)
+	}
 	log.Info("shutting down...")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutCtx); err != nil {
 		log.Error("shutdown", "error", err)
 	}
-	os.Exit(0)
+	wg.Wait()
 }

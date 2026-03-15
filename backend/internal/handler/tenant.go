@@ -3,6 +3,7 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"regexp"
 
 	"github.com/google/uuid"
 
@@ -10,6 +11,8 @@ import (
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/service"
 )
+
+var slugRegex = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 type TenantHandler struct {
 	svc *service.TenantService
@@ -36,10 +39,14 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Name       string `json:"name"         validate:"required"`
-		Slug       string `json:"slug"         validate:"required"`
+		Slug       string `json:"slug"         validate:"required,min=3,max=50"`
 		AdminEmail string `json:"admin_email"  validate:"required,email"`
 	}
 	if !decodeValid(w, r, &req) {
+		return
+	}
+	if !slugRegex.MatchString(req.Slug) {
+		respondErr(w, http.StatusUnprocessableEntity, "slug must be lowercase alphanumeric with hyphens only")
 		return
 	}
 
@@ -73,6 +80,10 @@ func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 // PUT /tenants/me/modules
 func (h *TenantHandler) SetModules(w http.ResponseWriter, r *http.Request) {
+	if middleware.UserRoleFromCtx(r.Context()) != models.UserRoleAdmin {
+		respondErr(w, http.StatusForbidden, "admin role required")
+		return
+	}
 	tenant := middleware.TenantFromCtx(r.Context())
 	var mods models.ActiveModules
 	if !decodeValid(w, r, &mods) {

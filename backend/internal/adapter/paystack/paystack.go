@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -77,7 +79,7 @@ func (c *Client) VerifyTransaction(ctx context.Context, reference string) (*Veri
 			Customer  json.RawMessage `json:"customer"`
 		} `json:"data"`
 	}
-	if err := c.get(ctx, "/transaction/verify/"+reference, &out); err != nil {
+	if err := c.get(ctx, "/transaction/verify/"+url.PathEscape(reference), &out); err != nil {
 		return nil, err
 	}
 	if !out.Status {
@@ -141,7 +143,10 @@ func (c *Client) post(ctx context.Context, path string, body any, out any) error
 		return err
 	}
 	defer resp.Body.Close()
-	return json.NewDecoder(resp.Body).Decode(out)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("paystack POST %s: status %d", path, resp.StatusCode)
+	}
+	return json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(out)
 }
 
 func (c *Client) get(ctx context.Context, path string, out any) error {
@@ -156,5 +161,8 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	return json.NewDecoder(resp.Body).Decode(out)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("paystack GET %s: status %d", path, resp.StatusCode)
+	}
+	return json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(out)
 }

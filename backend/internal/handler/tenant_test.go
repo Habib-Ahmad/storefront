@@ -46,6 +46,7 @@ func (s *stubTenantRepo) Update(_ context.Context, t *models.Tenant) error {
 	return nil
 }
 func (s *stubTenantRepo) SoftDelete(_ context.Context, _ uuid.UUID) error { return nil }
+func (s *stubTenantRepo) WithTx(_ db.DBTX) repository.TenantRepository    { return s }
 
 type stubWalletRepo struct{}
 
@@ -61,6 +62,9 @@ func (s *stubWalletRepo) GetByTenantIDForUpdate(_ context.Context, _ uuid.UUID) 
 }
 func (s *stubWalletRepo) UpdateBalances(_ context.Context, _ *models.Wallet) error { return nil }
 func (s *stubWalletRepo) WithTx(_ db.DBTX) repository.WalletRepository             { return s }
+func (s *stubWalletRepo) ListActiveWallets(_ context.Context) ([]repository.ActiveWallet, error) {
+	return nil, nil
+}
 
 type stubUserRepo struct{}
 
@@ -76,6 +80,7 @@ func (s *stubUserRepo) ListByTenant(_ context.Context, _ uuid.UUID) ([]models.Us
 }
 func (s *stubUserRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
 func (s *stubUserRepo) Update(_ context.Context, _ *models.User) error     { return nil }
+func (s *stubUserRepo) WithTx(_ db.DBTX) repository.UserRepository         { return s }
 
 type stubTierRepo struct{}
 

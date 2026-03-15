@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 )
 
@@ -17,12 +18,20 @@ type TenantRepository interface {
 	GetBySlug(ctx context.Context, slug string) (*models.Tenant, error)
 	Update(ctx context.Context, t *models.Tenant) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
+	WithTx(tx db.DBTX) TenantRepository
 }
 
-type tenantRepo struct{ db *pgxpool.Pool }
+type tenantRepo struct {
+	db   db.DBTX
+	pool *pgxpool.Pool
+}
 
-func NewTenantRepository(db *pgxpool.Pool) TenantRepository {
-	return &tenantRepo{db: db}
+func NewTenantRepository(pool *pgxpool.Pool) TenantRepository {
+	return &tenantRepo{db: pool, pool: pool}
+}
+
+func (r *tenantRepo) WithTx(tx db.DBTX) TenantRepository {
+	return &tenantRepo{db: tx, pool: r.pool}
 }
 
 const tenantCols = `id, tier_id, name, slug, contact_email, contact_phone, address, logo_url,

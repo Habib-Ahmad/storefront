@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 )
 
@@ -20,12 +21,20 @@ type OrderRepository interface {
 	UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error
 	UpdateFulfillmentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.FulfillmentStatus) error
 	ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error)
+	WithTx(tx db.DBTX) OrderRepository
 }
 
-type orderRepo struct{ db *pgxpool.Pool }
+type orderRepo struct {
+	db   db.DBTX
+	pool *pgxpool.Pool
+}
 
-func NewOrderRepository(db *pgxpool.Pool) OrderRepository {
-	return &orderRepo{db: db}
+func NewOrderRepository(pool *pgxpool.Pool) OrderRepository {
+	return &orderRepo{db: pool, pool: pool}
+}
+
+func (r *orderRepo) WithTx(tx db.DBTX) OrderRepository {
+	return &orderRepo{db: tx, pool: r.pool}
 }
 
 const orderCols = `id, tenant_id, tracking_slug, is_delivery, customer_name,
@@ -46,7 +55,7 @@ func scanOrder(row interface{ Scan(...any) error }) (*models.Order, error) {
 
 // Create inserts the order and its items in a single transaction.
 func (r *orderRepo) Create(ctx context.Context, o *models.Order, items []models.OrderItem) error {
-	tx, err := r.db.Begin(ctx)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}

@@ -6,13 +6,32 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 
 	"storefront/backend/internal/apperr"
 )
 
-var validate = validator.New(validator.WithRequiredStructEnabled())
+var validate = newValidator()
+
+func newValidator() *validator.Validate {
+	v := validator.New(validator.WithRequiredStructEnabled())
+	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		if name == "-" {
+			return fld.Name
+		}
+		if name != "" {
+			return name
+		}
+		return fld.Name
+	})
+	return v
+}
+
+const maxRequestBody = 1 << 20 // 1 MB
 
 func respond(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -60,6 +79,7 @@ func validationMsg(fe validator.FieldError) string {
 // decodeValid decodes the JSON body into dst and validates struct tags.
 // On failure it writes the appropriate error response and returns false.
 func decodeValid(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid request body")
 		return false

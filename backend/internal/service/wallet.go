@@ -14,6 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/apperr"
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
@@ -62,6 +63,14 @@ func (s *WalletService) Credit(ctx context.Context, tenantID uuid.UUID, amount d
 	return s.record(ctx, tenantID, amount, models.TransactionTypeCredit, true, orderID)
 }
 
+// CreditWithTx performs a Credit inside an externally-managed database transaction.
+// The caller MUST commit/rollback the tx.
+func (s *WalletService) CreditWithTx(ctx context.Context, tx db.DBTX, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	wallets := s.wallets.WithTx(tx)
+	transactions := s.transactions.WithTx(tx)
+	return s.doRecordForUpdate(ctx, wallets, transactions, tenantID, amount, models.TransactionTypeCredit, true, orderID)
+}
+
 // CreditAvailable adds funds directly to available balance (for offline/cash/transfer sales).
 func (s *WalletService) CreditAvailable(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
 	return s.record(ctx, tenantID, amount, models.TransactionTypeCredit, false, orderID)
@@ -70,23 +79,24 @@ func (s *WalletService) CreditAvailable(ctx context.Context, tenantID uuid.UUID,
 // Debit subtracts amount from available balance and appends a signed ledger entry.
 // It enforces the tier debt ceiling: available_balance - amount must not fall below -debtCeiling.
 func (s *WalletService) Debit(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
-	if s.tiers != nil {
-		w, err := s.wallets.GetByTenantID(ctx, tenantID)
-		if err != nil {
-			return nil, ErrWalletNotFound
-		}
-		tenant, err := s.tenants.GetByID(ctx, w.TenantID)
-		if err != nil {
-			return nil, fmt.Errorf("get tenant for ceiling check: %w", err)
-		}
-		tier, err := s.tiers.GetByID(ctx, tenant.TierID)
-		if err != nil {
-			return nil, fmt.Errorf("get tier for ceiling check: %w", err)
-		}
-		newBalance := w.AvailableBalance.Sub(amount)
-		if newBalance.LessThan(tier.DebtCeiling.Neg()) {
-			return nil, ErrDebtCeilingExceeded
-		}
+	w, err := s.wallets.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, ErrWalletNotFound
+	}
+	if s.tiers == nil {
+		return nil, fmt.Errorf("tier repository not configured")
+	}
+	tenant, err := s.tenants.GetByID(ctx, w.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get tenant for ceiling check: %w", err)
+	}
+	tier, err := s.tiers.GetByID(ctx, tenant.TierID)
+	if err != nil {
+		return nil, fmt.Errorf("get tier for ceiling check: %w", err)
+	}
+	newBalance := w.AvailableBalance.Sub(amount)
+	if newBalance.LessThan(tier.DebtCeiling.Neg()) {
+		return nil, ErrDebtCeilingExceeded
 	}
 	return s.record(ctx, tenantID, amount.Neg(), models.TransactionTypeDebit, false, orderID)
 }
@@ -141,6 +151,9 @@ func (s *WalletService) ReleasePending(ctx context.Context, tenantID uuid.UUID, 
 		}
 
 		w.PendingBalance = w.PendingBalance.Sub(amount)
+		if w.PendingBalance.IsNegative() {
+			w.PendingBalance = decimal.Zero
+		}
 		w.AvailableBalance = w.AvailableBalance.Add(amount)
 		w.LastTransactionID = &tx.ID
 		return wallets.UpdateBalances(ctx, w)

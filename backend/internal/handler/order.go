@@ -39,6 +39,10 @@ func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, shi
 // POST /orders
 func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, true, false); err != nil {
+		respondErr(w, http.StatusForbidden, "payments module not enabled")
+		return
+	}
 
 	var req struct {
 		IsDelivery      bool     `json:"is_delivery"`
@@ -172,6 +176,10 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 // POST /orders/{id}/dispatch
 func (h *OrderHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, false, true); err != nil {
+		respondErr(w, http.StatusForbidden, "logistics module not enabled")
+		return
+	}
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid order id")
