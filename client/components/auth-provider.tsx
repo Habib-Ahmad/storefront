@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
   type ReactNode,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -14,11 +15,13 @@ import { api } from "@/lib/api";
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   session: null,
   loading: true,
+  signOut: async () => {},
 });
 
 export function useSession() {
@@ -36,14 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Get initial session
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       api.setToken(data.session?.access_token ?? null);
       setLoading(false);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -51,11 +52,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setToken(newSession?.access_token ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    api.setRefreshHandler(async () => {
+      const { data } = await supabase.auth.refreshSession();
+      return data.session?.access_token ?? null;
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      api.setRefreshHandler(null);
+    };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const supabase = getSupabase();
+    if (supabase) await supabase.auth.signOut();
+    api.setToken(null);
+    setSession(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, loading }}>
+    <AuthContext.Provider value={{ session, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

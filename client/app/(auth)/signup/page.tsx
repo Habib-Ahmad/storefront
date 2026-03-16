@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Formik, Form, Field } from "formik";
@@ -7,9 +8,10 @@ import * as Yup from "yup";
 import { getSupabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
+import { SpinnerGapIcon, GoogleLogoIcon, AppleLogoIcon } from "@phosphor-icons/react";
 import { ShoppingBagSvg } from "@/components/illustrations";
 
 const signupSchema = Yup.object({
@@ -22,6 +24,8 @@ const signupSchema = Yup.object({
 
 export default function SignupPage() {
   const router = useRouter();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -40,9 +44,10 @@ export default function SignupPage() {
         initialValues={{ email: "", password: "", confirm: "" }}
         validationSchema={signupSchema}
         onSubmit={async (values, { setSubmitting }) => {
+          setFormError(null);
           const supabase = getSupabase();
           if (!supabase) {
-            toast.error("Auth is not configured");
+            setFormError("Auth is not configured");
             return;
           }
 
@@ -52,17 +57,29 @@ export default function SignupPage() {
           });
 
           if (error) {
-            toast.error(error.message);
+            setFormError(error.message);
             setSubmitting(false);
             return;
           }
 
-          toast.success("Check your email to confirm your account");
-          router.push("/login");
+          setSuccess(true);
+          setTimeout(() => router.push("/login"), 3000);
         }}
       >
         {({ isSubmitting, errors, touched }) => (
           <Form className="card-3d rounded-2xl p-6 space-y-4">
+            {formError && (
+              <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
+                {formError}
+              </p>
+            )}
+
+            {success && (
+              <p className="text-sm text-primary text-center bg-primary/10 rounded-lg px-3 py-2">
+                Check your email to confirm your account
+              </p>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Field
@@ -82,10 +99,9 @@ export default function SignupPage() {
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <Field
-                as={Input}
+                as={PasswordInput}
                 id="password"
                 name="password"
-                type="password"
                 placeholder="At least 8 characters"
                 autoComplete="new-password"
                 className="h-10"
@@ -98,10 +114,9 @@ export default function SignupPage() {
             <div className="space-y-1.5">
               <Label htmlFor="confirm">Confirm password</Label>
               <Field
-                as={Input}
+                as={PasswordInput}
                 id="confirm"
                 name="confirm"
-                type="password"
                 placeholder="Repeat your password"
                 autoComplete="new-password"
                 className="h-10"
@@ -111,10 +126,44 @@ export default function SignupPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full h-10" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="animate-spin" />}
+            <Button type="submit" className="w-full h-10" disabled={isSubmitting || success}>
+              {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
               Create account
             </Button>
+
+            <div className="relative">
+              <Separator />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                or
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 gap-2"
+                onClick={() => {
+                  const supabase = getSupabase();
+                  supabase?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/app` } });
+                }}
+              >
+                <GoogleLogoIcon className="size-4" weight="bold" />
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 gap-2"
+                onClick={() => {
+                  const supabase = getSupabase();
+                  supabase?.auth.signInWithOAuth({ provider: "apple", options: { redirectTo: `${window.location.origin}/app` } });
+                }}
+              >
+                <AppleLogoIcon className="size-4" weight="fill" />
+                Apple
+              </Button>
+            </div>
           </Form>
         )}
       </Formik>

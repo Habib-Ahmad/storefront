@@ -8,8 +8,7 @@ import { getSupabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeftIcon, SpinnerGapIcon } from "@phosphor-icons/react";
 import { MailSentSvg } from "@/components/illustrations";
 
 const forgotSchema = Yup.object({
@@ -19,6 +18,7 @@ const forgotSchema = Yup.object({
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   if (sent) {
     return (
@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
             href="/login"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
-            <ArrowLeft className="size-3.5" />
+            <ArrowLeftIcon className="size-3.5" />
             Back to sign in
           </Link>
         </p>
@@ -78,9 +78,10 @@ export default function ForgotPasswordPage() {
         initialValues={{ email: "" }}
         validationSchema={forgotSchema}
         onSubmit={async (values, { setSubmitting }) => {
+          setFormError(null);
           const supabase = getSupabase();
           if (!supabase) {
-            toast.error("Auth is not configured");
+            setFormError("Auth is not configured");
             return;
           }
 
@@ -91,7 +92,7 @@ export default function ForgotPasswordPage() {
           setSubmitting(false);
 
           if (error) {
-            toast.error(error.message);
+            setFormError(error.message);
             return;
           }
 
@@ -101,6 +102,12 @@ export default function ForgotPasswordPage() {
       >
         {({ isSubmitting, errors, touched }) => (
           <Form className="card-3d rounded-2xl p-6 space-y-4">
+            {formError && (
+              <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
+                {formError}
+              </p>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Field
@@ -118,7 +125,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             <Button type="submit" className="w-full h-10" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="animate-spin" />}
+              {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
               Send reset link
             </Button>
           </Form>
@@ -130,7 +137,7 @@ export default function ForgotPasswordPage() {
           href="/login"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeftIcon className="size-3.5" />
           Back to sign in
         </Link>
       </p>

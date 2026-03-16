@@ -16,6 +16,7 @@ import {
   SignOutIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react";
+import { useSignOut } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const signOut = useSignOut();
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 md:border-r md:h-screen md:fixed md:left-0 md:top-0 glass z-30">
@@ -102,7 +104,7 @@ export function Sidebar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => {}}
+              onClick={signOut}
               className="text-destructive focus:text-destructive"
             >
               <SignOutIcon className="size-4" />

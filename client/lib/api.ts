@@ -56,9 +56,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 class ApiClient {
   private token: string | null = null;
+  private refreshHandler: (() => Promise<string | null>) | null = null;
 
   setToken(token: string | null) {
     this.token = token;
+  }
+
+  setRefreshHandler(handler: (() => Promise<string | null>) | null) {
+    this.refreshHandler = handler;
   }
 
   private async request<T>(
@@ -66,16 +71,27 @@ class ApiClient {
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+    const doFetch = () => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+      return fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
     };
-    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
 
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    let res = await doFetch();
+
+    if (res.status === 401 && this.refreshHandler) {
+      const newToken = await this.refreshHandler();
+      if (newToken) {
+        this.token = newToken;
+        res = await doFetch();
+      }
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

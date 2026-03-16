@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { WalletIcon, GearSixIcon, MoonIcon, SunIcon, SignOutIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { useSignOut } from "@/hooks/use-auth";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 
 const links = [
   { href: "/app/wallet", label: "Wallet", icon: WalletIcon },
@@ -13,6 +13,7 @@ const links = [
 
 export default function MorePage() {
   const { theme, setTheme } = useTheme();
+  const signOut = useSignOut();
 
   return (
     <div className="space-y-6">
@@ -48,7 +49,7 @@ export default function MorePage() {
         <Separator className="my-0!" />
 
         <button
-          onClick={() => {}}
+          onClick={signOut}
           className="flex items-center gap-3 w-full px-4 py-3.5 transition-colors hover:bg-accent/50 text-left text-destructive"
         >
           <SignOutIcon className="size-4" />
