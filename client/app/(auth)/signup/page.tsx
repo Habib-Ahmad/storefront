@@ -1,12 +1,10 @@
 "use client";
 
-import { Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { getSupabase } from "@/lib/supabase";
-import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,32 +12,33 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ShoppingBagSvg } from "@/components/illustrations";
 
-const loginSchema = Yup.object({
+const signupSchema = Yup.object({
   email: Yup.string().email("Invalid email").required("Email is required"),
-  password: Yup.string().required("Password is required"),
+  password: Yup.string().min(8, "At least 8 characters").required("Password is required"),
+  confirm: Yup.string()
+    .oneOf([Yup.ref("password")], "Passwords must match")
+    .required("Please confirm your password"),
 });
 
-function LoginForm() {
+export default function SignupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/app";
 
   return (
     <div className="space-y-6">
       <div className="flex justify-center">
-        <ShoppingBagSvg className="size-32" />
+        <ShoppingBagSvg className="size-28" />
       </div>
 
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
         <p className="text-sm text-muted-foreground">
-          Sign in to your store
+          Get started with Storefront
         </p>
       </div>
 
       <Formik
-        initialValues={{ email: "", password: "" }}
-        validationSchema={loginSchema}
+        initialValues={{ email: "", password: "", confirm: "" }}
+        validationSchema={signupSchema}
         onSubmit={async (values, { setSubmitting }) => {
           const supabase = getSupabase();
           if (!supabase) {
@@ -47,19 +46,19 @@ function LoginForm() {
             return;
           }
 
-          const { error } = await supabase.auth.signInWithPassword(values);
+          const { error } = await supabase.auth.signUp({
+            email: values.email,
+            password: values.password,
+          });
+
           if (error) {
             toast.error(error.message);
             setSubmitting(false);
             return;
           }
 
-          try {
-            const me = await api.getMe();
-            router.replace(me.onboarded ? redirect : "/onboard");
-          } catch {
-            router.replace(redirect);
-          }
+          toast.success("Check your email to confirm your account");
+          router.push("/login");
         }}
       >
         {({ isSubmitting, errors, touched }) => (
@@ -81,22 +80,14 @@ function LoginForm() {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <Field
                 as={Input}
                 id="password"
                 name="password"
                 type="password"
-                placeholder="••••••••"
-                autoComplete="current-password"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
                 className="h-10"
               />
               {errors.password && touched.password && (
@@ -104,28 +95,36 @@ function LoginForm() {
               )}
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm">Confirm password</Label>
+              <Field
+                as={Input}
+                id="confirm"
+                name="confirm"
+                type="password"
+                placeholder="Repeat your password"
+                autoComplete="new-password"
+                className="h-10"
+              />
+              {errors.confirm && touched.confirm && (
+                <p className="text-xs text-destructive">{errors.confirm}</p>
+              )}
+            </div>
+
             <Button type="submit" className="w-full h-10" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="animate-spin" />}
-              Sign in
+              Create account
             </Button>
           </Form>
         )}
       </Formik>
 
       <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
-        <Link href="/signup" className="text-primary hover:underline font-medium">
-          Sign up
+        Already have an account?{" "}
+        <Link href="/login" className="text-primary hover:underline font-medium">
+          Sign in
         </Link>
       </p>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
   );
 }

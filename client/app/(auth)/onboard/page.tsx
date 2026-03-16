@@ -7,7 +7,6 @@ export default function OnboardPage() {
           Tell us about your business
         </p>
       </div>
-      {/* Onboard form goes here */}
       <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
         Onboarding form placeholder
       </div>
