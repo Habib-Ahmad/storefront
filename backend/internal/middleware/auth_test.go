@@ -1,6 +1,9 @@
 package middleware_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,18 +15,28 @@ import (
 	"storefront/backend/internal/middleware"
 )
 
-const testSecret = "test-secret-at-least-32-bytes-long!!"
+var (
+	testKey     *ecdsa.PrivateKey
+	testKeyFunc jwt.Keyfunc
+)
 
-var testKeyFunc = middleware.NewKeyFunc(nil, testSecret)
+func init() {
+	var err error
+	testKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic("generate test key: " + err.Error())
+	}
+	testKeyFunc = middleware.NewKeyFunc(&testKey.PublicKey)
+}
 
-func makeToken(t *testing.T, sub string, expiry time.Duration, secret string) string {
+func makeToken(t *testing.T, sub string, expiry time.Duration, key *ecdsa.PrivateKey) string {
 	t.Helper()
 	claims := jwt.MapClaims{
 		"sub": sub,
 		"exp": time.Now().Add(expiry).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+	token, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
 	}
@@ -32,7 +45,7 @@ func makeToken(t *testing.T, sub string, expiry time.Duration, secret string) st
 
 func TestAuthenticate_ValidToken(t *testing.T) {
 	userID := uuid.New()
-	token := makeToken(t, userID.String(), time.Hour, testSecret)
+	token := makeToken(t, userID.String(), time.Hour, testKey)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -69,7 +82,7 @@ func TestAuthenticate_MissingToken(t *testing.T) {
 }
 
 func TestAuthenticate_ExpiredToken(t *testing.T) {
-	token := makeToken(t, uuid.New().String(), -time.Hour, testSecret)
+	token := makeToken(t, uuid.New().String(), -time.Hour, testKey)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -86,7 +99,8 @@ func TestAuthenticate_ExpiredToken(t *testing.T) {
 }
 
 func TestAuthenticate_TamperedToken(t *testing.T) {
-	token := makeToken(t, uuid.New().String(), time.Hour, "wrong-secret-!!!!!!!!!!!!!!!!")
+	wrongKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	token := makeToken(t, uuid.New().String(), time.Hour, wrongKey)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -103,7 +117,7 @@ func TestAuthenticate_TamperedToken(t *testing.T) {
 }
 
 func TestAuthenticate_InvalidSubject(t *testing.T) {
-	token := makeToken(t, "not-a-uuid", time.Hour, testSecret)
+	token := makeToken(t, "not-a-uuid", time.Hour, testKey)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

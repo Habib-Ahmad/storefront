@@ -14,8 +14,7 @@ type Config struct {
 	DatabaseURL string
 	HMACSecret  string
 
-	SupabaseURL       string
-	SupabaseJWTSecret string
+	SupabaseURL string
 
 	PaystackSecretKey string
 
@@ -40,8 +39,7 @@ func Load() (*Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		HMACSecret:  os.Getenv("HMAC_SECRET"),
 
-		SupabaseURL:       os.Getenv("SUPABASE_URL"),
-		SupabaseJWTSecret: os.Getenv("SUPABASE_JWT_SECRET"),
+		SupabaseURL: os.Getenv("SUPABASE_URL"),
 
 		PaystackSecretKey: os.Getenv("PAYSTACK_SECRET_KEY"),
 
@@ -64,8 +62,8 @@ func Load() (*Config, error) {
 	if cfg.HMACSecret == "" {
 		errs = append(errs, errors.New("HMAC_SECRET is required"))
 	}
-	if cfg.SupabaseJWTSecret == "" {
-		errs = append(errs, errors.New("SUPABASE_JWT_SECRET is required"))
+	if cfg.SupabaseURL == "" {
+		errs = append(errs, errors.New("SUPABASE_URL is required"))
 	}
 
 	return cfg, errors.Join(errs...)

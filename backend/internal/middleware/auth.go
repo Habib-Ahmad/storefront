@@ -25,7 +25,7 @@ func Authenticate(keyFunc jwt.Keyfunc) func(http.Handler) http.Handler {
 
 			var claims jwt.MapClaims
 			_, err := jwt.ParseWithClaims(tokenStr, &claims, keyFunc,
-				jwt.WithValidMethods([]string{"ES256", "HS256"}),
+				jwt.WithValidMethods([]string{"ES256"}),
 				jwt.WithExpirationRequired(),
 			)
 			if err != nil {
@@ -60,24 +60,17 @@ func Authenticate(keyFunc jwt.Keyfunc) func(http.Handler) http.Handler {
 	}
 }
 
-// NewKeyFunc builds a jwt.Keyfunc that supports ES256 (via ECDSA public key)
-// and HS256 (via shared secret) for backward compatibility with legacy Supabase projects.
-func NewKeyFunc(ecKey *ecdsa.PublicKey, hmacSecret string) jwt.Keyfunc {
+// NewKeyFunc builds a jwt.Keyfunc that validates ES256 tokens using the
+// ECDSA public key fetched from Supabase's JWKS endpoint.
+func NewKeyFunc(ecKey *ecdsa.PublicKey) jwt.Keyfunc {
 	return func(t *jwt.Token) (any, error) {
-		switch t.Method.(type) {
-		case *jwt.SigningMethodECDSA:
-			if ecKey == nil {
-				return nil, jwt.ErrSignatureInvalid
-			}
-			return ecKey, nil
-		case *jwt.SigningMethodHMAC:
-			if hmacSecret == "" {
-				return nil, jwt.ErrSignatureInvalid
-			}
-			return []byte(hmacSecret), nil
-		default:
+		if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
+		if ecKey == nil {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return ecKey, nil
 	}
 }
 

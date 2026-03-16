@@ -57,7 +57,7 @@ func main() {
 	paystackClient := paystack.New(cfg.PaystackSecretKey)
 	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
 
-	// M17: warn if adapter API keys are missing
+	// Warn if adapter API keys are missing
 	if cfg.PaystackSecretKey == "" {
 		log.Warn("PAYSTACK_SECRET_KEY is empty — payment webhooks will fail")
 	}
@@ -115,9 +115,14 @@ func main() {
 	// Fetch Supabase JWKS (ES256 public key) for JWT verification
 	ecKey, err := config.FetchJWKS(cfg.SupabaseURL)
 	if err != nil {
-		log.Warn("jwks fetch failed, falling back to HS256 only", "error", err)
+		log.Error("failed to fetch Supabase JWKS", "error", err)
+		os.Exit(1)
 	}
-	jwtKeyFunc := mw.NewKeyFunc(ecKey, cfg.SupabaseJWTSecret)
+	if ecKey == nil {
+		log.Error("no EC key found in Supabase JWKS endpoint")
+		os.Exit(1)
+	}
+	jwtKeyFunc := mw.NewKeyFunc(ecKey)
 
 	addr := ":" + cfg.Port
 	srv := &http.Server{
