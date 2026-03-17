@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { WalletIcon, GearSixIcon, MoonIcon, SunIcon, SignOutIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { PackageIcon, WalletIcon, GearSixIcon, MoonIcon, SunIcon, SignOutIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useSignOut } from "@/hooks/use-auth";
 import { Separator } from "@/components/ui/separator";
 
 const links = [
+  { href: "/app/products", label: "Products", icon: PackageIcon },
   { href: "/app/wallet", label: "Wallet", icon: WalletIcon },
   { href: "/app/settings", label: "Settings", icon: GearSixIcon },
 ];

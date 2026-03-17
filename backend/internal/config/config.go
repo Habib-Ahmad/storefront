@@ -27,6 +27,9 @@ type Config struct {
 	R2BucketName string
 	R2PublicURL  string
 
+	CloudflareAccountID string
+	CloudflareAPIToken  string
+
 	AllowedOrigins []string
 }
 
@@ -51,6 +54,9 @@ func Load() (*Config, error) {
 		R2SecretKey:  os.Getenv("R2_SECRET_KEY"),
 		R2BucketName: os.Getenv("R2_BUCKET_NAME"),
 		R2PublicURL:  os.Getenv("R2_PUBLIC_URL"),
+
+		CloudflareAccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+		CloudflareAPIToken:  os.Getenv("CLOUDFLARE_API_TOKEN"),
 
 		AllowedOrigins: parseOrigins(os.Getenv("ALLOWED_ORIGINS")),
 	}

@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HouseIcon, ShoppingBagIcon, PackageIcon, TruckIcon, DotsThreeCircleIcon } from "@phosphor-icons/react";
+import {
+  HouseIcon,
+  ShoppingBagIcon,
+  PackageIcon,
+  DotsThreeCircleIcon,
+  PlusIcon,
+  TruckIcon,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-const items = [
+const leftItems = [
   { href: "/app", label: "Home", icon: HouseIcon },
   { href: "/app/orders", label: "Orders", icon: ShoppingBagIcon },
-  { href: "/app/products", label: "Products", icon: PackageIcon },
+];
+
+const rightItems = [
   { href: "/app/deliveries", label: "Deliveries", icon: TruckIcon },
   { href: "/app/more", label: "More", icon: DotsThreeCircleIcon },
 ];
@@ -16,35 +25,72 @@ const items = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 glass pb-[env(safe-area-inset-bottom)] md:hidden">
-      <div className="flex items-center justify-around h-16">
-        {items.map((item) => {
-          const isActive =
-            item.href === "/app"
-              ? pathname === "/app"
-              : pathname.startsWith(item.href);
+  const renderItem = (item: (typeof leftItems)[0]) => {
+    const isActive =
+      item.href === "/app"
+        ? pathname === "/app"
+        : pathname.startsWith(item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex flex-col items-center justify-center gap-0.5 flex-1 py-3 text-[11px] transition-colors",
+          isActive ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        <item.icon className="size-5" weight={isActive ? "fill" : "regular"} />
+        <span className={cn(isActive && "font-medium")}>{item.label}</span>
+      </Link>
+    );
+  };
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center gap-0.5 w-16 py-1.5 text-[11px] transition-colors",
-                isActive
-                  ? "text-primary"
-                  : "text-muted-foreground active:text-foreground",
-              )}
-            >
-              <item.icon
-                className="size-5"
-                weight={isActive ? "fill" : "regular"}
-              />
-              <span className={cn(isActive && "font-medium")}>{item.label}</span>
-            </Link>
-          );
-        })}
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden backdrop-blur-xl backdrop-saturate-150"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="relative h-16">
+        {/* SVG notched background */}
+        <svg
+          aria-hidden
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          viewBox="0 0 390 64"
+          preserveAspectRatio="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Bar fill — circular notch centred on FAB (radius 28, centre at 195,8) */}
+          <path
+            d="M0,0 H168 A28,28 0 0 1 222,0 H390 V64 H0 Z"
+            className="fill-background"
+            fillOpacity="0.92"
+          />
+          {/* Top border following the notch arc */}
+          <path
+            d="M0,0.5 H168 A28,28 0 0 1 222,0.5 H390"
+            fill="none"
+            className="stroke-border"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+
+        {/* Nav items — left and right of FAB zone */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="flex flex-1 justify-around">{leftItems.map(renderItem)}</div>
+          {/* Spacer so items don't crowd the FAB zone */}
+          <div className="w-20" />
+          <div className="flex flex-1 justify-around">{rightItems.map(renderItem)}</div>
+        </div>
+
+        {/* FAB — rises above the bar, sits in the notch */}
+        <Link
+          href="/app/orders/new"
+          className="absolute left-1/2 -translate-x-1/2 -top-4 flex items-center justify-center size-12 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/40 active:scale-95 transition-transform z-10"
+        >
+          <PlusIcon className="size-6" weight="bold" />
+        </Link>
       </div>
-    </nav>
+    </div>
   );
 }

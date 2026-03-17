@@ -1,6 +1,7 @@
 "use client";
 
-import { TrendUpIcon, ShoppingBagIcon, ChartPieIcon, CurrencyNgnIcon } from "@phosphor-icons/react";
+import Link from "next/link";
+import { TrendUpIcon, ShoppingBagIcon, ChartPieIcon, CurrencyNgnIcon, PackageIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { ChartRiseSvg } from "@/components/illustrations";
 
 const stats = [
@@ -34,6 +35,20 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground mt-2">
           Sales analytics will appear here once you start selling
         </p>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick access</h2>
+        <div className="glass rounded-2xl border border-border/50 divide-y divide-border/50">
+          <Link
+            href="/app/products"
+            className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/50"
+          >
+            <PackageIcon className="size-4 text-muted-foreground" weight="fill" />
+            <span className="flex-1 text-sm font-medium">Products</span>
+            <CaretRightIcon className="size-4 text-muted-foreground" />
+          </Link>
+        </div>
       </div>
     </div>
   );

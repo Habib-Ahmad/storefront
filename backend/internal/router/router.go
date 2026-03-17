@@ -25,6 +25,7 @@ func New(
 	wallet *handler.WalletHandler,
 	analytics *handler.AnalyticsHandler,
 	webhook *handler.WebhookHandler,
+	media *handler.MediaHandler,
 	userRepo repository.UserRepository,
 	tenantRepo repository.TenantRepository,
 	jwtKeyFunc jwt.Keyfunc,
@@ -102,6 +103,8 @@ func New(
 		r.Get("/wallet/transactions", wallet.ListTransactions)
 
 		r.Get("/analytics/summary", analytics.Summary)
+
+		r.Post("/media/upload-url", media.GetUploadURL)
 	})
 
 	return r

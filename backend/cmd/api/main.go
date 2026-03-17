@@ -93,6 +93,7 @@ func main() {
 	analyticsRepo := repository.NewAnalyticsRepository(pool)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, log)
 	webhookH := handler.NewWebhookHandler(paystackClient, terminalClient, paymentSvc, shipmentSvc, log)
+	mediaH := handler.NewMediaHandler(cfg.CloudflareAccountID, cfg.CloudflareAPIToken, log)
 
 	// Ensure audit log partitions exist on startup (fresh deploy safety).
 	if err := scheduler.EnsureAuditLogPartitions(ctx, pool); err != nil {
@@ -127,7 +128,7 @@ func main() {
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, authH, tierH, tenantH, userH, productH, orderH, walletH, analyticsH, webhookH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
+		Handler:      router.New(log, authH, tierH, tenantH, userH, productH, orderH, walletH, analyticsH, webhookH, mediaH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

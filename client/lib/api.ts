@@ -45,8 +45,10 @@ export class ApiError extends Error {
 
 function qs(params: PaginationParams): string {
   const s = new URLSearchParams();
-  if (params.page) s.set("page", String(params.page));
-  if (params.per_page) s.set("per_page", String(params.per_page));
+  const page = params.page ?? 1;
+  const perPage = params.per_page ?? 20;
+  s.set("limit", String(perPage));
+  s.set("offset", String((page - 1) * perPage));
   return s.toString();
 }
 
@@ -222,6 +224,10 @@ class ApiClient {
       "GET",
       `/analytics/summary?from=${from}&to=${to}`,
     );
+
+  // Media
+  getUploadUrl = () =>
+    this.request<{ id: string; upload_url: string }>("POST", "/media/upload-url");
 }
 
 export const api = new ApiClient();

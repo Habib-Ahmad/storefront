@@ -29,6 +29,15 @@ func NewProductService(products repository.ProductRepository) *ProductService {
 	return &ProductService{products: products}
 }
 
+var emptyJSON = json.RawMessage([]byte(`{}`))
+
+// normalizeVariant defaults nil Attributes to {} so the NOT NULL column is satisfied.
+func normalizeVariant(v *models.ProductVariant) {
+	if len(v.Attributes) == 0 {
+		v.Attributes = emptyJSON
+	}
+}
+
 // Create creates a product and auto-creates a default variant if none are provided.
 func (s *ProductService) Create(ctx context.Context, p *models.Product, variants []models.ProductVariant) (*models.Product, error) {
 	if err := s.products.Create(ctx, p); err != nil {
@@ -46,6 +55,7 @@ func (s *ProductService) Create(ctx context.Context, p *models.Product, variants
 
 	for i := range variants {
 		variants[i].ProductID = p.ID
+		normalizeVariant(&variants[i])
 		if err := s.products.CreateVariant(ctx, &variants[i]); err != nil {
 			if apperr.IsUniqueViolation(err) {
 				return nil, ErrDuplicateSKU
@@ -169,6 +179,7 @@ func (s *ProductService) CreateVariant(ctx context.Context, tenantID uuid.UUID, 
 	if _, err := s.products.GetByID(ctx, tenantID, v.ProductID); err != nil {
 		return ErrProductNotFound
 	}
+	normalizeVariant(v)
 	if err := s.products.CreateVariant(ctx, v); err != nil {
 		if apperr.IsUniqueViolation(err) {
 			return ErrDuplicateSKU
@@ -197,6 +208,7 @@ func (s *ProductService) UpdateVariant(ctx context.Context, tenantID uuid.UUID, 
 	existing.Attributes = v.Attributes
 	existing.Price = v.Price
 	existing.StockQty = v.StockQty
+	normalizeVariant(existing)
 	return s.products.UpdateVariant(ctx, existing)
 }
 
@@ -215,7 +227,7 @@ func defaultVariant(productID uuid.UUID) *models.ProductVariant {
 	attrs, _ := json.Marshal(map[string]string{})
 	return &models.ProductVariant{
 		ProductID:  productID,
-		SKU:        "DEFAULT-" + productID.String()[:8],
+		SKU:        "Default",
 		Attributes: json.RawMessage(attrs),
 		Price:      decimal.Zero,
 		IsDefault:  true,

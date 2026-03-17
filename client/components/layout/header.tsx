@@ -26,6 +26,8 @@ const labels: Record<string, string> = {
   "/app/more": "More",
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function Header() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
@@ -33,16 +35,15 @@ export function Header() {
   const segments = pathname.split("/").filter(Boolean);
   const crumbs = segments.map((_, i) => {
     const href = "/" + segments.slice(0, i + 1).join("/");
-    const label = labels[href] ?? segments[i];
+    const raw = segments[i];
+    const label = labels[href] ?? (UUID_RE.test(raw) ? "Details" : raw);
     return { href, label };
   });
 
-  const pageTitle = crumbs.length > 0 ? crumbs[crumbs.length - 1].label : "Overview";
-
   return (
-    <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-border/50 glass sticky top-0 z-40">
+    <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-border/50 glass backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-40">
       <div>
-        <h1 className="text-base font-semibold md:hidden">{pageTitle}</h1>
+        {/* Mobile: no title — each page renders its own h1 */}
         <nav className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
           {crumbs.map((crumb, i) => (
             <span key={crumb.href} className="flex items-center gap-1.5">
