@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { TrendUpIcon, ShoppingBagIcon, ChartPieIcon, CurrencyNgnIcon, PackageIcon, CaretRightIcon } from "@phosphor-icons/react";
+import {
+  TrendUpIcon,
+  ShoppingBagIcon,
+  ChartPieIcon,
+  CurrencyNgnIcon,
+  PackageIcon,
+  CaretRightIcon,
+} from "@phosphor-icons/react";
 import { ChartRiseSvg } from "@/components/illustrations";
 
 const stats = [
@@ -18,9 +25,9 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold">Overview</h1>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="card-3d rounded-2xl p-4 space-y-2">
+          <div key={stat.label} className="card-3d space-y-2 rounded-2xl p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{stat.label}</p>
               <stat.icon className={`size-5 ${stat.color}`} weight="fill" />
@@ -30,16 +37,18 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="card-3d rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+      <div className="card-3d flex flex-col items-center justify-center rounded-2xl p-6 text-center">
         <ChartRiseSvg className="size-40" />
-        <p className="text-sm text-muted-foreground mt-2">
+        <p className="mt-2 text-sm text-muted-foreground">
           Sales analytics will appear here once you start selling
         </p>
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick access</h2>
-        <div className="glass rounded-2xl border border-border/50 divide-y divide-border/50">
+        <h2 className="mb-3 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+          Quick access
+        </h2>
+        <div className="glass divide-y divide-border/50 rounded-2xl border border-border/50">
           <Link
             href="/app/products"
             className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/50"

@@ -130,47 +130,78 @@ function VariantDialog({
           }}
         >
           {({ isSubmitting, errors: e, touched: t, submitCount }) => {
-          const tried = submitCount > 0;
-          return (
-            <Form className="space-y-4">
-              {error && (
-                <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-                  {error}
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="v-sku">Option name</Label>
-                  <Field as={Input} id="v-sku" name="sku" placeholder="e.g. Default, Small, Red" className="h-10" />
-                  {e.sku && (t.sku || tried) && <p className="text-xs text-destructive">{e.sku}</p>}
+            const tried = submitCount > 0;
+            return (
+              <Form className="space-y-4">
+                {error && (
+                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {error}
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="v-sku">Option name</Label>
+                    <Field
+                      as={Input}
+                      id="v-sku"
+                      name="sku"
+                      placeholder="e.g. Default, Small, Red"
+                      className="h-10"
+                    />
+                    {e.sku && (t.sku || tried) && (
+                      <p className="text-xs text-destructive">{e.sku}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="v-price">Price (₦)</Label>
+                    <Field
+                      as={Input}
+                      id="v-price"
+                      name="price"
+                      type="number"
+                      placeholder="0.00"
+                      className="h-10"
+                    />
+                    {e.price && (t.price || tried) && (
+                      <p className="text-xs text-destructive">{e.price}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="v-cost">Cost price (₦)</Label>
+                    <Field
+                      as={Input}
+                      id="v-cost"
+                      name="cost_price"
+                      type="number"
+                      placeholder="Optional"
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="v-stock">Stock</Label>
+                    <Field
+                      as={Input}
+                      id="v-stock"
+                      name="stock_qty"
+                      type="number"
+                      placeholder="∞"
+                      className="h-10"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="v-price">Price (₦)</Label>
-                  <Field as={Input} id="v-price" name="price" type="number" placeholder="0.00" className="h-10" />
-                  {e.price && (t.price || tried) && <p className="text-xs text-destructive">{e.price}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="v-cost">Cost price (₦)</Label>
-                  <Field as={Input} id="v-cost" name="cost_price" type="number" placeholder="Optional" className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="v-stock">Stock</Label>
-                  <Field as={Input} id="v-stock" name="stock_qty" type="number" placeholder="∞" className="h-10" />
-                </div>
-              </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
-                  {isEdit ? "Save" : "Add"}
-                </Button>
-              </DialogFooter>
-            </Form>
-          );
-        }}
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
+                    {isEdit ? "Save" : "Add"}
+                  </Button>
+                </DialogFooter>
+              </Form>
+            );
+          }}
         </Formik>
       </DialogContent>
     </Dialog>
@@ -200,15 +231,15 @@ export default function ProductDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 max-w-2xl mx-auto">
+      <div className="mx-auto max-w-2xl space-y-4">
         <Skeleton className="h-8 w-48" />
-        <div className="card-3d rounded-2xl p-5 space-y-4">
+        <div className="card-3d space-y-4 rounded-2xl p-5">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
-        <div className="card-3d rounded-2xl p-5 space-y-4">
+        <div className="card-3d space-y-4 rounded-2xl p-5">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-16 w-full" />
         </div>
@@ -218,7 +249,7 @@ export default function ProductDetailPage() {
 
   if (!data) {
     return (
-      <div className="space-y-4 max-w-2xl mx-auto">
+      <div className="mx-auto max-w-2xl space-y-4">
         <Link href="/app/products">
           <Button variant="ghost" size="sm" className="gap-1">
             <ArrowLeftIcon className="size-4" /> Back
@@ -234,12 +265,12 @@ export default function ProductDetailPage() {
   const images = rawImages ?? [];
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="mx-auto max-w-2xl space-y-4">
       {/* Header */}
       <div>
         <div className="flex items-center justify-between">
           <Link href="/app/products">
-            <Button variant="ghost" size="sm" className="gap-1 -ml-2">
+            <Button variant="ghost" size="sm" className="-ml-2 gap-1">
               <ArrowLeftIcon className="size-4" />
               Back
             </Button>
@@ -248,11 +279,11 @@ export default function ProductDetailPage() {
             {product.is_available ? "Active" : "Draft"}
           </Badge>
         </div>
-        <h1 className="text-2xl font-bold truncate mt-1">{product.name}</h1>
+        <h1 className="mt-1 truncate text-2xl font-bold">{product.name}</h1>
       </div>
 
       {formError && (
-        <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
+        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
           {formError}
         </p>
       )}
@@ -287,7 +318,7 @@ export default function ProductDetailPage() {
       >
         {({ isSubmitting, errors, touched, resetForm }) => (
           <Form>
-            <div className="card-3d rounded-2xl p-5 space-y-4">
+            <div className="card-3d space-y-4 rounded-2xl p-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold">Details</h2>
                 {!editing ? (
@@ -341,18 +372,32 @@ export default function ProductDetailPage() {
                   id="description"
                   name="description"
                   disabled={!editing}
-                  className="flex min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none disabled:opacity-60 dark:bg-input/30"
+                  className="flex min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 dark:bg-input/30"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="category">Category</Label>
-                <Field as={Input} id="category" name="category" disabled={!editing} className="h-10" />
+                <Field
+                  as={Input}
+                  id="category"
+                  name="category"
+                  disabled={!editing}
+                  className="h-10"
+                />
               </div>
 
               <div className="flex items-center gap-2">
-                <Field type="checkbox" id="is_available" name="is_available" disabled={!editing} className="size-4 accent-primary" />
-                <Label htmlFor="is_available" className="text-sm font-normal">Available for sale</Label>
+                <Field
+                  type="checkbox"
+                  id="is_available"
+                  name="is_available"
+                  disabled={!editing}
+                  className="size-4 accent-primary"
+                />
+                <Label htmlFor="is_available" className="text-sm font-normal">
+                  Available for sale
+                </Label>
               </div>
             </div>
           </Form>
@@ -360,7 +405,7 @@ export default function ProductDetailPage() {
       </Formik>
 
       {/* Variants card */}
-      <div className="card-3d rounded-2xl p-5 space-y-4">
+      <div className="card-3d space-y-4 rounded-2xl p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Options</h2>
           <Button
@@ -379,14 +424,15 @@ export default function ProductDetailPage() {
         ) : (
           <div className="space-y-3">
             {variants.map((v) => (
-              <div key={v.id} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-                <div className="space-y-0.5 min-w-0">
+              <div
+                key={v.id}
+                className="flex items-center justify-between rounded-lg border border-border/50 p-3"
+              >
+                <div className="min-w-0 space-y-0.5">
                   <p className="text-sm font-medium">{v.sku}</p>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span className="font-semibold text-foreground">{formatCurrency(v.price)}</span>
-                    {v.cost_price && (
-                      <span>Cost: {formatCurrency(v.cost_price)}</span>
-                    )}
+                    {v.cost_price && <span>Cost: {formatCurrency(v.cost_price)}</span>}
                     <span>
                       {v.stock_qty === null || v.stock_qty === undefined
                         ? "∞ stock"
@@ -396,9 +442,11 @@ export default function ProductDetailPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex shrink-0 items-center gap-1">
                   {v.is_default && (
-                    <Badge variant="secondary" className="text-xs mr-1">Default</Badge>
+                    <Badge variant="secondary" className="mr-1 text-xs">
+                      Default
+                    </Badge>
                   )}
                   <Button
                     variant="ghost"
@@ -426,7 +474,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Images card */}
-      <div className="card-3d rounded-2xl p-5 space-y-4">
+      <div className="card-3d space-y-4 rounded-2xl p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Images</h2>
           <Button
@@ -442,24 +490,25 @@ export default function ProductDetailPage() {
 
         {images.length === 0 ? (
           <div className="flex flex-col items-center py-6 text-muted-foreground">
-            <TagIcon className="size-10 mb-2 opacity-40" />
+            <TagIcon className="mb-2 size-10 opacity-40" />
             <p className="text-sm">No images yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {[...images]
               .sort((a, b) => a.sort_order - b.sort_order)
               .map((img) => (
-                <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border">
+                <div
+                  key={img.id}
+                  className="group relative aspect-square overflow-hidden rounded-lg border"
+                >
                   <img src={img.url} alt="" className="size-full object-cover" />
                   {img.is_primary && (
-                    <Badge className="absolute top-1 left-1 text-[10px] px-1.5 py-0">
-                      Primary
-                    </Badge>
+                    <Badge className="absolute top-1 left-1 px-1.5 py-0 text-[10px]">Primary</Badge>
                   )}
                   <button
                     type="button"
-                    className="absolute top-1 right-1 size-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-destructive-foreground absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-destructive/90 opacity-0 transition-opacity group-hover:opacity-100"
                     onClick={async () => {
                       try {
                         await deleteImageMut.mutateAsync({
@@ -480,16 +529,12 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Danger zone */}
-      <div className="card-3d rounded-2xl p-5 space-y-4">
+      <div className="card-3d space-y-4 rounded-2xl p-5">
         <h2 className="text-base font-semibold text-destructive">Danger zone</h2>
         <p className="text-sm text-muted-foreground">
           Deleting a product is permanent and cannot be undone.
         </p>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setDeleteConfirm(true)}
-        >
+        <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(true)}>
           Delete product
         </Button>
       </div>
@@ -574,7 +619,7 @@ function ImageDialog({
       setDialogError(null);
     }
     setIsPrimary(nextSortOrder === 0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, nextSortOrder]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -614,17 +659,17 @@ function ImageDialog({
         </DialogHeader>
         <div className="space-y-4">
           {dialogError && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {dialogError}
             </p>
           )}
           <label className="block cursor-pointer">
             <div
               className={cn(
-                "aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 text-muted-foreground transition-colors",
+                "flex aspect-video flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-muted-foreground transition-colors",
                 preview
-                  ? "border-transparent overflow-hidden p-0"
-                  : "border-border hover:border-primary/50 p-6",
+                  ? "overflow-hidden border-transparent p-0"
+                  : "border-border p-6 hover:border-primary/50",
               )}
             >
               {preview ? (
@@ -636,12 +681,7 @@ function ImageDialog({
                 </>
               )}
             </div>
-            <input
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={handleFileChange}
-            />
+            <input type="file" accept="image/*" className="sr-only" onChange={handleFileChange} />
           </label>
           {preview && (
             <button

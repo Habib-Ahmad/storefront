@@ -43,9 +43,7 @@ export default function ResetPasswordPage() {
         </div>
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight">Reset password</h1>
-          <p className="text-sm text-muted-foreground">
-            Verifying your reset link…
-          </p>
+          <p className="text-sm text-muted-foreground">Verifying your reset link…</p>
         </div>
         <div className="flex justify-center py-8">
           <SpinnerGapIcon className="size-6 animate-spin text-muted-foreground" />
@@ -62,9 +60,7 @@ export default function ResetPasswordPage() {
 
       <div className="space-y-2 text-center">
         <h1 className="text-2xl font-bold tracking-tight">Set new password</h1>
-        <p className="text-sm text-muted-foreground">
-          Choose a new password for your account
-        </p>
+        <p className="text-sm text-muted-foreground">Choose a new password for your account</p>
       </div>
 
       <Formik
@@ -91,15 +87,15 @@ export default function ResetPasswordPage() {
         }}
       >
         {({ isSubmitting, errors, touched }) => (
-          <Form className="card-3d rounded-2xl p-6 space-y-4">
+          <Form className="card-3d space-y-4 rounded-2xl p-6">
             {formError && (
-              <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
                 {formError}
               </p>
             )}
 
             {success && (
-              <p className="text-sm text-primary text-center bg-primary/10 rounded-lg px-3 py-2">
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-center text-sm text-primary">
                 Password updated — redirecting…
               </p>
             )}
@@ -134,7 +130,7 @@ export default function ResetPasswordPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full h-10" disabled={isSubmitting || success}>
+            <Button type="submit" className="h-10 w-full" disabled={isSubmitting || success}>
               {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
               Update password
             </Button>

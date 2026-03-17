@@ -4,12 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Formik, Form, Field, FieldArray } from "formik";
 import * as Yup from "yup";
-import {
-  ArrowLeftIcon,
-  PlusIcon,
-  TrashIcon,
-  SpinnerGapIcon,
-} from "@phosphor-icons/react";
+import { ArrowLeftIcon, PlusIcon, TrashIcon, SpinnerGapIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,15 +61,15 @@ export default function NewProductPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <Link href="/app/products">
-          <Button variant="ghost" size="sm" className="gap-1 -ml-2">
+          <Button variant="ghost" size="sm" className="-ml-2 gap-1">
             <ArrowLeftIcon className="size-4" />
             Back
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold mt-1">New Product</h1>
+        <h1 className="mt-1 text-2xl font-bold">New Product</h1>
       </div>
 
       <Formik
@@ -106,160 +101,181 @@ export default function NewProductPage() {
         {({ isSubmitting, errors, touched, values, submitCount }) => {
           const tried = submitCount > 0;
           return (
-          <Form className="space-y-6">
-            {formError && (
-              <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
-                {formError}
-              </p>
-            )}
+            <Form className="space-y-6">
+              {formError && (
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+                  {formError}
+                </p>
+              )}
 
-            {/* Product details */}
-            <div className="card-3d rounded-2xl p-5 space-y-4">
-              <h2 className="text-base font-semibold">Details</h2>
+              {/* Product details */}
+              <div className="card-3d space-y-4 rounded-2xl p-5">
+                <h2 className="text-base font-semibold">Details</h2>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
-                <Field as={Input} id="name" name="name" placeholder="Product name" className="h-10" />
-                {errors.name && (touched.name || tried) && (
-                  <p className="text-xs text-destructive">{errors.name}</p>
-                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Name</Label>
+                  <Field
+                    as={Input}
+                    id="name"
+                    name="name"
+                    placeholder="Product name"
+                    className="h-10"
+                  />
+                  {errors.name && (touched.name || tried) && (
+                    <p className="text-xs text-destructive">{errors.name}</p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="description">Description</Label>
+                  <Field
+                    as="textarea"
+                    id="description"
+                    name="description"
+                    placeholder="Optional product description"
+                    className="flex min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="category">Category</Label>
+                  <Field
+                    as={Input}
+                    id="category"
+                    name="category"
+                    placeholder="e.g. Clothing, Electronics"
+                    className="h-10"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Field
+                    type="checkbox"
+                    id="is_available"
+                    name="is_available"
+                    className="size-4 accent-primary"
+                  />
+                  <Label htmlFor="is_available" className="text-sm font-normal">
+                    Available for sale
+                  </Label>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="description">Description</Label>
-                <Field
-                  as="textarea"
-                  id="description"
-                  name="description"
-                  placeholder="Optional product description"
-                  className="flex min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none dark:bg-input/30"
-                />
-              </div>
+              {/* Options (variants) */}
+              <div className="card-3d space-y-4 rounded-2xl p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold">Pricing & Inventory</h2>
+                </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="category">Category</Label>
-                <Field as={Input} id="category" name="category" placeholder="e.g. Clothing, Electronics" className="h-10" />
-              </div>
+                <FieldArray name="variants">
+                  {({ push, remove }) => (
+                    <div className="space-y-4">
+                      {values.variants.map((_, i) => {
+                        const ve = errors.variants?.[i] as Record<string, string> | undefined;
+                        const vt = touched.variants?.[i] as Record<string, boolean> | undefined;
+                        return (
+                          <div key={i}>
+                            {i > 0 && <Separator className="mb-4" />}
+                            <div className="mb-3 flex items-center justify-between">
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {values.variants.length > 1 ? `Option ${i + 1}` : "Default option"}
+                              </p>
+                              {values.variants.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => remove(i)}
+                                  className="h-7 px-2 text-destructive hover:text-destructive"
+                                >
+                                  <TrashIcon className="size-4" />
+                                </Button>
+                              )}
+                            </div>
 
-              <div className="flex items-center gap-2">
-                <Field type="checkbox" id="is_available" name="is_available" className="size-4 accent-primary" />
-                <Label htmlFor="is_available" className="text-sm font-normal">Available for sale</Label>
-              </div>
-            </div>
-
-            {/* Options (variants) */}
-            <div className="card-3d rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold">Pricing & Inventory</h2>
-              </div>
-
-              <FieldArray name="variants">
-                {({ push, remove }) => (
-                  <div className="space-y-4">
-                    {values.variants.map((_, i) => {
-                      const ve = errors.variants?.[i] as Record<string, string> | undefined;
-                      const vt = touched.variants?.[i] as Record<string, boolean> | undefined;
-                      return (
-                      <div key={i}>
-                        {i > 0 && <Separator className="mb-4" />}
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-sm font-medium text-muted-foreground">
-                            {values.variants.length > 1 ? `Option ${i + 1}` : "Default option"}
-                          </p>
-                          {values.variants.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => remove(i)}
-                              className="text-destructive hover:text-destructive h-7 px-2"
-                            >
-                              <TrashIcon className="size-4" />
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`variants.${i}.sku`}>Option name</Label>
-                            <Field
-                              as={Input}
-                              id={`variants.${i}.sku`}
-                              name={`variants.${i}.sku`}
-                              placeholder="e.g. Default, Small, Red"
-                              className="h-10"
-                            />
-                            {ve?.sku && (vt?.sku || tried) && (
-                              <p className="text-xs text-destructive">{ve.sku}</p>
-                            )}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`variants.${i}.sku`}>Option name</Label>
+                                <Field
+                                  as={Input}
+                                  id={`variants.${i}.sku`}
+                                  name={`variants.${i}.sku`}
+                                  placeholder="e.g. Default, Small, Red"
+                                  className="h-10"
+                                />
+                                {ve?.sku && (vt?.sku || tried) && (
+                                  <p className="text-xs text-destructive">{ve.sku}</p>
+                                )}
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`variants.${i}.price`}>Price (₦)</Label>
+                                <Field
+                                  as={Input}
+                                  id={`variants.${i}.price`}
+                                  name={`variants.${i}.price`}
+                                  type="number"
+                                  placeholder="0.00"
+                                  className="h-10"
+                                />
+                                {ve?.price && (vt?.price || tried) && (
+                                  <p className="text-xs text-destructive">{ve.price}</p>
+                                )}
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`variants.${i}.cost_price`}>Cost price (₦)</Label>
+                                <Field
+                                  as={Input}
+                                  id={`variants.${i}.cost_price`}
+                                  name={`variants.${i}.cost_price`}
+                                  type="number"
+                                  placeholder="Optional"
+                                  className="h-10"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`variants.${i}.stock_qty`}>Stock</Label>
+                                <Field
+                                  as={Input}
+                                  id={`variants.${i}.stock_qty`}
+                                  name={`variants.${i}.stock_qty`}
+                                  type="number"
+                                  placeholder="∞"
+                                  className="h-10"
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`variants.${i}.price`}>Price (₦)</Label>
-                            <Field
-                              as={Input}
-                              id={`variants.${i}.price`}
-                              name={`variants.${i}.price`}
-                              type="number"
-                              placeholder="0.00"
-                              className="h-10"
-                            />
-                            {ve?.price && (vt?.price || tried) && (
-                              <p className="text-xs text-destructive">{ve.price}</p>
-                            )}
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`variants.${i}.cost_price`}>Cost price (₦)</Label>
-                            <Field
-                              as={Input}
-                              id={`variants.${i}.cost_price`}
-                              name={`variants.${i}.cost_price`}
-                              type="number"
-                              placeholder="Optional"
-                              className="h-10"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`variants.${i}.stock_qty`}>Stock</Label>
-                            <Field
-                              as={Input}
-                              id={`variants.${i}.stock_qty`}
-                              name={`variants.${i}.stock_qty`}
-                              type="number"
-                              placeholder="∞"
-                              className="h-10"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      );
-                    })}
+                        );
+                      })}
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => push({ ...emptyVariant })}
-                      className="gap-1.5"
-                    >
-                      <PlusIcon className="size-4" />
-                      Add option
-                    </Button>
-                  </div>
-                )}
-              </FieldArray>
-            </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => push({ ...emptyVariant })}
+                        className="gap-1.5"
+                      >
+                        <PlusIcon className="size-4" />
+                        Add option
+                      </Button>
+                    </div>
+                  )}
+                </FieldArray>
+              </div>
 
-            {/* Submit */}
-            <div className="flex justify-end gap-3">
-              <Link href="/app/products">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
-                Create product
-              </Button>
-            </div>
-          </Form>
+              {/* Submit */}
+              <div className="flex justify-end gap-3">
+                <Link href="/app/products">
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </Link>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
+                  Create product
+                </Button>
+              </div>
+            </Form>
           );
         }}
       </Formik>

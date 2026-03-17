@@ -16,10 +16,7 @@ export function createQueryHook<TData, TParams = void>(
   key: string,
   fetcher: (params: TParams) => Promise<TData>,
 ) {
-  return (
-    params: TParams,
-    options?: Omit<UseQueryOptions<TData>, "queryKey" | "queryFn">,
-  ) =>
+  return (params: TParams, options?: Omit<UseQueryOptions<TData>, "queryKey" | "queryFn">) =>
     useQuery<TData>({
       queryKey: [key, params],
       queryFn: () => fetcher(params),
@@ -41,9 +38,7 @@ export function createMutationHook<TData, TInput>(
     return useMutation<TData, Error, TInput>({
       mutationFn,
       onSuccess: (...args) => {
-        invalidateKeys.forEach((k) =>
-          qc.invalidateQueries({ queryKey: [k] }),
-        );
+        invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
         options?.onSuccess?.(...args);
       },
       ...options,

@@ -41,22 +41,17 @@ export function Header() {
   });
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-border/50 glass backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-40">
+    <header className="glass sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 px-4 backdrop-blur-xl backdrop-saturate-150 md:px-6">
       <div>
         {/* Mobile: no title — each page renders its own h1 */}
-        <nav className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+        <nav className="hidden items-center gap-1.5 text-sm text-muted-foreground md:flex">
           {crumbs.map((crumb, i) => (
             <span key={crumb.href} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-border">/</span>}
               {i === crumbs.length - 1 ? (
-                <span className="font-medium text-foreground">
-                  {crumb.label}
-                </span>
+                <span className="font-medium text-foreground">{crumb.label}</span>
               ) : (
-                <Link
-                  href={crumb.href}
-                  className="hover:text-foreground transition-colors"
-                >
+                <Link href={crumb.href} className="transition-colors hover:text-foreground">
                   {crumb.label}
                 </Link>
               )}
@@ -71,15 +66,19 @@ export function Header() {
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
-          <SunIcon className="size-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" weight="fill" />
-          <MoonIcon className="absolute size-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" weight="fill" />
+          <SunIcon
+            className="size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90"
+            weight="fill"
+          />
+          <MoonIcon
+            className="absolute size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0"
+            weight="fill"
+          />
           <span className="sr-only">Toggle theme</span>
         </Button>
 
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <DropdownMenuTrigger className="rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
             <Avatar size="sm">
               <AvatarFallback>U</AvatarFallback>
             </Avatar>

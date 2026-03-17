@@ -43,19 +43,17 @@ export function Sidebar() {
   const signOut = useSignOut();
 
   return (
-    <aside className="hidden md:flex md:flex-col md:w-64 md:border-r md:h-screen md:fixed md:left-0 md:top-0 glass z-30">
-      <div className="flex items-center h-14 px-5 border-b border-border/50">
+    <aside className="glass z-30 hidden md:fixed md:top-0 md:left-0 md:flex md:h-screen md:w-64 md:flex-col md:border-r">
+      <div className="flex h-14 items-center border-b border-border/50 px-5">
         <Link href="/app" className="text-lg font-bold tracking-tight">
           Storefront
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
         {navItems.map((item) => {
           const isActive =
-            item.href === "/app"
-              ? pathname === "/app"
-              : pathname.startsWith(item.href);
+            item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
 
           return (
             <Link
@@ -84,17 +82,15 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-3 border-t border-border/50">
+      <div className="flex items-center gap-2 border-t border-border/50 px-3 py-3">
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className="flex items-center gap-2.5 flex-1 rounded-lg px-2 py-1.5 text-sm hover:bg-accent transition-colors text-left"
-          >
+          <DropdownMenuTrigger className="flex flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent">
             <Avatar size="sm">
               <AvatarFallback>U</AvatarFallback>
             </Avatar>
             <div className="flex-1 truncate">
-              <p className="font-medium text-xs truncate">My Store</p>
-              <p className="text-[11px] text-muted-foreground truncate">owner</p>
+              <p className="truncate text-xs font-medium">My Store</p>
+              <p className="truncate text-[11px] text-muted-foreground">owner</p>
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-48">
@@ -103,10 +99,7 @@ export function Sidebar() {
               Account
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={signOut}
-              className="text-destructive focus:text-destructive"
-            >
+            <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
               <SignOutIcon className="size-4" />
               Sign out
             </DropdownMenuItem>
@@ -119,8 +112,14 @@ export function Sidebar() {
           className="shrink-0"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
-          <SunIcon className="size-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" weight="fill" />
-          <MoonIcon className="absolute size-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" weight="fill" />
+          <SunIcon
+            className="size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90"
+            weight="fill"
+          />
+          <MoonIcon
+            className="absolute size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0"
+            weight="fill"
+          />
           <span className="sr-only">Toggle theme</span>
         </Button>
       </div>

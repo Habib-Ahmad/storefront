@@ -35,15 +35,11 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <div className="card-3d rounded-2xl p-6 space-y-4">
-          <p className="text-sm text-muted-foreground text-center">
+        <div className="card-3d space-y-4 rounded-2xl p-6">
+          <p className="text-center text-sm text-muted-foreground">
             Didn&apos;t get the email? Check your spam folder or try again.
           </p>
-          <Button
-            variant="outline"
-            className="w-full h-10"
-            onClick={() => setSent(false)}
-          >
+          <Button variant="outline" className="h-10 w-full" onClick={() => setSent(false)}>
             Try again
           </Button>
         </div>
@@ -51,7 +47,7 @@ export default function ForgotPasswordPage() {
         <p className="text-center">
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
           >
             <ArrowLeftIcon className="size-3.5" />
             Back to sign in
@@ -101,9 +97,9 @@ export default function ForgotPasswordPage() {
         }}
       >
         {({ isSubmitting, errors, touched }) => (
-          <Form className="card-3d rounded-2xl p-6 space-y-4">
+          <Form className="card-3d space-y-4 rounded-2xl p-6">
             {formError && (
-              <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
                 {formError}
               </p>
             )}
@@ -124,7 +120,7 @@ export default function ForgotPasswordPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full h-10" disabled={isSubmitting}>
+            <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
               {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
               Send reset link
             </Button>
@@ -135,7 +131,7 @@ export default function ForgotPasswordPage() {
       <p className="text-center">
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
         >
           <ArrowLeftIcon className="size-3.5" />
           Back to sign in

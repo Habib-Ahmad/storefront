@@ -26,16 +26,13 @@ export function BottomNav() {
   const pathname = usePathname();
 
   const renderItem = (item: (typeof leftItems)[0]) => {
-    const isActive =
-      item.href === "/app"
-        ? pathname === "/app"
-        : pathname.startsWith(item.href);
+    const isActive = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
     return (
       <Link
         key={item.href}
         href={item.href}
         className={cn(
-          "flex flex-col items-center justify-center gap-0.5 flex-1 py-3 text-[11px] transition-colors",
+          "flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] transition-colors",
           isActive ? "text-primary" : "text-muted-foreground",
         )}
       >
@@ -47,14 +44,14 @@ export function BottomNav() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden backdrop-blur-xl backdrop-saturate-150"
+      className="fixed right-0 bottom-0 left-0 z-50 backdrop-blur-xl backdrop-saturate-150 md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="relative h-16">
         {/* SVG notched background */}
         <svg
           aria-hidden
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className="pointer-events-none absolute inset-0 h-full w-full"
           viewBox="0 0 390 64"
           preserveAspectRatio="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -86,7 +83,7 @@ export function BottomNav() {
         {/* FAB — rises above the bar, sits in the notch */}
         <Link
           href="/app/orders/new"
-          className="absolute left-1/2 -translate-x-1/2 -top-4 flex items-center justify-center size-12 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/40 active:scale-95 transition-transform z-10"
+          className="absolute -top-4 left-1/2 z-10 flex size-12 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/40 transition-transform active:scale-95"
         >
           <PlusIcon className="size-6" weight="bold" />
         </Link>

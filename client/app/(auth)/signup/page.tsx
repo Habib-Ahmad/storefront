@@ -35,9 +35,7 @@ export default function SignupPage() {
 
       <div className="space-y-2 text-center">
         <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
-        <p className="text-sm text-muted-foreground">
-          Get started with Storefront
-        </p>
+        <p className="text-sm text-muted-foreground">Get started with Storefront</p>
       </div>
 
       <Formik
@@ -67,15 +65,15 @@ export default function SignupPage() {
         }}
       >
         {({ isSubmitting, errors, touched }) => (
-          <Form className="card-3d rounded-2xl p-6 space-y-4">
+          <Form className="card-3d space-y-4 rounded-2xl p-6">
             {formError && (
-              <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-3 py-2">
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
                 {formError}
               </p>
             )}
 
             {success && (
-              <p className="text-sm text-primary text-center bg-primary/10 rounded-lg px-3 py-2">
+              <p className="rounded-lg bg-primary/10 px-3 py-2 text-center text-sm text-primary">
                 Check your email to confirm your account
               </p>
             )}
@@ -126,14 +124,14 @@ export default function SignupPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full h-10" disabled={isSubmitting || success}>
+            <Button type="submit" className="h-10 w-full" disabled={isSubmitting || success}>
               {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
               Create account
             </Button>
 
             <div className="relative">
               <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+              <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
                 or
               </span>
             </div>
@@ -145,7 +143,10 @@ export default function SignupPage() {
                 className="h-10 gap-2"
                 onClick={() => {
                   const supabase = getSupabase();
-                  supabase?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/app` } });
+                  supabase?.auth.signInWithOAuth({
+                    provider: "google",
+                    options: { redirectTo: `${window.location.origin}/app` },
+                  });
                 }}
               >
                 <GoogleLogoIcon className="size-4" weight="bold" />
@@ -157,7 +158,10 @@ export default function SignupPage() {
                 className="h-10 gap-2"
                 onClick={() => {
                   const supabase = getSupabase();
-                  supabase?.auth.signInWithOAuth({ provider: "apple", options: { redirectTo: `${window.location.origin}/app` } });
+                  supabase?.auth.signInWithOAuth({
+                    provider: "apple",
+                    options: { redirectTo: `${window.location.origin}/app` },
+                  });
                 }}
               >
                 <AppleLogoIcon className="size-4" weight="fill" />
@@ -170,7 +174,7 @@ export default function SignupPage() {
 
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-primary hover:underline font-medium">
+        <Link href="/login" className="font-medium text-primary hover:underline">
           Sign in
         </Link>
       </p>

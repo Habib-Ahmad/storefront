@@ -23,7 +23,11 @@ function formatPrice(variants?: Product["variants"]) {
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: "NGN",
+      minimumFractionDigits: 0,
+    }).format(n);
   return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
 }
 
@@ -39,29 +43,25 @@ function ProductCard({ product }: { product: Product }) {
 
   return (
     <Link href={`/app/products/${product.id}`} className="block">
-      <div className="card-3d rounded-2xl overflow-hidden hover:ring-2 hover:ring-primary/20 transition-all">
-        <div className="aspect-square bg-muted flex items-center justify-center">
+      <div className="card-3d overflow-hidden rounded-2xl transition-all hover:ring-2 hover:ring-primary/20">
+        <div className="flex aspect-square items-center justify-center bg-muted">
           {primary ? (
-            <img
-              src={primary.url}
-              alt={product.name}
-              className="size-full object-cover"
-            />
+            <img src={primary.url} alt={product.name} className="size-full object-cover" />
           ) : (
             <TagIcon className="size-10 text-muted-foreground/40" />
           )}
         </div>
-        <div className="p-3 space-y-1.5">
-          <p className="text-sm font-medium truncate">{product.name}</p>
-          <p className="text-sm font-semibold text-primary">
-            {formatPrice(product.variants)}
-          </p>
+        <div className="space-y-1.5 p-3">
+          <p className="truncate text-sm font-medium">{product.name}</p>
+          <p className="text-sm font-semibold text-primary">{formatPrice(product.variants)}</p>
           <div className="flex items-center gap-2">
             <Badge variant={product.is_available ? "default" : "secondary"} className="text-xs">
               {product.is_available ? "Active" : "Draft"}
             </Badge>
             {stock !== null && (
-              <span className={`text-xs ${stock === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+              <span
+                className={`text-xs ${stock === 0 ? "text-destructive" : "text-muted-foreground"}`}
+              >
                 {stock === 0 ? "Out of stock" : `${stock} in stock`}
               </span>
             )}
@@ -74,9 +74,9 @@ function ProductCard({ product }: { product: Product }) {
 
 function ProductSkeleton() {
   return (
-    <div className="card-3d rounded-2xl overflow-hidden">
+    <div className="card-3d overflow-hidden rounded-2xl">
       <Skeleton className="aspect-square" />
-      <div className="p-3 space-y-2">
+      <div className="space-y-2 p-3">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-5 w-16 rounded-full" />
@@ -116,19 +116,19 @@ export default function ProductsPage() {
       {/* Search */}
       {!isLoading && total > 0 && (
         <div className="relative max-w-sm">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <MagnifyingGlassIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search products…"
             value={search}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-            className="pl-8 h-9"
+            className="h-9 pl-8"
           />
         </div>
       )}
 
       {/* Loading */}
       {isLoading && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <ProductSkeleton key={i} />
           ))}
@@ -137,20 +137,22 @@ export default function ProductsPage() {
 
       {/* Empty state */}
       {!isLoading && total === 0 && (
-        <div className="card-3d rounded-2xl p-8 flex flex-col items-center justify-center text-center">
+        <div className="card-3d flex flex-col items-center justify-center rounded-2xl p-8 text-center">
           <OpenBoxSvg className="size-36" />
-          <p className="text-sm text-muted-foreground mt-3">
+          <p className="mt-3 text-sm text-muted-foreground">
             Add your first product to get started
           </p>
           <Link href="/app/products/new" className="mt-3">
-            <Button variant="outline" size="sm">Add product</Button>
+            <Button variant="outline" size="sm">
+              Add product
+            </Button>
           </Link>
         </div>
       )}
 
       {/* Product grid */}
       {!isLoading && filtered.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {filtered.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
@@ -159,7 +161,7 @@ export default function ProductsPage() {
 
       {/* No search results */}
       {!isLoading && total > 0 && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No products matching &ldquo;{search}&rdquo;
         </p>
       )}

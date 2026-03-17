@@ -17,13 +17,13 @@ export default function OrdersPage() {
           </Button>
         </Link>
       </div>
-      <div className="card-3d rounded-2xl p-8 flex flex-col items-center justify-center text-center">
+      <div className="card-3d flex flex-col items-center justify-center rounded-2xl p-8 text-center">
         <ReceiptSvg className="size-36" />
-        <p className="text-sm text-muted-foreground mt-3">
-          Your orders will appear here
-        </p>
+        <p className="mt-3 text-sm text-muted-foreground">Your orders will appear here</p>
         <Link href="/app/orders/new" className="mt-3">
-          <Button variant="outline" size="sm">Create your first order</Button>
+          <Button variant="outline" size="sm">
+            Create your first order
+          </Button>
         </Link>
       </div>
     </div>

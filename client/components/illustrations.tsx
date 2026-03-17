@@ -23,20 +23,11 @@ export function ShoppingBagSvg({ className }: { className?: string }) {
         transition={{ duration: 1.5, ease: "easeOut" }}
       />
       {/* Bag front face */}
-      <path
-        d="M50 80 L100 105 L100 180 L50 155 Z"
-        className="fill-primary/15"
-      />
+      <path d="M50 80 L100 105 L100 180 L50 155 Z" className="fill-primary/15" />
       {/* Bag right face */}
-      <path
-        d="M100 105 L150 80 L150 155 L100 180 Z"
-        className="fill-primary/8"
-      />
+      <path d="M100 105 L150 80 L150 155 L100 180 Z" className="fill-primary/8" />
       {/* Bag top */}
-      <path
-        d="M50 80 L100 55 L150 80 L100 105 Z"
-        className="fill-primary/20"
-      />
+      <path d="M50 80 L100 55 L150 80 L100 105 Z" className="fill-primary/20" />
       {/* Handle */}
       <motion.path
         d="M75 80 C75 50, 125 50, 125 80"
@@ -50,19 +41,25 @@ export function ShoppingBagSvg({ className }: { className?: string }) {
       />
       {/* Sparkle dots */}
       <motion.circle
-        cx="160" cy="50" r="3"
+        cx="160"
+        cy="50"
+        r="3"
         className="fill-primary/40"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0 }}
       />
       <motion.circle
-        cx="40" cy="65" r="2"
+        cx="40"
+        cy="65"
+        r="2"
         className="fill-primary/30"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0.7 }}
       />
       <motion.circle
-        cx="170" cy="120" r="2.5"
+        cx="170"
+        cy="120"
+        r="2.5"
         className="fill-primary/25"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 1.4 }}
@@ -84,7 +81,11 @@ export function SecureLockSvg({ className }: { className?: string }) {
     >
       {/* Lock body — isometric box */}
       <motion.rect
-        x="60" y="95" width="80" height="65" rx="8"
+        x="60"
+        y="95"
+        width="80"
+        height="65"
+        rx="8"
         className="fill-primary/12 stroke-primary/40"
         strokeWidth="2"
         initial={{ scale: 0.8, opacity: 0 }}
@@ -107,7 +108,8 @@ export function SecureLockSvg({ className }: { className?: string }) {
       <rect x="97" y="125" width="6" height="14" rx="3" className="fill-primary/30" />
       {/* Pulse ring */}
       <motion.circle
-        cx="100" cy="127"
+        cx="100"
+        cy="127"
         r="30"
         className="stroke-primary/20"
         strokeWidth="2"
@@ -131,7 +133,15 @@ export function MailSentSvg({ className }: { className?: string }) {
       transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
     >
       {/* Envelope body */}
-      <rect x="40" y="75" width="120" height="80" rx="8" className="fill-primary/12 stroke-primary/40" strokeWidth="2" />
+      <rect
+        x="40"
+        y="75"
+        width="120"
+        height="80"
+        rx="8"
+        className="fill-primary/12 stroke-primary/40"
+        strokeWidth="2"
+      />
       {/* Envelope flap */}
       <motion.path
         d="M40 75 L100 120 L160 75"
@@ -145,22 +155,44 @@ export function MailSentSvg({ className }: { className?: string }) {
       />
       {/* Letter sliding up */}
       <motion.rect
-        x="55" y="65" width="90" height="60" rx="4"
+        x="55"
+        y="65"
+        width="90"
+        height="60"
+        rx="4"
         className="fill-primary/8 stroke-primary/25"
         strokeWidth="1.5"
         animate={{ y: [65, 50, 65] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       />
       {/* Letter lines */}
-      <motion.line x1="70" y1="80" x2="130" y2="80" className="stroke-primary/20" strokeWidth="2" strokeLinecap="round"
-        animate={{ y: [0, -15, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      <motion.line
+        x1="70"
+        y1="80"
+        x2="130"
+        y2="80"
+        className="stroke-primary/20"
+        strokeWidth="2"
+        strokeLinecap="round"
+        animate={{ y: [0, -15, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       />
-      <motion.line x1="70" y1="90" x2="115" y2="90" className="stroke-primary/15" strokeWidth="2" strokeLinecap="round"
-        animate={{ y: [0, -15, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      <motion.line
+        x1="70"
+        y1="90"
+        x2="115"
+        y2="90"
+        className="stroke-primary/15"
+        strokeWidth="2"
+        strokeLinecap="round"
+        animate={{ y: [0, -15, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       />
       {/* Sparkle */}
       <motion.circle
-        cx="165" cy="65" r="3"
+        cx="165"
+        cy="65"
+        r="3"
         className="fill-primary/30"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
@@ -182,7 +214,9 @@ export function KeySvg({ className }: { className?: string }) {
     >
       {/* Key head — circle */}
       <motion.circle
-        cx="80" cy="90" r="28"
+        cx="80"
+        cy="90"
+        r="28"
         className="fill-primary/10 stroke-primary/40"
         strokeWidth="2"
         initial={{ scale: 0, opacity: 0 }}
@@ -190,10 +224,19 @@ export function KeySvg({ className }: { className?: string }) {
         transition={{ duration: 0.5 }}
       />
       {/* Key hole in head */}
-      <circle cx="80" cy="90" r="10" className="fill-background stroke-primary/30" strokeWidth="2" />
+      <circle
+        cx="80"
+        cy="90"
+        r="10"
+        className="fill-background stroke-primary/30"
+        strokeWidth="2"
+      />
       {/* Key shaft */}
       <motion.line
-        x1="108" y1="90" x2="160" y2="90"
+        x1="108"
+        y1="90"
+        x2="160"
+        y2="90"
         className="stroke-primary/40"
         strokeWidth="4"
         strokeLinecap="round"
@@ -275,7 +318,9 @@ export function ChartRiseSvg({ className }: { className?: string }) {
       />
       {/* Dot at peak */}
       <motion.circle
-        cx="165" cy="72" r="4"
+        cx="165"
+        cy="72"
+        r="4"
         className="fill-primary/60"
         initial={{ scale: 0 }}
         animate={{ scale: [0, 1.3, 1] }}
@@ -283,7 +328,9 @@ export function ChartRiseSvg({ className }: { className?: string }) {
       />
       {/* Pulse on dot */}
       <motion.circle
-        cx="165" cy="72" r="4"
+        cx="165"
+        cy="72"
+        r="4"
         className="stroke-primary/30"
         strokeWidth="2"
         fill="none"
@@ -303,11 +350,19 @@ export function ChartRiseSvg({ className }: { className?: string }) {
         transition={{ duration: 0.6, delay: 2 }}
       />
       {/* Sparkles */}
-      <motion.circle cx="30" cy="60" r="2" className="fill-chart-4/40"
+      <motion.circle
+        cx="30"
+        cy="60"
+        r="2"
+        className="fill-chart-4/40"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
         transition={{ duration: 2.5, repeat: Infinity }}
       />
-      <motion.circle cx="175" cy="45" r="2.5" className="fill-chart-5/35"
+      <motion.circle
+        cx="175"
+        cy="45"
+        r="2.5"
+        className="fill-chart-5/35"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
         transition={{ duration: 2.5, repeat: Infinity, delay: 1 }}
       />
@@ -359,24 +414,47 @@ export function OpenBoxSvg({ className }: { className?: string }) {
         style={{ transformOrigin: "155px 100px" }}
       />
       {/* Floating items */}
-      <motion.circle cx="85" cy="70" r="6" className="fill-chart-4/25 stroke-chart-4/40" strokeWidth="1.5"
+      <motion.circle
+        cx="85"
+        cy="70"
+        r="6"
+        className="fill-chart-4/25 stroke-chart-4/40"
+        strokeWidth="1.5"
         animate={{ y: [0, -15, 0], opacity: [0.5, 1, 0.5] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       />
-      <motion.rect x="106" y="55" width="12" height="12" rx="3" className="fill-primary/20 stroke-primary/35" strokeWidth="1.5"
+      <motion.rect
+        x="106"
+        y="55"
+        width="12"
+        height="12"
+        rx="3"
+        className="fill-primary/20 stroke-primary/35"
+        strokeWidth="1.5"
         animate={{ y: [0, -12, 0], opacity: [0.5, 1, 0.5], rotate: [0, 15, 0] }}
         transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
       />
-      <motion.path d="M92 48 L100 38 L108 48 L100 52 Z" className="fill-chart-5/25 stroke-chart-5/40" strokeWidth="1.5"
+      <motion.path
+        d="M92 48 L100 38 L108 48 L100 52 Z"
+        className="fill-chart-5/25 stroke-chart-5/40"
+        strokeWidth="1.5"
         animate={{ y: [0, -10, 0], opacity: [0.4, 1, 0.4] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
       />
       {/* Sparkles */}
-      <motion.circle cx="60" cy="55" r="2" className="fill-primary/30"
+      <motion.circle
+        cx="60"
+        cy="55"
+        r="2"
+        className="fill-primary/30"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
       />
-      <motion.circle cx="145" cy="60" r="2.5" className="fill-chart-4/30"
+      <motion.circle
+        cx="145"
+        cy="60"
+        r="2.5"
+        className="fill-chart-4/30"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 1.2 }}
       />
@@ -397,7 +475,11 @@ export function ReceiptSvg({ className }: { className?: string }) {
     >
       {/* Paper */}
       <motion.rect
-        x="55" y="30" width="90" height="130" rx="8"
+        x="55"
+        y="30"
+        width="90"
+        height="130"
+        rx="8"
         className="fill-primary/8 stroke-primary/35"
         strokeWidth="2"
         initial={{ scaleY: 0 }}
@@ -406,13 +488,21 @@ export function ReceiptSvg({ className }: { className?: string }) {
         style={{ transformOrigin: "100px 160px" }}
       />
       {/* Torn bottom edge */}
-      <path d="M55 160 L65 155 L75 162 L85 155 L95 162 L105 155 L115 162 L125 155 L135 162 L145 155"
-        className="stroke-primary/25" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path
+        d="M55 160 L65 155 L75 162 L85 155 L95 162 L105 155 L115 162 L125 155 L135 162 L145 155"
+        className="stroke-primary/25"
+        strokeWidth="2"
+        strokeLinecap="round"
+        fill="none"
+      />
       {/* Lines */}
       {[55, 75, 95, 115, 135].map((y, i) => (
         <motion.g key={y}>
           <motion.line
-            x1="75" y1={y} x2="130" y2={y}
+            x1="75"
+            y1={y}
+            x2="130"
+            y2={y}
             className="stroke-primary/15"
             strokeWidth="2"
             strokeLinecap="round"
@@ -437,14 +527,23 @@ export function ReceiptSvg({ className }: { className?: string }) {
       ))}
       {/* Dollar sign floating */}
       <motion.text
-        x="100" y="185" textAnchor="middle"
+        x="100"
+        y="185"
+        textAnchor="middle"
         className="fill-primary/25"
-        fontSize="16" fontWeight="bold"
+        fontSize="16"
+        fontWeight="bold"
         animate={{ y: [185, 175, 185], opacity: [0.3, 0.6, 0.3] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-      >₦</motion.text>
+      >
+        ₦
+      </motion.text>
       {/* Sparkle */}
-      <motion.circle cx="150" cy="40" r="2.5" className="fill-chart-5/35"
+      <motion.circle
+        cx="150"
+        cy="40"
+        r="2.5"
+        className="fill-chart-5/35"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0.8 }}
       />
@@ -469,14 +568,51 @@ export function DeliveryTruckSvg({ className }: { className?: string }) {
         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
       >
         {/* Cargo */}
-        <rect x="45" y="95" width="75" height="45" rx="4" className="fill-primary/12 stroke-primary/35" strokeWidth="2" />
+        <rect
+          x="45"
+          y="95"
+          width="75"
+          height="45"
+          rx="4"
+          className="fill-primary/12 stroke-primary/35"
+          strokeWidth="2"
+        />
         {/* Package inside */}
-        <rect x="60" y="108" width="18" height="18" rx="3" className="fill-chart-4/15 stroke-chart-4/30" strokeWidth="1.5" />
-        <rect x="85" y="108" width="18" height="18" rx="3" className="fill-chart-5/15 stroke-chart-5/30" strokeWidth="1.5" />
+        <rect
+          x="60"
+          y="108"
+          width="18"
+          height="18"
+          rx="3"
+          className="fill-chart-4/15 stroke-chart-4/30"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="85"
+          y="108"
+          width="18"
+          height="18"
+          rx="3"
+          className="fill-chart-5/15 stroke-chart-5/30"
+          strokeWidth="1.5"
+        />
         {/* Cab */}
-        <path d="M120 105 L150 105 L155 125 L155 140 L120 140 Z" className="fill-primary/15 stroke-primary/35" strokeWidth="2" strokeLinejoin="round" />
+        <path
+          d="M120 105 L150 105 L155 125 L155 140 L120 140 Z"
+          className="fill-primary/15 stroke-primary/35"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
         {/* Window */}
-        <rect x="128" y="110" width="20" height="14" rx="3" className="fill-primary/8 stroke-primary/25" strokeWidth="1.5" />
+        <rect
+          x="128"
+          y="110"
+          width="20"
+          height="14"
+          rx="3"
+          className="fill-primary/8 stroke-primary/25"
+          strokeWidth="1.5"
+        />
       </motion.g>
       {/* Wheels */}
       <motion.g
@@ -484,7 +620,13 @@ export function DeliveryTruckSvg({ className }: { className?: string }) {
         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         style={{ transformOrigin: "70px 150px" }}
       >
-        <circle cx="70" cy="150" r="10" className="fill-primary/15 stroke-primary/40" strokeWidth="2" />
+        <circle
+          cx="70"
+          cy="150"
+          r="10"
+          className="fill-primary/15 stroke-primary/40"
+          strokeWidth="2"
+        />
         <circle cx="70" cy="150" r="3" className="fill-primary/30" />
       </motion.g>
       <motion.g
@@ -492,20 +634,44 @@ export function DeliveryTruckSvg({ className }: { className?: string }) {
         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         style={{ transformOrigin: "145px 150px" }}
       >
-        <circle cx="145" cy="150" r="10" className="fill-primary/15 stroke-primary/40" strokeWidth="2" />
+        <circle
+          cx="145"
+          cy="150"
+          r="10"
+          className="fill-primary/15 stroke-primary/40"
+          strokeWidth="2"
+        />
         <circle cx="145" cy="150" r="3" className="fill-primary/30" />
       </motion.g>
       {/* Speed lines */}
-      <motion.line x1="30" y1="120" x2="15" y2="120" className="stroke-primary/20" strokeWidth="2" strokeLinecap="round"
+      <motion.line
+        x1="30"
+        y1="120"
+        x2="15"
+        y2="120"
+        className="stroke-primary/20"
+        strokeWidth="2"
+        strokeLinecap="round"
         animate={{ opacity: [0, 0.5, 0], x1: [30, 20, 30] }}
         transition={{ duration: 1.5, repeat: Infinity }}
       />
-      <motion.line x1="35" y1="130" x2="18" y2="130" className="stroke-primary/15" strokeWidth="2" strokeLinecap="round"
+      <motion.line
+        x1="35"
+        y1="130"
+        x2="18"
+        y2="130"
+        className="stroke-primary/15"
+        strokeWidth="2"
+        strokeLinecap="round"
         animate={{ opacity: [0, 0.5, 0], x1: [35, 25, 35] }}
         transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
       />
       {/* Sparkle */}
-      <motion.circle cx="170" cy="85" r="2.5" className="fill-chart-4/35"
+      <motion.circle
+        cx="170"
+        cy="85"
+        r="2.5"
+        className="fill-chart-4/35"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
       />
@@ -526,7 +692,11 @@ export function WalletCoinsSvg({ className }: { className?: string }) {
     >
       {/* Wallet body */}
       <motion.rect
-        x="35" y="75" width="120" height="80" rx="12"
+        x="35"
+        y="75"
+        width="120"
+        height="80"
+        rx="12"
         className="fill-primary/10 stroke-primary/35"
         strokeWidth="2"
         initial={{ scale: 0.9, opacity: 0 }}
@@ -536,27 +706,97 @@ export function WalletCoinsSvg({ className }: { className?: string }) {
       {/* Wallet flap */}
       <path d="M35 95 L155 95" className="stroke-primary/20" strokeWidth="1.5" />
       {/* Clasp */}
-      <rect x="140" y="108" width="25" height="18" rx="9" className="fill-primary/15 stroke-primary/30" strokeWidth="2" />
+      <rect
+        x="140"
+        y="108"
+        width="25"
+        height="18"
+        rx="9"
+        className="fill-primary/15 stroke-primary/30"
+        strokeWidth="2"
+      />
       <circle cx="152" cy="117" r="4" className="fill-primary/25" />
       {/* Coins floating */}
-      <motion.g animate={{ y: [0, -8, 0], rotate: [0, 10, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
-        <circle cx="80" cy="60" r="14" className="fill-chart-5/20 stroke-chart-5/40" strokeWidth="1.5" />
-        <text x="80" y="65" textAnchor="middle" className="fill-chart-5/60" fontSize="14" fontWeight="bold">₦</text>
+      <motion.g
+        animate={{ y: [0, -8, 0], rotate: [0, 10, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <circle
+          cx="80"
+          cy="60"
+          r="14"
+          className="fill-chart-5/20 stroke-chart-5/40"
+          strokeWidth="1.5"
+        />
+        <text
+          x="80"
+          y="65"
+          textAnchor="middle"
+          className="fill-chart-5/60"
+          fontSize="14"
+          fontWeight="bold"
+        >
+          ₦
+        </text>
       </motion.g>
-      <motion.g animate={{ y: [0, -10, 0], rotate: [0, -8, 0] }} transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}>
-        <circle cx="110" cy="52" r="11" className="fill-chart-4/20 stroke-chart-4/35" strokeWidth="1.5" />
-        <text x="110" y="57" textAnchor="middle" className="fill-chart-4/55" fontSize="11" fontWeight="bold">₦</text>
+      <motion.g
+        animate={{ y: [0, -10, 0], rotate: [0, -8, 0] }}
+        transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+      >
+        <circle
+          cx="110"
+          cy="52"
+          r="11"
+          className="fill-chart-4/20 stroke-chart-4/35"
+          strokeWidth="1.5"
+        />
+        <text
+          x="110"
+          y="57"
+          textAnchor="middle"
+          className="fill-chart-4/55"
+          fontSize="11"
+          fontWeight="bold"
+        >
+          ₦
+        </text>
       </motion.g>
-      <motion.g animate={{ y: [0, -6, 0] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}>
-        <circle cx="55" cy="55" r="9" className="fill-primary/15 stroke-primary/30" strokeWidth="1.5" />
-        <text x="55" y="59" textAnchor="middle" className="fill-primary/45" fontSize="9" fontWeight="bold">₦</text>
+      <motion.g
+        animate={{ y: [0, -6, 0] }}
+        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+      >
+        <circle
+          cx="55"
+          cy="55"
+          r="9"
+          className="fill-primary/15 stroke-primary/30"
+          strokeWidth="1.5"
+        />
+        <text
+          x="55"
+          y="59"
+          textAnchor="middle"
+          className="fill-primary/45"
+          fontSize="9"
+          fontWeight="bold"
+        >
+          ₦
+        </text>
       </motion.g>
       {/* Sparkles */}
-      <motion.circle cx="165" cy="70" r="2" className="fill-chart-5/40"
+      <motion.circle
+        cx="165"
+        cy="70"
+        r="2"
+        className="fill-chart-5/40"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
         transition={{ duration: 2, repeat: Infinity }}
       />
-      <motion.circle cx="35" cy="68" r="2.5" className="fill-chart-4/30"
+      <motion.circle
+        cx="35"
+        cy="68"
+        r="2.5"
+        className="fill-chart-4/30"
         animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
         transition={{ duration: 2, repeat: Infinity, delay: 1 }}
       />

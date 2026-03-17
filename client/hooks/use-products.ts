@@ -17,17 +17,13 @@ export const useProducts = createQueryHook("products", (params: PaginationParams
   api.getProducts(params),
 );
 
-export const useProduct = createQueryHook("product", (id: string) =>
-  api.getProduct(id),
-);
+export const useProduct = createQueryHook("product", (id: string) => api.getProduct(id));
 
 export const useVariants = createQueryHook("variants", (productId: string) =>
   api.getVariants(productId),
 );
 
-export const useImages = createQueryHook("images", (productId: string) =>
-  api.getImages(productId),
-);
+export const useImages = createQueryHook("images", (productId: string) => api.getImages(productId));
 
 // ── Mutations (simple — via factory) ───────────────────
 
