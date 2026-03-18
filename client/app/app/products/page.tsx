@@ -15,27 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OpenBoxSvg } from "@/components/illustrations";
 import { useProducts } from "@/hooks/use-products";
+import { formatPrice, totalStock } from "@/lib/product-utils";
 import type { Product } from "@/lib/types";
-
-function formatPrice(variants?: Product["variants"]) {
-  if (!variants || variants.length === 0) return "—";
-  const prices = variants.map((v) => parseFloat(v.price));
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      minimumFractionDigits: 0,
-    }).format(n);
-  return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
-}
-
-function totalStock(variants?: Product["variants"]) {
-  if (!variants || variants.length === 0) return null;
-  if (variants.some((v) => v.stock_qty === null || v.stock_qty === undefined)) return null;
-  return variants.reduce((sum, v) => sum + (v.stock_qty ?? 0), 0);
-}
 
 function ProductCard({ product }: { product: Product }) {
   const stock = totalStock(product.variants);
