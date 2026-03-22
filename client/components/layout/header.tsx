@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { MoonIcon, SunIcon, SignOutIcon, UserCircleIcon } from "@phosphor-icons/react";
+import { useSignOut } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export function Header() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const signOut = useSignOut();
 
   const segments = pathname.split("/").filter(Boolean);
   const crumbs = segments.map((_, i) => {
@@ -89,10 +91,7 @@ export function Header() {
               Account
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {}}
-              className="text-destructive focus:text-destructive"
-            >
+            <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
               <SignOutIcon className="size-4" />
               Sign out
             </DropdownMenuItem>

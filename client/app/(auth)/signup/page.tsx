@@ -22,10 +22,17 @@ const signupSchema = Yup.object({
     .required("Please confirm your password"),
 });
 
+function isExistingAccountError(message: string) {
+  return /already registered|already exists|already have an account|user already registered/i.test(
+    message,
+  );
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [accountExists, setAccountExists] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -43,32 +50,46 @@ export default function SignupPage() {
         validationSchema={signupSchema}
         onSubmit={async (values, { setSubmitting }) => {
           setFormError(null);
+          setAccountExists(false);
           const supabase = getSupabase();
           if (!supabase) {
             setFormError("Auth is not configured");
             return;
           }
 
-          const { error } = await supabase.auth.signUp({
+          const { data, error } = await supabase.auth.signUp({
             email: values.email,
             password: values.password,
           });
 
           if (error) {
-            setFormError(error.message);
+            if (isExistingAccountError(error.message)) {
+              setAccountExists(true);
+              setFormError("You already have an account. Sign in to continue.");
+            } else {
+              setFormError(error.message);
+            }
             setSubmitting(false);
             return;
           }
 
           setSuccess(true);
-          setTimeout(() => router.push("/login"), 3000);
+          setTimeout(() => {
+            router.push(data.session ? "/onboard" : "/login");
+          }, 2000);
         }}
       >
         {({ isSubmitting, errors, touched }) => (
-          <Form className="card-3d space-y-4 rounded-2xl p-6">
+          <Form className="md:card-3d space-y-4 px-1 md:rounded-2xl md:border md:border-border/60 md:bg-background/72 md:p-6 md:shadow-lg md:shadow-black/5">
             {formError && (
               <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
                 {formError}
+              </p>
+            )}
+
+            {accountExists && (
+              <p className="rounded-lg border border-primary/15 bg-primary/8 px-3 py-2 text-center text-sm text-primary">
+                Sign in instead and continue setting up your store.
               </p>
             )}
 

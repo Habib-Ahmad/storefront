@@ -64,7 +64,7 @@ function LoginForm() {
         }}
       >
         {({ isSubmitting, errors, touched }) => (
-          <Form className="card-3d space-y-4 rounded-2xl p-6">
+          <Form className="md:card-3d space-y-4 px-1 md:rounded-2xl md:border md:border-border/60 md:bg-background/72 md:p-6 md:shadow-lg md:shadow-black/5">
             {formError && (
               <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
                 {formError}
