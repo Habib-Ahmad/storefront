@@ -63,7 +63,6 @@ export {
   OrderSchema,
   OrderItemSchema,
   ShipmentSchema,
-  TrackingResponseSchema,
   CreateOrderItemRequestSchema,
   CreateOrderRequestSchema,
   CreateOrderResponseSchema,
@@ -77,7 +76,6 @@ export type {
   Order,
   OrderItem,
   Shipment,
-  TrackingResponse,
   CreateOrderItemRequest,
   CreateOrderRequest,
   CreateOrderResponse,
@@ -92,3 +90,19 @@ export {
 } from "./wallet";
 
 export type { TransactionType, Wallet, Transaction, PaginatedTransactionsResponse } from "./wallet";
+
+export {
+  TrackingResponseSchema,
+  AnalyticsPaymentMethodBreakdownSchema,
+  AnalyticsTopProductSchema,
+  AnalyticsPeriodSchema,
+  AnalyticsSummarySchema,
+} from "./analytics";
+
+export type {
+  TrackingResponse,
+  AnalyticsPaymentMethodBreakdown,
+  AnalyticsTopProduct,
+  AnalyticsPeriod,
+  AnalyticsSummary,
+} from "./analytics";

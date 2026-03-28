@@ -48,24 +48,6 @@ export interface PaginationParams {
   per_page?: number;
 }
 
-export interface TrackingResponse {
-  tracking_slug: string;
-  customer_name: string | null;
-  payment_status: string;
-  fulfillment_status: string;
-}
-
-export interface AnalyticsSummary {
-  total_revenue: string;
-  total_cost: string;
-  total_profit: string;
-  order_count: number;
-  avg_order_value: string;
-  by_payment_method: { method: PaymentMethod; revenue: string; count: number }[];
-  top_products: { product_name: string; quantity_sold: number; revenue: string }[];
-  period: { from: string; to: string };
-}
-
 export interface ApiErrorResponse {
   error?: string;
   errors?: Record<string, string>;

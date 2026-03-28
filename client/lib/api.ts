@@ -1,4 +1,4 @@
-import type { AnalyticsSummary, PaginatedResponse, PaginationParams } from "./types";
+import type { PaginatedResponse, PaginationParams } from "./types";
 import type {
   AddImageRequest,
   CreateOrderRequest,
@@ -34,9 +34,11 @@ import {
   ProductDetailResponseSchema,
   ProductImageSchema,
   ProductSchema,
+  AnalyticsSummarySchema,
   ProductVariantSchema,
   TenantSchema,
   TierSchema,
+  TrackingResponseSchema,
   TransactionSchema,
   UpdateUserRequestSchema,
   UserSchema,
@@ -124,8 +126,10 @@ class ApiClient {
     TierSchema.array().parse(await this.request<unknown>("GET", "/tiers"));
 
   // Tracking (public)
-  track = (slug: string) =>
-    this.request<TrackingResponse>("GET", `/track/${encodeURIComponent(slug)}`);
+  track = async (slug: string): Promise<TrackingResponse> =>
+    TrackingResponseSchema.parse(
+      await this.request<unknown>("GET", `/track/${encodeURIComponent(slug)}`),
+    );
 
   // Tenants
   onboard = async (data: OnboardRequest): Promise<Tenant> =>
@@ -228,8 +232,10 @@ class ApiClient {
     );
 
   // Analytics
-  getAnalyticsSummary = (from: string, to: string) =>
-    this.request<AnalyticsSummary>("GET", `/analytics/summary?from=${from}&to=${to}`);
+  getAnalyticsSummary = async (from: string, to: string) =>
+    AnalyticsSummarySchema.parse(
+      await this.request<unknown>("GET", `/analytics/summary?from=${from}&to=${to}`),
+    );
 
   // Media
   getUploadUrl = () =>

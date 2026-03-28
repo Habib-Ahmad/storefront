@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  AnalyticsSummarySchema,
   MeResponseSchema,
-  OrderSchema,
   OrderItemSchema,
+  OrderSchema,
   ProductDetailResponseSchema,
   ProductSchema,
   TenantSchema,
   TierSchema,
-  WalletSchema,
+  TrackingResponseSchema,
   TransactionSchema,
+  WalletSchema,
 } from "../contracts";
 
 describe("MeResponseSchema", () => {
@@ -368,5 +370,73 @@ describe("TransactionSchema", () => {
     };
 
     expect(() => TransactionSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("TrackingResponseSchema", () => {
+  it("accepts a tracking response", () => {
+    const payload = {
+      tracking_slug: "abc123def456",
+      customer_name: "Amina Bello",
+      payment_status: "paid",
+      fulfillment_status: "shipped",
+    };
+
+    expect(TrackingResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid tracking responses", () => {
+    const payload = {
+      tracking_slug: "abc123def456",
+      customer_name: "Amina Bello",
+      payment_status: "settled",
+      fulfillment_status: "shipped",
+    };
+
+    expect(() => TrackingResponseSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("AnalyticsSummarySchema", () => {
+  it("accepts an analytics summary response", () => {
+    const payload = {
+      total_revenue: "125000",
+      total_cost: "70000",
+      total_profit: "55000",
+      order_count: 12,
+      avg_order_value: "10416.67",
+      by_payment_method: [
+        { method: "online", revenue: "85000", count: 8 },
+        { method: "cash", revenue: "40000", count: 4 },
+      ],
+      top_products: [
+        { product_name: "Ankara Shirt", quantity_sold: 6, revenue: "45000" },
+        { product_name: "Denim Jacket", quantity_sold: 3, revenue: "36000" },
+      ],
+      period: {
+        from: "2026-03-01T00:00:00Z",
+        to: "2026-03-31T23:59:59Z",
+      },
+    };
+
+    expect(AnalyticsSummarySchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid analytics summary responses", () => {
+    const payload = {
+      total_revenue: "125000",
+      total_cost: "70000",
+      total_profit: "55000",
+      order_count: "12",
+      avg_order_value: "10416.67",
+      by_payment_method: [{ method: "online", revenue: "85000", count: 8 }],
+      top_products: [{ product_name: "Ankara Shirt", quantity_sold: 6, revenue: "45000" }],
+      period: {
+        from: "2026-03-01T00:00:00Z",
+        to: "2026-03-31T23:59:59Z",
+      },
+    };
+
+    expect(() => AnalyticsSummarySchema.parse(payload)).toThrow();
   });
 });
