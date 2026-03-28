@@ -23,3 +23,27 @@ export type {
   TenantStatus,
   ActiveModules,
 } from "./auth";
+
+export {
+  ProductSchema,
+  ProductVariantSchema,
+  ProductImageSchema,
+  ProductDetailResponseSchema,
+  CreateProductRequestSchema,
+  UpdateProductRequestSchema,
+  CreateVariantRequestSchema,
+  AddImageRequestSchema,
+  PaginatedProductsResponseSchema,
+} from "./products";
+
+export type {
+  Product,
+  ProductVariant,
+  ProductImage,
+  ProductDetailResponse,
+  CreateProductRequest,
+  UpdateProductRequest,
+  CreateVariantRequest,
+  AddImageRequest,
+  PaginatedProductsResponse,
+} from "./products";

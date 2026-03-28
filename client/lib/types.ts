@@ -55,41 +55,6 @@ export interface Transaction {
   created_at: string;
 }
 
-export interface Product {
-  id: string;
-  tenant_id: string;
-  name: string;
-  description?: string | null;
-  category?: string | null;
-  is_available: boolean;
-  created_at: string;
-  updated_at: string;
-  variants?: ProductVariant[];
-  images?: ProductImage[];
-}
-
-export interface ProductVariant {
-  id: string;
-  product_id: string;
-  sku: string;
-  attributes: Record<string, unknown>;
-  price: string;
-  cost_price?: string | null;
-  stock_qty?: number | null;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProductImage {
-  id: string;
-  product_id: string;
-  url: string;
-  sort_order: number;
-  is_primary: boolean;
-  created_at: string;
-}
-
 export interface Order {
   id: string;
   tenant_id: string;
@@ -140,41 +105,6 @@ export interface UpdateUserRequest {
   phone?: string | null;
 }
 
-export interface CreateProductRequest {
-  name: string;
-  description?: string | null;
-  category?: string | null;
-  is_available: boolean;
-  variants?: {
-    sku: string;
-    attributes?: Record<string, unknown>;
-    price: string;
-    cost_price?: string | null;
-    stock_qty?: number | null;
-  }[];
-}
-
-export interface UpdateProductRequest {
-  name: string;
-  description?: string | null;
-  category?: string | null;
-  is_available: boolean;
-}
-
-export interface CreateVariantRequest {
-  sku: string;
-  attributes?: Record<string, unknown>;
-  price: string;
-  cost_price?: string | null;
-  stock_qty?: number | null;
-}
-
-export interface AddImageRequest {
-  url: string;
-  sort_order: number;
-  is_primary: boolean;
-}
-
 export interface CreateOrderRequest {
   is_delivery: boolean;
   payment_method?: PaymentMethod;
@@ -204,12 +134,6 @@ export interface PaginationParams {
 
 export interface CreateOrderResponse extends Order {
   authorization_url?: string;
-}
-
-export interface ProductDetailResponse {
-  product: Product;
-  variants: ProductVariant[];
-  images: ProductImage[];
 }
 
 export interface TrackingResponse {

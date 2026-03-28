@@ -2,34 +2,41 @@ import type {
   AnalyticsSummary,
   CreateOrderRequest,
   CreateOrderResponse,
-  CreateProductRequest,
-  CreateVariantRequest,
-  AddImageRequest,
   Order,
   OrderItem,
   PaginatedResponse,
   PaginationParams,
-  Product,
-  ProductDetailResponse,
-  ProductImage,
-  ProductVariant,
   Shipment,
   TrackingResponse,
   Transaction,
-  UpdateProductRequest,
   UpdateUserRequest,
   User,
   Wallet,
 } from "./types";
 import type {
+  AddImageRequest,
+  CreateProductRequest,
+  CreateVariantRequest,
   MeResponse,
   OnboardRequest,
+  Product,
+  ProductDetailResponse,
+  ProductImage,
+  ProductVariant,
   SetModulesRequest,
   Tenant,
   Tier,
+  UpdateProductRequest,
   UpdateTenantRequest,
 } from "./contracts";
-import { MeResponseSchema } from "./contracts";
+import {
+  MeResponseSchema,
+  PaginatedProductsResponseSchema,
+  ProductDetailResponseSchema,
+  ProductImageSchema,
+  ProductSchema,
+  ProductVariantSchema,
+} from "./contracts";
 
 // ── Error ──────────────────────────────────────────────
 
@@ -128,12 +135,16 @@ class ApiClient {
   updateUser = (data: UpdateUserRequest) => this.request<void>("PUT", "/users/me", data);
 
   // Products
-  getProducts = (params: PaginationParams) =>
-    this.request<PaginatedResponse<Product>>("GET", `/products?${qs(params)}`);
+  getProducts = async (params: PaginationParams): Promise<PaginatedResponse<Product>> =>
+    PaginatedProductsResponseSchema.parse(
+      await this.request<unknown>("GET", `/products?${qs(params)}`),
+    );
 
-  getProduct = (id: string) => this.request<ProductDetailResponse>("GET", `/products/${id}`);
+  getProduct = async (id: string): Promise<ProductDetailResponse> =>
+    ProductDetailResponseSchema.parse(await this.request<unknown>("GET", `/products/${id}`));
 
-  createProduct = (data: CreateProductRequest) => this.request<Product>("POST", "/products", data);
+  createProduct = async (data: CreateProductRequest): Promise<Product> =>
+    ProductSchema.parse(await this.request<unknown>("POST", "/products", data));
 
   updateProduct = (id: string, data: UpdateProductRequest) =>
     this.request<void>("PUT", `/products/${id}`, data);
@@ -141,11 +152,15 @@ class ApiClient {
   deleteProduct = (id: string) => this.request<void>("DELETE", `/products/${id}`);
 
   // Variants
-  getVariants = (productId: string) =>
-    this.request<ProductVariant[]>("GET", `/products/${productId}/variants`);
+  getVariants = async (productId: string): Promise<ProductVariant[]> =>
+    ProductVariantSchema.array().parse(
+      await this.request<unknown>("GET", `/products/${productId}/variants`),
+    );
 
-  createVariant = (productId: string, data: CreateVariantRequest) =>
-    this.request<ProductVariant>("POST", `/products/${productId}/variants`, data);
+  createVariant = async (productId: string, data: CreateVariantRequest): Promise<ProductVariant> =>
+    ProductVariantSchema.parse(
+      await this.request<unknown>("POST", `/products/${productId}/variants`, data),
+    );
 
   updateVariant = (productId: string, variantId: string, data: CreateVariantRequest) =>
     this.request<void>("PUT", `/products/${productId}/variants/${variantId}`, data);
@@ -154,11 +169,15 @@ class ApiClient {
     this.request<void>("DELETE", `/products/${productId}/variants/${variantId}`);
 
   // Images
-  getImages = (productId: string) =>
-    this.request<ProductImage[]>("GET", `/products/${productId}/images`);
+  getImages = async (productId: string): Promise<ProductImage[]> =>
+    ProductImageSchema.array().parse(
+      await this.request<unknown>("GET", `/products/${productId}/images`),
+    );
 
-  addImage = (productId: string, data: AddImageRequest) =>
-    this.request<ProductImage>("POST", `/products/${productId}/images`, data);
+  addImage = async (productId: string, data: AddImageRequest): Promise<ProductImage> =>
+    ProductImageSchema.parse(
+      await this.request<unknown>("POST", `/products/${productId}/images`, data),
+    );
 
   updateImage = (productId: string, imageId: string, data: AddImageRequest) =>
     this.request<void>("PUT", `/products/${productId}/images/${imageId}`, data);
