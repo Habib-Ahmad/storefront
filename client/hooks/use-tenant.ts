@@ -2,7 +2,7 @@
 
 import { api } from "@/lib/api";
 import { createMutationHook, createQueryHook } from "@/lib/query-factory";
-import type { OnboardRequest } from "@/lib/types";
+import type { OnboardRequest } from "@/lib/contracts";
 
 export const useTiers = createQueryHook("tiers", () => api.getTiers());
 

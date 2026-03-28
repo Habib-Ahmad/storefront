@@ -23,28 +23,6 @@ export interface Tier {
   updated_at: string;
 }
 
-export interface ActiveModules {
-  inventory: boolean;
-  payments: boolean;
-  logistics: boolean;
-}
-
-export interface Tenant {
-  id: string;
-  tier_id: string;
-  name: string;
-  slug: string;
-  contact_email?: string | null;
-  contact_phone?: string | null;
-  address?: string | null;
-  logo_url?: string | null;
-  paystack_subaccount_id?: string | null;
-  active_modules: ActiveModules;
-  status: TenantStatus;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface User {
   id: string;
   tenant_id: string;
@@ -156,26 +134,6 @@ export interface Shipment {
 
 // ── Request Types ──────────────────────────────────────
 
-export interface OnboardRequest {
-  name: string;
-  slug: string;
-  admin_email: string;
-}
-
-export interface UpdateTenantRequest {
-  name: string;
-  contact_email?: string | null;
-  contact_phone?: string | null;
-  address?: string | null;
-  logo_url?: string | null;
-}
-
-export interface SetModulesRequest {
-  inventory: boolean;
-  payments: boolean;
-  logistics: boolean;
-}
-
 export interface UpdateUserRequest {
   first_name?: string | null;
   last_name?: string | null;
@@ -242,12 +200,6 @@ export interface PaginatedResponse<T> {
 export interface PaginationParams {
   page?: number;
   per_page?: number;
-}
-
-export interface MeResponse {
-  onboarded: boolean;
-  tenant?: Tenant;
-  role?: UserRole;
 }
 
 export interface CreateOrderResponse extends Order {

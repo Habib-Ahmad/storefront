@@ -6,7 +6,7 @@ import { useCallback } from "react";
 import { api } from "@/lib/api";
 import { getSupabase } from "@/lib/supabase";
 import { useSession } from "@/components/auth-provider";
-import type { MeResponse } from "@/lib/types";
+import type { MeResponse } from "@/lib/contracts";
 
 export function useMe() {
   const { session } = useSession();

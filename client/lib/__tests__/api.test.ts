@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { api, ApiError } from "../api";
+import { api } from "../api";
 
 const ok = (data: unknown, status = 200) =>
   Promise.resolve(
@@ -81,7 +81,26 @@ describe("401 retry", () => {
 
     vi.mocked(fetch)
       .mockReturnValueOnce(ok({ error: "unauthorized" }, 401))
-      .mockReturnValueOnce(ok({ onboarded: true }));
+      .mockReturnValueOnce(
+        ok({
+          onboarded: true,
+          tenant: {
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            tier_id: "550e8400-e29b-41d4-a716-446655440001",
+            name: "Funke Fabrics",
+            slug: "funke-fabrics",
+            active_modules: {
+              inventory: true,
+              payments: true,
+              logistics: false,
+            },
+            status: "active",
+            created_at: "2026-03-14T10:00:00Z",
+            updated_at: "2026-03-14T10:00:00Z",
+          },
+          role: "admin",
+        }),
+      );
 
     await api.getMe();
 

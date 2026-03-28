@@ -5,8 +5,6 @@ import type {
   CreateProductRequest,
   CreateVariantRequest,
   AddImageRequest,
-  MeResponse,
-  OnboardRequest,
   Order,
   OrderItem,
   PaginatedResponse,
@@ -15,18 +13,23 @@ import type {
   ProductDetailResponse,
   ProductImage,
   ProductVariant,
-  SetModulesRequest,
   Shipment,
-  Tenant,
-  Tier,
   TrackingResponse,
   Transaction,
   UpdateProductRequest,
-  UpdateTenantRequest,
   UpdateUserRequest,
   User,
   Wallet,
 } from "./types";
+import type {
+  MeResponse,
+  OnboardRequest,
+  SetModulesRequest,
+  Tenant,
+  Tier,
+  UpdateTenantRequest,
+} from "./contracts";
+import { MeResponseSchema } from "./contracts";
 
 // ── Error ──────────────────────────────────────────────
 
@@ -100,7 +103,8 @@ class ApiClient {
   }
 
   // Auth
-  getMe = () => this.request<MeResponse>("GET", "/auth/me");
+  getMe = async (): Promise<MeResponse> =>
+    MeResponseSchema.parse(await this.request<unknown>("GET", "/auth/me"));
 
   // Tiers (public)
   getTiers = () => this.request<Tier[]>("GET", "/tiers");
