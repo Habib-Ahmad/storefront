@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { MeResponseSchema, ProductDetailResponseSchema, ProductSchema } from "../contracts";
+import {
+  MeResponseSchema,
+  ProductDetailResponseSchema,
+  ProductSchema,
+  TenantSchema,
+  TierSchema,
+} from "../contracts";
 
 describe("MeResponseSchema", () => {
   it("accepts the non-onboarded auth response", () => {
@@ -45,6 +51,78 @@ describe("MeResponseSchema", () => {
     };
 
     expect(() => MeResponseSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("TierSchema", () => {
+  it("accepts a tier response", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440020",
+      name: "Standard",
+      debt_ceiling: "50000",
+      commission_rate: "0.05",
+      created_at: "2026-03-14T10:00:00Z",
+      updated_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(TierSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid tier responses", () => {
+    const payload = {
+      id: "not-a-uuid",
+      name: "Standard",
+      debt_ceiling: "50000",
+      commission_rate: "0.05",
+      created_at: "2026-03-14T10:00:00Z",
+      updated_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(() => TierSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("TenantSchema", () => {
+  it("accepts a tenant response", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440030",
+      tier_id: "550e8400-e29b-41d4-a716-446655440031",
+      name: "Funke Fabrics",
+      slug: "funke-fabrics",
+      contact_email: "hello@funkefabrics.com",
+      contact_phone: "+2348012345678",
+      address: "12 Allen Avenue, Ikeja",
+      logo_url: "https://cdn.example.com/logo.png",
+      paystack_subaccount_id: "ACCT_sub_123",
+      active_modules: {
+        inventory: true,
+        payments: true,
+        logistics: false,
+      },
+      status: "active",
+      created_at: "2026-03-14T10:00:00Z",
+      updated_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(TenantSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid tenant responses", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440030",
+      tier_id: "550e8400-e29b-41d4-a716-446655440031",
+      name: "Funke Fabrics",
+      slug: "funke-fabrics",
+      active_modules: {
+        inventory: true,
+        payments: true,
+      },
+      status: "active",
+      created_at: "2026-03-14T10:00:00Z",
+      updated_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(() => TenantSchema.parse(payload)).toThrow();
   });
 });
 

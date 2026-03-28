@@ -4,25 +4,25 @@ export {
   TenantStatusSchema,
   UserRoleSchema,
   ActiveModulesSchema,
-  TenantSchema,
   TierSchema,
+  TenantSchema,
+  UserSchema,
+} from "./shared";
+
+export type { TenantStatus, UserRole, ActiveModules, Tier, Tenant, User } from "./shared";
+
+export {
   MeResponseSchema,
   OnboardRequestSchema,
   UpdateTenantRequestSchema,
   SetModulesRequestSchema,
 } from "./auth";
 
-export type {
-  Tenant,
-  Tier,
-  MeResponse,
-  OnboardRequest,
-  UpdateTenantRequest,
-  SetModulesRequest,
-  UserRole,
-  TenantStatus,
-  ActiveModules,
-} from "./auth";
+export type { MeResponse, OnboardRequest, UpdateTenantRequest, SetModulesRequest } from "./auth";
+
+export { UpdateUserRequestSchema, TiersResponseSchema } from "./account";
+
+export type { UpdateUserRequest, TiersResponse } from "./account";
 
 export {
   ProductSchema,

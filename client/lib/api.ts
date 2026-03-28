@@ -9,8 +9,6 @@ import type {
   Shipment,
   TrackingResponse,
   Transaction,
-  UpdateUserRequest,
-  User,
   Wallet,
 } from "./types";
 import type {
@@ -28,6 +26,8 @@ import type {
   Tier,
   UpdateProductRequest,
   UpdateTenantRequest,
+  UpdateUserRequest,
+  User,
 } from "./contracts";
 import {
   MeResponseSchema,
@@ -36,6 +36,10 @@ import {
   ProductImageSchema,
   ProductSchema,
   ProductVariantSchema,
+  TenantSchema,
+  TierSchema,
+  UpdateUserRequestSchema,
+  UserSchema,
 } from "./contracts";
 
 // ── Error ──────────────────────────────────────────────
@@ -114,25 +118,32 @@ class ApiClient {
     MeResponseSchema.parse(await this.request<unknown>("GET", "/auth/me"));
 
   // Tiers (public)
-  getTiers = () => this.request<Tier[]>("GET", "/tiers");
+  getTiers = async (): Promise<Tier[]> =>
+    TierSchema.array().parse(await this.request<unknown>("GET", "/tiers"));
 
   // Tracking (public)
   track = (slug: string) =>
     this.request<TrackingResponse>("GET", `/track/${encodeURIComponent(slug)}`);
 
   // Tenants
-  onboard = (data: OnboardRequest) => this.request<Tenant>("POST", "/tenants/onboard", data);
+  onboard = async (data: OnboardRequest): Promise<Tenant> =>
+    TenantSchema.parse(await this.request<unknown>("POST", "/tenants/onboard", data));
 
-  getTenant = () => this.request<Tenant>("GET", "/tenants/me");
+  getTenant = async (): Promise<Tenant> =>
+    TenantSchema.parse(await this.request<unknown>("GET", "/tenants/me"));
 
   updateTenant = (data: UpdateTenantRequest) => this.request<void>("PUT", "/tenants/me", data);
 
   setModules = (data: SetModulesRequest) => this.request<void>("PUT", "/tenants/me/modules", data);
 
   // Users
-  getUser = () => this.request<User>("GET", "/users/me");
+  getUser = async (): Promise<User> =>
+    UserSchema.parse(await this.request<unknown>("GET", "/users/me"));
 
-  updateUser = (data: UpdateUserRequest) => this.request<void>("PUT", "/users/me", data);
+  updateUser = async (data: UpdateUserRequest): Promise<void> => {
+    UpdateUserRequestSchema.parse(data);
+    await this.request<void>("PUT", "/users/me", data);
+  };
 
   // Products
   getProducts = async (params: PaginationParams): Promise<PaginatedResponse<Product>> =>

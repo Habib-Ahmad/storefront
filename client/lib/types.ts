@@ -14,27 +14,6 @@ export type ShipmentStatus = "queued" | "picked_up" | "in_transit" | "delivered"
 
 // ── Domain Models ──────────────────────────────────────
 
-export interface Tier {
-  id: string;
-  name: string;
-  debt_ceiling: string;
-  commission_rate: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface User {
-  id: string;
-  tenant_id: string;
-  email: string;
-  first_name?: string | null;
-  last_name?: string | null;
-  phone?: string | null;
-  role: UserRole;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Wallet {
   id: string;
   tenant_id: string;
