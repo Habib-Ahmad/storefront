@@ -1,19 +1,5 @@
 import { z } from "zod";
-import { TierSchema, TenantSchema, UserRoleSchema, UUIDSchema, TimestampSchema } from "./auth";
-
-// ── Account / settings domain schemas ──────────────────
-
-export const UserSchema = z.object({
-  id: UUIDSchema,
-  tenant_id: UUIDSchema,
-  email: z.string().email(),
-  first_name: z.string().nullable().optional(),
-  last_name: z.string().nullable().optional(),
-  phone: z.string().nullable().optional(),
-  role: UserRoleSchema,
-  created_at: TimestampSchema,
-  updated_at: TimestampSchema,
-});
+import { TierSchema, TenantSchema, UserSchema } from "./domain";
 
 // ── Account / settings request schemas ─────────────────
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { UUIDSchema, TimestampSchema } from "./auth";
+import { UUIDSchema, TimestampSchema } from "./domain";
+import { PaginationParamsSchema, createPaginatedResponseSchema } from "./common";
 
 // ── Product domain schemas ─────────────────────────────
 
@@ -77,17 +78,7 @@ export const AddImageRequestSchema = z.object({
 
 // ── Shared response schemas ────────────────────────────
 
-export const PaginationParamsSchema = z.object({
-  page: z.number().int().positive().optional(),
-  per_page: z.number().int().positive().optional(),
-});
-
-export const PaginatedProductsResponseSchema = z.object({
-  data: z.array(ProductSchema),
-  total: z.number().int(),
-  page: z.number().int(),
-  per_page: z.number().int(),
-});
+export const PaginatedProductsResponseSchema = createPaginatedResponseSchema(ProductSchema);
 
 // ── Inferred types ─────────────────────────────────────
 

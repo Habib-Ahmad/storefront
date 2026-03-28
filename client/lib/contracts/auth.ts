@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ActiveModulesSchema, TenantSchema, UserRoleSchema } from "./shared";
+import { ActiveModulesSchema, TenantSchema, UserRoleSchema } from "./domain";
 
 export {
   UUIDSchema,
@@ -9,9 +9,9 @@ export {
   ActiveModulesSchema,
   TierSchema,
   TenantSchema,
-} from "./shared";
+} from "./domain";
 
-export type { ActiveModules, Tenant, TenantStatus, Tier, UserRole } from "./shared";
+export type { ActiveModules, Tenant, TenantStatus, Tier, UserRole } from "./domain";
 
 // ── Auth response schemas ──────────────────────────────
 

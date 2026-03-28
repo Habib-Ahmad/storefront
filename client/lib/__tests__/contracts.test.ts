@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   MeResponseSchema,
+  OrderSchema,
+  OrderItemSchema,
   ProductDetailResponseSchema,
   ProductSchema,
   TenantSchema,
   TierSchema,
+  WalletSchema,
+  TransactionSchema,
 } from "../contracts";
 
 describe("MeResponseSchema", () => {
@@ -235,5 +239,134 @@ describe("ProductDetailResponseSchema", () => {
     };
 
     expect(() => ProductDetailResponseSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("OrderSchema", () => {
+  it("accepts an order response", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440100",
+      tenant_id: "550e8400-e29b-41d4-a716-446655440101",
+      tracking_slug: "abc123def456",
+      is_delivery: true,
+      customer_name: "Amina Bello",
+      customer_phone: "+2348012345678",
+      customer_email: "amina@example.com",
+      shipping_address: "12 Allen Avenue, Ikeja",
+      note: "Handle with care",
+      total_amount: "18500",
+      shipping_fee: "1500",
+      payment_method: "online",
+      payment_status: "pending",
+      fulfillment_status: "processing",
+      created_at: "2026-03-14T10:00:00Z",
+      updated_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(OrderSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid order responses", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440100",
+      tenant_id: "550e8400-e29b-41d4-a716-446655440101",
+      tracking_slug: "abc123def456",
+      is_delivery: true,
+      total_amount: "18500",
+      shipping_fee: "1500",
+      payment_method: "card",
+      payment_status: "pending",
+      fulfillment_status: "processing",
+      created_at: "2026-03-14T10:00:00Z",
+      updated_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(() => OrderSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("OrderItemSchema", () => {
+  it("accepts an order item response", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440110",
+      order_id: "550e8400-e29b-41d4-a716-446655440100",
+      variant_id: "550e8400-e29b-41d4-a716-446655440111",
+      quantity: 2,
+      price_at_sale: "8500",
+      cost_price_at_sale: "5000",
+      product_name: "Ankara Shirt",
+      variant_label: "Red / Medium",
+    };
+
+    expect(OrderItemSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid order item responses", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440110",
+      order_id: "550e8400-e29b-41d4-a716-446655440100",
+      variant_id: "550e8400-e29b-41d4-a716-446655440111",
+      quantity: "2",
+      price_at_sale: "8500",
+    };
+
+    expect(() => OrderItemSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("WalletSchema", () => {
+  it("accepts a wallet response", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440120",
+      tenant_id: "550e8400-e29b-41d4-a716-446655440121",
+      available_balance: "25000",
+      pending_balance: "5000",
+      last_transaction_id: "550e8400-e29b-41d4-a716-446655440122",
+      last_reconciliation_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(WalletSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid wallet responses", () => {
+    const payload = {
+      id: "not-a-uuid",
+      tenant_id: "550e8400-e29b-41d4-a716-446655440121",
+      available_balance: "25000",
+      pending_balance: "5000",
+    };
+
+    expect(() => WalletSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("TransactionSchema", () => {
+  it("accepts a transaction response", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440130",
+      wallet_id: "550e8400-e29b-41d4-a716-446655440120",
+      order_id: "550e8400-e29b-41d4-a716-446655440100",
+      amount: "15000",
+      running_balance: "25000",
+      type: "credit",
+      signature: "abc123signature",
+      created_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(TransactionSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects invalid transaction responses", () => {
+    const payload = {
+      id: "550e8400-e29b-41d4-a716-446655440130",
+      wallet_id: "550e8400-e29b-41d4-a716-446655440120",
+      amount: "15000",
+      running_balance: "25000",
+      type: "deposit",
+      signature: "abc123signature",
+      created_at: "2026-03-14T10:00:00Z",
+    };
+
+    expect(() => TransactionSchema.parse(payload)).toThrow();
   });
 });

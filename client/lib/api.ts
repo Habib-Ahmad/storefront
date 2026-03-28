@@ -1,36 +1,35 @@
-import type {
-  AnalyticsSummary,
-  CreateOrderRequest,
-  CreateOrderResponse,
-  Order,
-  OrderItem,
-  PaginatedResponse,
-  PaginationParams,
-  Shipment,
-  TrackingResponse,
-  Transaction,
-  Wallet,
-} from "./types";
+import type { AnalyticsSummary, PaginatedResponse, PaginationParams } from "./types";
 import type {
   AddImageRequest,
+  CreateOrderRequest,
+  CreateOrderResponse,
   CreateProductRequest,
   CreateVariantRequest,
   MeResponse,
   OnboardRequest,
+  Order,
+  OrderItem,
   Product,
   ProductDetailResponse,
   ProductImage,
   ProductVariant,
   SetModulesRequest,
+  Shipment,
   Tenant,
   Tier,
+  TrackingResponse,
+  Transaction,
   UpdateProductRequest,
   UpdateTenantRequest,
   UpdateUserRequest,
   User,
+  Wallet,
 } from "./contracts";
 import {
   MeResponseSchema,
+  OrderItemSchema,
+  OrderSchema,
+  PaginatedOrdersResponseSchema,
   PaginatedProductsResponseSchema,
   ProductDetailResponseSchema,
   ProductImageSchema,
@@ -38,8 +37,11 @@ import {
   ProductVariantSchema,
   TenantSchema,
   TierSchema,
+  TransactionSchema,
   UpdateUserRequestSchema,
   UserSchema,
+  WalletSchema,
+  createPaginatedResponseSchema,
 } from "./contracts";
 
 // ── Error ──────────────────────────────────────────────
@@ -197,12 +199,16 @@ class ApiClient {
     this.request<void>("DELETE", `/products/${productId}/images/${imageId}`);
 
   // Orders
-  getOrders = (params: PaginationParams) =>
-    this.request<PaginatedResponse<Order>>("GET", `/orders?${qs(params)}`);
+  getOrders = async (params: PaginationParams): Promise<PaginatedResponse<Order>> =>
+    PaginatedOrdersResponseSchema.parse(
+      await this.request<unknown>("GET", `/orders?${qs(params)}`),
+    );
 
-  getOrder = (id: string) => this.request<Order>("GET", `/orders/${id}`);
+  getOrder = async (id: string): Promise<Order> =>
+    OrderSchema.parse(await this.request<unknown>("GET", `/orders/${id}`));
 
-  getOrderItems = (orderId: string) => this.request<OrderItem[]>("GET", `/orders/${orderId}/items`);
+  getOrderItems = async (orderId: string): Promise<OrderItem[]> =>
+    OrderItemSchema.array().parse(await this.request<unknown>("GET", `/orders/${orderId}/items`));
 
   createOrder = (data: CreateOrderRequest) =>
     this.request<CreateOrderResponse>("POST", "/orders", data);
@@ -213,10 +219,13 @@ class ApiClient {
     this.request<Shipment>("POST", `/orders/${id}/dispatch`, data);
 
   // Wallet
-  getWallet = () => this.request<Wallet>("GET", "/wallet");
+  getWallet = async (): Promise<Wallet> =>
+    WalletSchema.parse(await this.request<unknown>("GET", "/wallet"));
 
-  getTransactions = (params: PaginationParams) =>
-    this.request<PaginatedResponse<Transaction>>("GET", `/wallet/transactions?${qs(params)}`);
+  getTransactions = async (params: PaginationParams): Promise<PaginatedResponse<Transaction>> =>
+    createPaginatedResponseSchema(TransactionSchema).parse(
+      await this.request<unknown>("GET", `/wallet/transactions?${qs(params)}`),
+    );
 
   // Analytics
   getAnalyticsSummary = (from: string, to: string) =>

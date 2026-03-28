@@ -14,56 +14,6 @@ export type ShipmentStatus = "queued" | "picked_up" | "in_transit" | "delivered"
 
 // ── Domain Models ──────────────────────────────────────
 
-export interface Wallet {
-  id: string;
-  tenant_id: string;
-  available_balance: string;
-  pending_balance: string;
-  last_transaction_id?: string | null;
-  last_reconciliation_at?: string | null;
-}
-
-export interface Transaction {
-  id: string;
-  wallet_id: string;
-  order_id?: string | null;
-  amount: string;
-  running_balance: string;
-  type: TransactionType;
-  signature: string;
-  created_at: string;
-}
-
-export interface Order {
-  id: string;
-  tenant_id: string;
-  tracking_slug: string;
-  is_delivery: boolean;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  customer_email?: string | null;
-  shipping_address?: string | null;
-  note?: string | null;
-  total_amount: string;
-  shipping_fee: string;
-  payment_method: PaymentMethod;
-  payment_status: PaymentStatus;
-  fulfillment_status: FulfillmentStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface OrderItem {
-  id: string;
-  order_id: string;
-  variant_id: string;
-  quantity: number;
-  price_at_sale: string;
-  cost_price_at_sale?: string | null;
-  product_name?: string | null;
-  variant_label?: string | null;
-}
-
 export interface Shipment {
   id: string;
   order_id: string;
@@ -84,19 +34,6 @@ export interface UpdateUserRequest {
   phone?: string | null;
 }
 
-export interface CreateOrderRequest {
-  is_delivery: boolean;
-  payment_method?: PaymentMethod;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  customer_email?: string | null;
-  shipping_address?: string | null;
-  note?: string | null;
-  shipping_fee?: number;
-  total_amount?: number;
-  items?: { variant_id: string; quantity: number }[];
-}
-
 // ── Response Types ─────────────────────────────────────
 
 export interface PaginatedResponse<T> {
@@ -111,15 +48,11 @@ export interface PaginationParams {
   per_page?: number;
 }
 
-export interface CreateOrderResponse extends Order {
-  authorization_url?: string;
-}
-
 export interface TrackingResponse {
   tracking_slug: string;
   customer_name: string | null;
-  payment_status: PaymentStatus;
-  fulfillment_status: FulfillmentStatus;
+  payment_status: string;
+  fulfillment_status: string;
 }
 
 export interface AnalyticsSummary {

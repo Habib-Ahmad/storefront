@@ -7,9 +7,9 @@ export {
   TierSchema,
   TenantSchema,
   UserSchema,
-} from "./shared";
+} from "./domain";
 
-export type { TenantStatus, UserRole, ActiveModules, Tier, Tenant, User } from "./shared";
+export type { TenantStatus, UserRole, ActiveModules, Tier, Tenant, User } from "./domain";
 
 export {
   MeResponseSchema,
@@ -23,6 +23,14 @@ export type { MeResponse, OnboardRequest, UpdateTenantRequest, SetModulesRequest
 export { UpdateUserRequestSchema, TiersResponseSchema } from "./account";
 
 export type { UpdateUserRequest, TiersResponse } from "./account";
+
+export {
+  PaginationParamsSchema,
+  PaginationMetaSchema,
+  createPaginatedResponseSchema,
+} from "./common";
+
+export type { PaginationParams, PaginationMeta } from "./common";
 
 export {
   ProductSchema,
@@ -47,3 +55,40 @@ export type {
   AddImageRequest,
   PaginatedProductsResponse,
 } from "./products";
+
+export {
+  PaymentMethodSchema,
+  PaymentStatusSchema,
+  FulfillmentStatusSchema,
+  OrderSchema,
+  OrderItemSchema,
+  ShipmentSchema,
+  TrackingResponseSchema,
+  CreateOrderItemRequestSchema,
+  CreateOrderRequestSchema,
+  CreateOrderResponseSchema,
+  PaginatedOrdersResponseSchema,
+} from "./orders";
+
+export type {
+  PaymentMethod,
+  PaymentStatus,
+  FulfillmentStatus,
+  Order,
+  OrderItem,
+  Shipment,
+  TrackingResponse,
+  CreateOrderItemRequest,
+  CreateOrderRequest,
+  CreateOrderResponse,
+  PaginatedOrdersResponse,
+} from "./orders";
+
+export {
+  TransactionTypeSchema,
+  WalletSchema,
+  TransactionSchema,
+  PaginatedTransactionsResponseSchema,
+} from "./wallet";
+
+export type { TransactionType, Wallet, Transaction, PaginatedTransactionsResponse } from "./wallet";
