@@ -19,3 +19,6 @@ export function createPaginatedResponseSchema<TItem extends z.ZodType>(itemSchem
 
 export type PaginationParams = z.infer<typeof PaginationParamsSchema>;
 export type PaginationMeta = z.infer<typeof PaginationMetaSchema>;
+export type PaginatedResponse<TItem> = PaginationMeta & {
+  data: TItem[];
+};

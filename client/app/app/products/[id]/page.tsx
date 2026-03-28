@@ -41,7 +41,7 @@ import {
 } from "@/hooks/use-products";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ProductVariant, CreateVariantRequest } from "@/lib/types";
+import type { ProductVariant, CreateVariantRequest } from "@/lib/contracts";
 
 const productSchema = Yup.object({
   name: Yup.string().required("Name is required"),

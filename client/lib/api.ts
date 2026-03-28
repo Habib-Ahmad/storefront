@@ -1,4 +1,3 @@
-import type { PaginatedResponse, PaginationParams } from "./types";
 import type {
   AddImageRequest,
   CreateOrderRequest,
@@ -9,6 +8,8 @@ import type {
   OnboardRequest,
   Order,
   OrderItem,
+  PaginatedResponse,
+  PaginationParams,
   Product,
   ProductDetailResponse,
   ProductImage,

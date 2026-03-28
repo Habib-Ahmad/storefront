@@ -30,7 +30,7 @@ export {
   createPaginatedResponseSchema,
 } from "./common";
 
-export type { PaginationParams, PaginationMeta } from "./common";
+export type { PaginationParams, PaginationMeta, PaginatedResponse } from "./common";
 
 export {
   ProductSchema,

@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { createQueryHook, createMutationHook } from "@/lib/query-factory";
-import type { PaginationParams } from "@/lib/types";
+import type { PaginationParams } from "@/lib/contracts";
 import type {
   CreateProductRequest,
   UpdateProductRequest,
