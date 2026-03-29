@@ -25,7 +25,7 @@ import type {
   UpdateUserRequest,
   User,
   Wallet,
-} from "./contracts";
+} from "./types";
 import {
   MeResponseSchema,
   OrderItemSchema,
@@ -45,7 +45,7 @@ import {
   UserSchema,
   WalletSchema,
   createPaginatedResponseSchema,
-} from "./contracts";
+} from "./types";
 
 // ── Error ──────────────────────────────────────────────
 

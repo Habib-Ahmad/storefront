@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OpenBoxSvg } from "@/components/illustrations";
 import { useProducts } from "@/hooks/use-products";
-import type { Product } from "@/lib/contracts";
+import type { Product } from "@/lib/types";
 
 function formatPrice(variants?: Product["variants"]): string {
   if (!variants || variants.length === 0) return "—";
