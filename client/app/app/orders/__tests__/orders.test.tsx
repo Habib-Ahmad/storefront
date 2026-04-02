@@ -257,8 +257,10 @@ describe("NewOrderPage", () => {
     await userEvent.selectOptions(screen.getByLabelText("Product"), "product-1");
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Option")).toHaveValue("variant-1");
+      expect(screen.getByText("Option added automatically")).toBeInTheDocument();
     });
+
+    expect(screen.queryByLabelText("Option")).not.toBeInTheDocument();
 
     await userEvent.clear(screen.getByLabelText("Quantity"));
     await userEvent.type(screen.getByLabelText("Quantity"), "2");
@@ -294,9 +296,7 @@ describe("NewOrderPage", () => {
 
     expect(screen.getByRole("heading", { name: /^payment$/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Amount (₦)")).toBeInTheDocument();
-    expect(
-      screen.getByText("Enter the amount and choose how the customer will pay."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Enter the total and choose a payment method.")).toBeInTheDocument();
     expect(screen.getByLabelText("Payment method")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^cash$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^transfer$/i })).toBeInTheDocument();
@@ -332,19 +332,17 @@ describe("NewOrderPage", () => {
     await userEvent.selectOptions(screen.getByLabelText("Product"), "product-1");
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Option")).toHaveValue("variant-1");
+      expect(screen.getByText("Option added automatically")).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /add item/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^add item$/i }));
 
     const productSelects = screen.getAllByLabelText("Product");
-    const optionSelects = screen.getAllByLabelText("Option");
 
     await userEvent.selectOptions(productSelects[1], "product-1");
 
     await waitFor(() => {
-      expect(optionSelects[0]).toHaveValue("variant-1");
-      expect(optionSelects[1]).toHaveValue("variant-1");
+      expect(screen.getAllByText("Option added automatically")).toHaveLength(2);
     });
   });
 
@@ -357,8 +355,28 @@ describe("NewOrderPage", () => {
 
     render(<NewOrderPage />);
 
-    expect(screen.getByText("No delivery")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add delivery/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^no delivery$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^add delivery$/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Shipping fee (₦)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Address")).not.toBeInTheDocument();
+  });
+
+  it("lets you ignore delivery after turning it on", async () => {
+    mockUseProducts.mockReturnValue(productsPayload);
+    mockUseVariants.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+
+    render(<NewOrderPage />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^add delivery$/i }));
+
+    expect(screen.getByLabelText("Shipping fee (₦)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Address")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^no delivery$/i }));
+
     expect(screen.queryByLabelText("Shipping fee (₦)")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Address")).not.toBeInTheDocument();
   });
@@ -467,9 +485,7 @@ describe("NewOrderPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /choose products/i }));
 
     expect(
-      screen.getByText(
-        /You don’t have any products yet. Add products first or switch to quick sale./i,
-      ),
+      screen.getByText(/You don’t have any products yet. Add products first or use quick order./i),
     ).toBeInTheDocument();
   });
 });
