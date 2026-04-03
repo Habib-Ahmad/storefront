@@ -177,11 +177,11 @@ function sortSelectableVariants(variants: Product["variants"] | undefined) {
   });
 }
 
-function SectionHeader({ title, description }: { title: string; description: string }) {
+function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="space-y-1">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
     </div>
   );
 }
@@ -435,7 +435,7 @@ export default function NewOrderPage() {
           );
 
           return (
-            <Form className="space-y-4 pb-28">
+            <Form className="space-y-4 pb-40 md:pb-28">
               {productIdsNeedingVariants.map((productId) => (
                 <VariantLoader
                   key={productId}
@@ -478,10 +478,7 @@ export default function NewOrderPage() {
 
               <div className="card-3d rounded-3xl border p-6">
                 <div className="space-y-6">
-                  <SectionHeader
-                    title="How do you want to add this order?"
-                    description="Choose the fastest way to save this sale."
-                  />
+                  <SectionHeader title="How do you want to add this order?" />
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <ChoiceCard
@@ -501,25 +498,7 @@ export default function NewOrderPage() {
 
                   {!values.quick_sale ? (
                     <div className="space-y-5 border-t border-border/60 pt-6">
-                      <SectionHeader
-                        title="Items"
-                        description="Add the items in this order. Extra options only appear when needed."
-                      />
-
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-muted-foreground">Add one or more items.</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="gap-2"
-                          onClick={() =>
-                            setFieldValue("items", [...values.items, { ...emptyLineItem }])
-                          }
-                        >
-                          <PlusIcon className="size-4" />
-                          Add item
-                        </Button>
-                      </div>
+                      <SectionHeader title="Items" />
 
                       {productsLoading ? (
                         <p className="text-sm text-muted-foreground">Loading products…</p>
@@ -559,10 +538,6 @@ export default function NewOrderPage() {
                                         <h3 className="text-base font-semibold">
                                           Item {index + 1}
                                         </h3>
-                                        <p className="text-xs text-muted-foreground">
-                                          Choose a product first. If it has a default option, we’ll
-                                          fill it in.
-                                        </p>
                                       </div>
                                       {values.items.length > 1 && (
                                         <Button
@@ -774,6 +749,18 @@ export default function NewOrderPage() {
                               {typeof errors.items === "string" && (
                                 <p className="text-xs text-destructive">{errors.items}</p>
                               )}
+
+                              <Button
+                                type="button"
+                                size="lg"
+                                className="w-full gap-2 sm:w-auto"
+                                onClick={() =>
+                                  setFieldValue("items", [...values.items, { ...emptyLineItem }])
+                                }
+                              >
+                                <PlusIcon className="size-4" />
+                                Add item
+                              </Button>
                             </div>
                           )}
                         </FieldArray>
@@ -782,14 +769,7 @@ export default function NewOrderPage() {
                   ) : null}
 
                   <div className="space-y-4 border-t border-border/60 pt-6">
-                    <SectionHeader
-                      title="Payment"
-                      description={
-                        values.quick_sale
-                          ? "Enter the total and choose a payment method."
-                          : "Choose a payment method."
-                      }
-                    />
+                    <SectionHeader title="Payment" />
 
                     {values.quick_sale && (
                       <div className="space-y-1.5">
@@ -829,10 +809,7 @@ export default function NewOrderPage() {
                   </div>
 
                   <div className="space-y-4 border-t border-border/60 pt-6">
-                    <SectionHeader
-                      title="Delivery"
-                      description="Ignore this unless this order needs delivery."
-                    />
+                    <SectionHeader title="Delivery" />
 
                     <div role="group" aria-label="Fulfillment" className="flex flex-wrap gap-2">
                       <TogglePill
@@ -915,10 +892,7 @@ export default function NewOrderPage() {
 
                   <div className="space-y-4 border-t border-border/60 pt-6">
                     <div className="flex items-center justify-between gap-3">
-                      <SectionHeader
-                        title="Optional details"
-                        description="Add customer details or a note only if you need them."
-                      />
+                      <SectionHeader title="Optional details" />
                       <Button
                         type="button"
                         variant="ghost"
@@ -999,7 +973,7 @@ export default function NewOrderPage() {
                 </div>
               </div>
 
-              <div className="sticky bottom-4 z-10">
+              <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-10 md:bottom-4">
                 <div className="rounded-2xl border border-border/70 bg-background/95 p-4 shadow-lg backdrop-blur">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">

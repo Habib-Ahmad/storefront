@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
-  TruckIcon,
   XCircleIcon,
   SpinnerGapIcon,
   NotePencilIcon,
@@ -25,7 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useCancelOrder, useDispatchOrder, useOrder, useOrderItems } from "@/hooks/use-orders";
+import { useCancelOrder, useOrder, useOrderItems } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
 import type { FulfillmentStatus, Order, OrderItem, PaymentStatus } from "@/lib/types";
 
@@ -129,11 +128,9 @@ function OrderSummaryCard({ order }: { order: Order }) {
           <Badge variant="secondary" className="text-xs capitalize">
             {order.payment_method}
           </Badge>
-          {order.is_delivery && (
-            <Badge variant="secondary" className="text-xs">
-              Delivery
-            </Badge>
-          )}
+          <Badge variant="secondary" className="text-xs">
+            {order.is_delivery ? "Delivery" : "No delivery"}
+          </Badge>
         </div>
       </div>
 
@@ -152,11 +149,11 @@ function OrderSummaryCard({ order }: { order: Order }) {
         />
       </div>
 
-      {(order.customer_phone || order.customer_email || order.shipping_address || order.note) && (
+      {((!order.is_delivery && order.customer_phone) || order.customer_email || order.note) && (
         <>
           <div className="border-t border-border/60 pt-4" />
           <div className="grid gap-4 md:grid-cols-2">
-            {order.customer_phone && (
+            {!order.is_delivery && order.customer_phone && (
               <DetailRow
                 icon={<PhoneIcon className="size-4" />}
                 label="Phone"
@@ -170,13 +167,6 @@ function OrderSummaryCard({ order }: { order: Order }) {
                 value={order.customer_email}
               />
             )}
-            {order.shipping_address && (
-              <DetailRow
-                icon={<MapPinIcon className="size-4" />}
-                label="Shipping address"
-                value={order.shipping_address}
-              />
-            )}
             {order.note && (
               <DetailRow
                 icon={<NotePencilIcon className="size-4" />}
@@ -186,6 +176,47 @@ function OrderSummaryCard({ order }: { order: Order }) {
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+function DeliveryCard({ order }: { order: Order }) {
+  return (
+    <div className="card-3d space-y-4 rounded-2xl p-5">
+      <div>
+        <h2 className="text-base font-semibold">Delivery</h2>
+        <p className="text-sm text-muted-foreground">
+          {order.is_delivery
+            ? "Delivery details for this order."
+            : "This order was saved without delivery."}
+        </p>
+      </div>
+
+      {!order.is_delivery ? (
+        <div className="rounded-xl border border-border/60 bg-background/50 p-4 text-sm text-muted-foreground">
+          No delivery was added to this order.
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <DetailRow
+            icon={<PhoneIcon className="size-4" />}
+            label="Phone"
+            value={order.customer_phone || "No phone added"}
+          />
+          <DetailRow
+            icon={<CurrencyNgnIcon className="size-4" />}
+            label="Shipping fee"
+            value={formatCurrency(order.shipping_fee)}
+          />
+          <div className="md:col-span-2">
+            <DetailRow
+              icon={<MapPinIcon className="size-4" />}
+              label="Address"
+              value={order.shipping_address || "No address added"}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -203,7 +234,7 @@ function ItemsCard({ items, order }: { items: OrderItem[]; order: Order }) {
 
       {items.length === 0 ? (
         <div className="rounded-xl border border-border/60 bg-background/50 p-4 text-sm text-muted-foreground">
-          No line items were attached to this order.
+          This was saved as a quick order. No items were added.
         </div>
       ) : (
         <div className="space-y-3">
@@ -254,22 +285,47 @@ function ItemsCard({ items, order }: { items: OrderItem[]; order: Order }) {
 function ActionCard({
   order,
   onCancel,
-  onDispatch,
   actionError,
 }: {
   order: Order;
   onCancel: () => void;
-  onDispatch: () => void;
   actionError: string | null;
 }) {
   const canCancel = order.fulfillment_status === "processing";
-  const canDispatch = order.fulfillment_status === "processing" && order.payment_status === "paid";
+
+  const helperText = (() => {
+    if (!order.is_delivery) {
+      return canCancel
+        ? "No delivery was added to this order. You can still cancel it if it was created by mistake."
+        : "No delivery was added to this order.";
+    }
+
+    if (order.fulfillment_status === "cancelled") {
+      return "This delivery order has already been cancelled.";
+    }
+
+    if (order.fulfillment_status === "delivered") {
+      return "This delivery order has already been delivered.";
+    }
+
+    if (order.fulfillment_status === "shipped") {
+      return "This delivery order has already been dispatched.";
+    }
+
+    if (order.payment_status !== "paid") {
+      return "Delivery was added to this order. Payment must be completed before dispatch.";
+    }
+
+    return "Delivery was added to this order. Dispatch setup is not ready in this screen yet.";
+  })();
 
   return (
     <div className="card-3d space-y-4 rounded-2xl p-5">
       <div>
-        <h2 className="text-base font-semibold">Actions</h2>
-        <p className="text-sm text-muted-foreground">Manage fulfillment and order status.</p>
+        <h2 className="text-base font-semibold">Order actions</h2>
+        <p className="text-sm text-muted-foreground">
+          Only actions that make sense for this order appear here.
+        </p>
       </div>
 
       {actionError && (
@@ -278,36 +334,17 @@ function ActionCard({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={!canCancel}
-          onClick={onCancel}
-          className="gap-2"
-        >
-          <XCircleIcon className="size-4" />
-          Cancel order
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!canDispatch}
-          onClick={onDispatch}
-          className="gap-2"
-        >
-          <TruckIcon className="size-4" />
-          Dispatch order
-        </Button>
-      </div>
+      {canCancel ? (
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="destructive" onClick={onCancel} className="gap-2">
+            <XCircleIcon className="size-4" />
+            Cancel order
+          </Button>
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-border/60 bg-background/50 p-4 text-sm text-muted-foreground">
-        {canDispatch
-          ? "This order is paid and can be dispatched."
-          : canCancel
-            ? "This order can still be cancelled. Dispatch is only available after payment."
-            : "No actions are currently available for this order."}
+        {helperText}
       </div>
     </div>
   );
@@ -348,10 +385,8 @@ export default function OrderDetailPage() {
   const { data: order, isLoading: orderLoading } = useOrder(id);
   const { data: items, isLoading: itemsLoading } = useOrderItems(id);
   const cancelOrder = useCancelOrder();
-  const dispatchOrder = useDispatchOrder();
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const loading = orderLoading || itemsLoading;
@@ -387,12 +422,11 @@ export default function OrderDetailPage() {
           </Button>
         </Link>
         <h1 className="mt-1 text-2xl font-bold">Order details</h1>
-        <p className="text-sm text-muted-foreground">
-          Review order items, status, and next actions.
-        </p>
+        <p className="text-sm text-muted-foreground">Review this order and its current status.</p>
       </div>
 
       <OrderSummaryCard order={order} />
+      <DeliveryCard order={order} />
       <ItemsCard items={orderItems} order={order} />
       <ActionCard
         order={order}
@@ -400,10 +434,6 @@ export default function OrderDetailPage() {
         onCancel={() => {
           setActionError(null);
           setCancelDialogOpen(true);
-        }}
-        onDispatch={() => {
-          setActionError(null);
-          setDispatchDialogOpen(true);
         }}
       />
 
@@ -440,44 +470,6 @@ export default function OrderDetailPage() {
             >
               {cancelOrder.isPending && <SpinnerGapIcon className="size-4 animate-spin" />}
               Cancel order
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={dispatchDialogOpen} onOpenChange={setDispatchDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Dispatch this order?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Dispatch booking details have not been built yet. This action will currently send an
-            empty payload and depends on backend requirements.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDispatchDialogOpen(false)}>
-              Go back
-            </Button>
-            <Button
-              variant="outline"
-              disabled={dispatchOrder.isPending}
-              onClick={async () => {
-                try {
-                  await dispatchOrder.mutateAsync({ id: order.id, data: {} });
-                  setDispatchDialogOpen(false);
-                  router.refresh();
-                } catch (err) {
-                  if (err instanceof ApiError) {
-                    setActionError(err.message);
-                  } else {
-                    setActionError("Unable to dispatch order");
-                  }
-                  setDispatchDialogOpen(false);
-                }
-              }}
-            >
-              {dispatchOrder.isPending && <SpinnerGapIcon className="size-4 animate-spin" />}
-              Dispatch order
             </Button>
           </DialogFooter>
         </DialogContent>

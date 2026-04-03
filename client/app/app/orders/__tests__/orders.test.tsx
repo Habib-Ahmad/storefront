@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 
 const pushMock = vi.fn();
 const refreshMock = vi.fn();
+const mockUseParams = vi.fn();
+const mockCancelOrderMutate = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -13,20 +15,26 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
   }),
   usePathname: () => "/app/orders",
-  useParams: () => ({}),
+  useParams: () => mockUseParams(),
 }));
 
 const mockUseOrders = vi.fn();
+const mockUseOrder = vi.fn();
+const mockUseOrderItems = vi.fn();
 const mockUseCreateOrder = vi.fn();
+const mockUseCancelOrder = vi.fn();
 const mockUseProducts = vi.fn();
 const mockUseVariants = vi.fn();
 
 vi.mock("@/hooks/use-orders", () => ({
   useOrders: (...args: unknown[]) => mockUseOrders(...args),
+  useOrder: (...args: unknown[]) => mockUseOrder(...args),
+  useOrderItems: (...args: unknown[]) => mockUseOrderItems(...args),
   useCreateOrder: () => ({
     mutateAsync: mockUseCreateOrder,
     isPending: false,
   }),
+  useCancelOrder: () => mockUseCancelOrder(),
 }));
 
 vi.mock("@/hooks/use-products", () => ({
@@ -35,12 +43,22 @@ vi.mock("@/hooks/use-products", () => ({
 }));
 
 import OrdersPage from "@/app/app/orders/page";
+import OrderDetailPage from "@/app/app/orders/[id]/page";
 import NewOrderPage from "@/app/app/orders/new/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUseParams.mockReturnValue({ id: "order-1" });
   mockUseOrders.mockReturnValue({
     data: { data: [], total: 0, page: 1, per_page: 12 },
+    isLoading: false,
+  });
+  mockUseOrder.mockReturnValue({
+    data: null,
+    isLoading: false,
+  });
+  mockUseOrderItems.mockReturnValue({
+    data: [],
     isLoading: false,
   });
   mockUseProducts.mockReturnValue({
@@ -50,6 +68,10 @@ beforeEach(() => {
   mockUseVariants.mockReturnValue({
     data: [],
     isLoading: false,
+  });
+  mockUseCancelOrder.mockReturnValue({
+    mutateAsync: mockCancelOrderMutate,
+    isPending: false,
   });
 });
 
@@ -296,7 +318,6 @@ describe("NewOrderPage", () => {
 
     expect(screen.getByRole("heading", { name: /^payment$/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Amount (₦)")).toBeInTheDocument();
-    expect(screen.getByText("Enter the total and choose a payment method.")).toBeInTheDocument();
     expect(screen.getByLabelText("Payment method")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^cash$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^transfer$/i })).toBeInTheDocument();
@@ -487,5 +508,70 @@ describe("NewOrderPage", () => {
     expect(
       screen.getByText(/You don’t have any products yet. Add products first or use quick order./i),
     ).toBeInTheDocument();
+  });
+});
+
+describe("OrderDetailPage", () => {
+  const baseOrder = {
+    id: "order-1",
+    tenant_id: "tenant-1",
+    tracking_slug: "abc123def456",
+    customer_name: "Amina Bello",
+    customer_phone: "+2348012345678",
+    customer_email: "amina@example.com",
+    note: "Handle with care",
+    total_amount: "18500",
+    shipping_fee: "0",
+    payment_method: "cash",
+    payment_status: "paid",
+    fulfillment_status: "processing",
+    created_at: "2026-03-14T10:00:00Z",
+    updated_at: "2026-03-14T10:00:00Z",
+  };
+
+  it("hides dispatch for orders without delivery", () => {
+    mockUseOrder.mockReturnValue({
+      data: {
+        ...baseOrder,
+        is_delivery: false,
+        shipping_address: null,
+      },
+      isLoading: false,
+    });
+    mockUseOrderItems.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+
+    render(<OrderDetailPage />);
+
+    expect(screen.getAllByText("No delivery").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("This was saved as a quick order. No items were added."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /dispatch order/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /cancel order/i })).toBeInTheDocument();
+  });
+
+  it("shows delivery details for delivery orders", () => {
+    mockUseOrder.mockReturnValue({
+      data: {
+        ...baseOrder,
+        is_delivery: true,
+        shipping_address: "12 Allen Avenue, Ikeja",
+        shipping_fee: "1500",
+      },
+      isLoading: false,
+    });
+    mockUseOrderItems.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+
+    render(<OrderDetailPage />);
+
+    expect(screen.getByText("Delivery details for this order.")).toBeInTheDocument();
+    expect(screen.getByText("12 Allen Avenue, Ikeja")).toBeInTheDocument();
+    expect(screen.getByText(/dispatch setup is not ready in this screen yet/i)).toBeInTheDocument();
   });
 });

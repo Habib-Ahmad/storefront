@@ -160,7 +160,7 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Orders</h1>
         <Link href="/app/orders/new">
-          <Button size="sm" className="gap-1.5">
+          <Button className="gap-2 px-4">
             <PlusIcon className="size-4" weight="bold" />
             New Order
           </Button>
@@ -180,7 +180,7 @@ export default function OrdersPage() {
           <ReceiptSvg className="size-36" />
           <p className="mt-3 text-sm text-muted-foreground">Your orders will appear here</p>
           <Link href="/app/orders/new" className="mt-3">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" className="px-4">
               Create your first order
             </Button>
           </Link>
