@@ -49,6 +49,7 @@ function fulfillmentBadgeVariant(
   status: FulfillmentStatus,
 ): "default" | "secondary" | "destructive" {
   switch (status) {
+    case "completed":
     case "delivered":
     case "shipped":
       return "default";

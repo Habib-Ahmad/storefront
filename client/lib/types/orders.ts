@@ -5,7 +5,13 @@ import { UUIDSchema, TimestampSchema } from "./domain";
 
 export const PaymentMethodSchema = z.enum(["online", "cash", "transfer"]);
 export const PaymentStatusSchema = z.enum(["pending", "paid", "failed", "refunded"]);
-export const FulfillmentStatusSchema = z.enum(["processing", "shipped", "delivered", "cancelled"]);
+export const FulfillmentStatusSchema = z.enum([
+  "processing",
+  "completed",
+  "shipped",
+  "delivered",
+  "cancelled",
+]);
 
 export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;

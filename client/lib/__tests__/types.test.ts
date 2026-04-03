@@ -258,9 +258,9 @@ describe("OrderSchema", () => {
       note: "Handle with care",
       total_amount: "18500",
       shipping_fee: "1500",
-      payment_method: "online",
-      payment_status: "pending",
-      fulfillment_status: "processing",
+      payment_method: "cash",
+      payment_status: "paid",
+      fulfillment_status: "completed",
       created_at: "2026-03-14T10:00:00Z",
       updated_at: "2026-03-14T10:00:00Z",
     };
@@ -379,7 +379,7 @@ describe("TrackingResponseSchema", () => {
       tracking_slug: "abc123def456",
       customer_name: "Amina Bello",
       payment_status: "paid",
-      fulfillment_status: "shipped",
+      fulfillment_status: "completed",
     };
 
     expect(TrackingResponseSchema.parse(payload)).toEqual(payload);

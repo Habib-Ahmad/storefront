@@ -61,6 +61,7 @@ function fulfillmentBadgeVariant(
   status: FulfillmentStatus,
 ): "default" | "secondary" | "destructive" {
   switch (status) {
+    case "completed":
     case "delivered":
     case "shipped":
       return "default";
@@ -295,6 +296,14 @@ function ActionCard({
 
   const helperText = (() => {
     if (!order.is_delivery) {
+      if (order.fulfillment_status === "completed") {
+        return "This pickup order is complete.";
+      }
+
+      if (order.payment_status !== "paid") {
+        return "This pickup order is waiting for payment. You can still cancel it before payment is completed.";
+      }
+
       return canCancel
         ? "No delivery was added to this order. You can still cancel it if it was created by mistake."
         : "No delivery was added to this order.";

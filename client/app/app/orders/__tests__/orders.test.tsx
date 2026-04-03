@@ -124,9 +124,9 @@ describe("OrdersPage", () => {
             note: null,
             total_amount: "7200",
             shipping_fee: "0",
-            payment_method: "online",
-            payment_status: "pending",
-            fulfillment_status: "cancelled",
+            payment_method: "cash",
+            payment_status: "paid",
+            fulfillment_status: "completed",
             created_at: "2026-03-12T10:00:00Z",
             updated_at: "2026-03-12T10:00:00Z",
           },
@@ -145,9 +145,8 @@ describe("OrdersPage", () => {
     expect(screen.getByText("abc123def456")).toBeInTheDocument();
     expect(screen.getByText("xyz987uvw654")).toBeInTheDocument();
     expect(screen.getAllByText("paid").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     expect(screen.getAllByText("processing").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("cancelled").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("completed").length).toBeGreaterThan(0);
     expect(screen.getByText("Delivery")).toBeInTheDocument();
 
     const firstLink = screen.getByText("Amina Bello").closest("a");
@@ -524,12 +523,12 @@ describe("OrderDetailPage", () => {
     shipping_fee: "0",
     payment_method: "cash",
     payment_status: "paid",
-    fulfillment_status: "processing",
+    fulfillment_status: "completed",
     created_at: "2026-03-14T10:00:00Z",
     updated_at: "2026-03-14T10:00:00Z",
   };
 
-  it("hides dispatch for orders without delivery", () => {
+  it("shows completed pickup orders without actions", () => {
     mockUseOrder.mockReturnValue({
       data: {
         ...baseOrder,
@@ -549,8 +548,10 @@ describe("OrderDetailPage", () => {
     expect(
       screen.getByText("This was saved as a quick order. No items were added."),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("completed").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /dispatch order/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /cancel order/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /cancel order/i })).not.toBeInTheDocument();
+    expect(screen.getByText("This pickup order is complete.")).toBeInTheDocument();
   });
 
   it("shows delivery details for delivery orders", () => {
@@ -558,6 +559,7 @@ describe("OrderDetailPage", () => {
       data: {
         ...baseOrder,
         is_delivery: true,
+        fulfillment_status: "processing",
         shipping_address: "12 Allen Avenue, Ikeja",
         shipping_fee: "1500",
       },
