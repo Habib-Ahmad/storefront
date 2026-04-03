@@ -2,19 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  PlusIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  ReceiptIcon,
-  ArrowSquareOutIcon,
-} from "@phosphor-icons/react";
+import { PlusIcon, CaretLeftIcon, CaretRightIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReceiptSvg } from "@/components/illustrations";
 import { useOrders } from "@/hooks/use-orders";
-import type { Order, PaymentStatus, FulfillmentStatus } from "@/lib/types";
+import type { Order } from "@/lib/types";
 
 function formatCurrency(amount: string) {
   return new Intl.NumberFormat("en-NG", {
@@ -24,61 +18,72 @@ function formatCurrency(amount: string) {
   }).format(parseFloat(amount));
 }
 
-function formatDate(value: string) {
+function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-NG", {
     day: "numeric",
     month: "short",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Africa/Lagos",
   }).format(new Date(value));
 }
 
-function paymentBadgeVariant(status: PaymentStatus): "default" | "secondary" | "destructive" {
-  switch (status) {
-    case "paid":
-      return "default";
-    case "failed":
-    case "refunded":
-      return "destructive";
-    case "pending":
-    default:
-      return "secondary";
+type CardBadge = {
+  label: string;
+  variant: "default" | "secondary" | "destructive";
+};
+
+function primaryStatusBadge(order: Order): CardBadge {
+  if (order.fulfillment_status === "cancelled") {
+    return { label: "Cancelled", variant: "destructive" };
   }
-}
 
-function fulfillmentBadgeVariant(
-  status: FulfillmentStatus,
-): "default" | "secondary" | "destructive" {
-  switch (status) {
-    case "completed":
-    case "delivered":
-    case "shipped":
-      return "default";
-    case "cancelled":
-      return "destructive";
-    case "processing":
-    default:
-      return "secondary";
+  if (order.payment_status === "failed") {
+    return { label: "Payment failed", variant: "destructive" };
   }
+
+  if (order.payment_status === "refunded") {
+    return { label: "Refunded", variant: "destructive" };
+  }
+
+  if (order.fulfillment_status === "completed") {
+    return { label: "Completed", variant: "default" };
+  }
+
+  if (order.fulfillment_status === "delivered") {
+    return { label: "Delivered", variant: "default" };
+  }
+
+  if (order.fulfillment_status === "shipped") {
+    return { label: "Shipped", variant: "default" };
+  }
+
+  if (order.payment_status === "pending") {
+    return { label: "Awaiting payment", variant: "secondary" };
+  }
+
+  if (order.is_delivery && order.fulfillment_status === "processing") {
+    return { label: "Ready for delivery", variant: "secondary" };
+  }
+
+  return { label: "Processing", variant: "secondary" };
 }
 
-function PaymentBadge({ status }: { status: PaymentStatus }) {
-  return (
-    <Badge variant={paymentBadgeVariant(status)} className="text-xs capitalize">
-      {status}
-    </Badge>
-  );
-}
+function cardBadges(order: Order): CardBadge[] {
+  const badges = [primaryStatusBadge(order)];
 
-function FulfillmentBadge({ status }: { status: FulfillmentStatus }) {
-  return (
-    <Badge variant={fulfillmentBadgeVariant(status)} className="text-xs capitalize">
-      {status}
-    </Badge>
-  );
+  if (order.is_delivery) {
+    badges.push({ label: "Delivery", variant: "secondary" });
+  }
+
+  return badges;
 }
 
 function OrderCard({ order }: { order: Order }) {
   const customerName = order.customer_name?.trim() || "Walk-in customer";
+  const badges = cardBadges(order);
 
   return (
     <Link href={`/app/orders/${order.id}`} className="block">
@@ -86,34 +91,24 @@ function OrderCard({ order }: { order: Order }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <p className="truncate text-sm font-semibold">{customerName}</p>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ReceiptIcon className="size-3.5" />
-              <span className="truncate">{order.tracking_slug}</span>
-            </div>
+            <p className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</p>
           </div>
-          <ArrowSquareOutIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div className="flex items-start gap-3">
+            <div className="text-right">
+              <p className="text-base font-semibold text-primary">
+                {formatCurrency(order.total_amount)}
+              </p>
+            </div>
+            <ArrowSquareOutIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <PaymentBadge status={order.payment_status} />
-          <FulfillmentBadge status={order.fulfillment_status} />
-          <Badge variant="secondary" className="text-xs capitalize">
-            {order.payment_method}
-          </Badge>
-        </div>
-
-        <div className="flex items-end justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-base font-semibold text-primary">
-              {formatCurrency(order.total_amount)}
-            </p>
-            <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
-          </div>
-          {order.is_delivery && (
-            <Badge variant="secondary" className="text-xs">
-              Delivery
+          {badges.map((badge) => (
+            <Badge key={badge.label} variant={badge.variant} className="text-xs">
+              {badge.label}
             </Badge>
-          )}
+          ))}
         </div>
       </div>
     </Link>

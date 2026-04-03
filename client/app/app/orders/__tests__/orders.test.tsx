@@ -130,8 +130,26 @@ describe("OrdersPage", () => {
             created_at: "2026-03-12T10:00:00Z",
             updated_at: "2026-03-12T10:00:00Z",
           },
+          {
+            id: "order-3",
+            tenant_id: "tenant-1",
+            tracking_slug: "pqr765stu321",
+            is_delivery: true,
+            customer_name: "Kehinde Musa",
+            customer_phone: "+2348099999999",
+            customer_email: null,
+            shipping_address: "8 Admiralty Way, Lekki",
+            note: null,
+            total_amount: "12000",
+            shipping_fee: "1000",
+            payment_method: "online",
+            payment_status: "pending",
+            fulfillment_status: "cancelled",
+            created_at: "2026-03-11T10:00:00Z",
+            updated_at: "2026-03-11T10:00:00Z",
+          },
         ],
-        total: 2,
+        total: 3,
         page: 1,
         per_page: 12,
       },
@@ -142,18 +160,27 @@ describe("OrdersPage", () => {
 
     expect(screen.getByText("Amina Bello")).toBeInTheDocument();
     expect(screen.getByText("Walk-in customer")).toBeInTheDocument();
-    expect(screen.getByText("abc123def456")).toBeInTheDocument();
-    expect(screen.getByText("xyz987uvw654")).toBeInTheDocument();
-    expect(screen.getAllByText("paid").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("processing").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("completed").length).toBeGreaterThan(0);
-    expect(screen.getByText("Delivery")).toBeInTheDocument();
+    expect(screen.getByText("Kehinde Musa")).toBeInTheDocument();
+    expect(screen.getByText(/14 Mar 2026, 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.getByText(/12 Mar 2026, 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.getByText(/11 Mar 2026, 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.queryByText("abc123def456")).not.toBeInTheDocument();
+    expect(screen.queryByText("xyz987uvw654")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Ready for delivery").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Completed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Delivery").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Pickup")).not.toBeInTheDocument();
+    expect(screen.queryByText("Awaiting payment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Paid")).not.toBeInTheDocument();
 
     const firstLink = screen.getByText("Amina Bello").closest("a");
     const secondLink = screen.getByText("Walk-in customer").closest("a");
+    const thirdLink = screen.getByText("Kehinde Musa").closest("a");
 
     expect(firstLink).toHaveAttribute("href", "/app/orders/order-1");
     expect(secondLink).toHaveAttribute("href", "/app/orders/order-2");
+    expect(thirdLink).toHaveAttribute("href", "/app/orders/order-3");
   });
 
   it("shows pagination controls when there are multiple pages", async () => {
@@ -245,7 +272,7 @@ describe("NewOrderPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("creates a vendor-entered catalog order and navigates to its detail page", async () => {
+  it("creates a vendor-entered catalog order and returns to the order list", async () => {
     mockUseProducts.mockReturnValue(productsPayload);
     mockUseVariants.mockImplementation((productId: string) => ({
       data:
@@ -301,7 +328,7 @@ describe("NewOrderPage", () => {
       );
     });
 
-    expect(pushMock).toHaveBeenCalledWith("/app/orders/new-order-id");
+    expect(pushMock).toHaveBeenCalledWith("/app/orders");
   });
 
   it("shows payment details for quick orders", async () => {
@@ -430,7 +457,7 @@ describe("NewOrderPage", () => {
       );
     });
 
-    expect(pushMock).toHaveBeenCalledWith("/app/orders/quick-sale-order");
+    expect(pushMock).toHaveBeenCalledWith("/app/orders");
   });
 
   it("redirects to the authorization URL for online payments", async () => {

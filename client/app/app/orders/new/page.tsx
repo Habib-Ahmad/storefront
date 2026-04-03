@@ -376,7 +376,7 @@ export default function NewOrderPage() {
               return;
             }
 
-            router.push(`/app/orders/${created.id}`);
+            router.push("/app/orders");
           } catch (err) {
             if (err instanceof ApiError) {
               setFormError(err.message);
