@@ -46,6 +46,14 @@ func (s *OrderService) SetWalletService(w *WalletService)           { s.walletSv
 func (s *OrderService) SetTenantRepo(t repository.TenantRepository) { s.tenants = t }
 func (s *OrderService) SetTierRepo(t repository.TierRepository)     { s.tiers = t }
 
+func initialFulfillmentStatus(order *models.Order) models.FulfillmentStatus {
+	if !order.IsDelivery && order.PaymentStatus == models.PaymentStatusPaid {
+		return models.FulfillmentStatusCompleted
+	}
+
+	return models.FulfillmentStatusProcessing
+}
+
 // Create validates and persists a new order with its line items.
 // All orders are 100% prepaid — payment_status starts as "pending" until Paystack confirms.
 func (s *OrderService) Create(ctx context.Context, order *models.Order, items []models.OrderItem) (*models.Order, error) {
@@ -113,7 +121,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	} else {
 		order.PaymentStatus = models.PaymentStatusPaid
 	}
-	order.FulfillmentStatus = models.FulfillmentStatusProcessing
+	order.FulfillmentStatus = initialFulfillmentStatus(order)
 
 	// Retry with a new slug on unique-constraint collision (unlikely but possible).
 	const maxSlugRetries = 3

@@ -28,6 +28,7 @@ type FulfillmentStatus string
 
 const (
 	FulfillmentStatusProcessing FulfillmentStatus = "processing"
+	FulfillmentStatusCompleted  FulfillmentStatus = "completed"
 	FulfillmentStatusShipped    FulfillmentStatus = "shipped"
 	FulfillmentStatusDelivered  FulfillmentStatus = "delivered"
 	FulfillmentStatusCancelled  FulfillmentStatus = "cancelled"

@@ -155,6 +155,9 @@ func TestCreateOrder_CashSale_PaidImmediately(t *testing.T) {
 	if out.PaymentStatus != models.PaymentStatusPaid {
 		t.Fatalf("cash sale should be paid immediately, got %s", out.PaymentStatus)
 	}
+	if out.FulfillmentStatus != models.FulfillmentStatusCompleted {
+		t.Fatalf("cash pickup sale should be completed, got %s", out.FulfillmentStatus)
+	}
 }
 
 func TestCreateOrder_TransferSale_PaidImmediately(t *testing.T) {
@@ -169,6 +172,27 @@ func TestCreateOrder_TransferSale_PaidImmediately(t *testing.T) {
 	}
 	if out.PaymentStatus != models.PaymentStatusPaid {
 		t.Fatalf("transfer sale should be paid immediately, got %s", out.PaymentStatus)
+	}
+	if out.FulfillmentStatus != models.FulfillmentStatusCompleted {
+		t.Fatalf("transfer pickup sale should be completed, got %s", out.FulfillmentStatus)
+	}
+}
+
+func TestCreateOrder_PickupOnlineSale_StartsProcessing(t *testing.T) {
+	variantID := uuid.New()
+	repo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1200), StockQty: nil}}
+	svc := service.NewOrderService(&mockOrderRepo{}, repo)
+
+	order := &models.Order{TenantID: uuid.New(), PaymentMethod: models.PaymentMethodOnline}
+	out, err := svc.Create(context.Background(), order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.PaymentStatus != models.PaymentStatusPending {
+		t.Fatalf("online pickup sale should start pending, got %s", out.PaymentStatus)
+	}
+	if out.FulfillmentStatus != models.FulfillmentStatusProcessing {
+		t.Fatalf("online pickup sale should stay processing until payment, got %s", out.FulfillmentStatus)
 	}
 }
 
@@ -233,6 +257,9 @@ func TestCreateOrder_QuickSale_NoItems(t *testing.T) {
 	}
 	if out.PaymentStatus != models.PaymentStatusPaid {
 		t.Fatalf("quick cash sale should be paid, got %s", out.PaymentStatus)
+	}
+	if out.FulfillmentStatus != models.FulfillmentStatusCompleted {
+		t.Fatalf("quick cash sale should be completed, got %s", out.FulfillmentStatus)
 	}
 }
 

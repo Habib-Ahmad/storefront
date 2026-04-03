@@ -79,7 +79,7 @@ func TestInitiatePayment_AdapterError(t *testing.T) {
 func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
-	order := &models.Order{ID: orderID, TenantID: tenantID, TotalAmount: decimal.NewFromInt(5000)}
+	order := &models.Order{ID: orderID, TenantID: tenantID, IsDelivery: true, TotalAmount: decimal.NewFromInt(5000)}
 	wallet := &models.Wallet{ID: uuid.New(), TenantID: tenantID}
 
 	ps := &mockPaystackClient{
@@ -104,6 +104,45 @@ func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	}
 	if txRepo.created == nil {
 		t.Fatal("expected wallet credit transaction to be created")
+	}
+}
+
+func TestHandleChargeSuccess_PickupOrder_CompletesAndCreditsAvailable(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	order := &models.Order{
+		ID:                orderID,
+		TenantID:          tenantID,
+		IsDelivery:        false,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+		TotalAmount:       decimal.NewFromInt(5000),
+	}
+	wallet := &models.Wallet{ID: uuid.New(), TenantID: tenantID}
+	ps := &mockPaystackClient{
+		verResp: &paystack.VerifyResponse{
+			Status:    "success",
+			Amount:    decimal.NewFromInt(5000),
+			Reference: orderID.String(),
+		},
+	}
+	walletRepo := &mockWalletRepo{wallet: wallet}
+	txRepo := &mockTxRepo{}
+	walletSvc := service.NewWalletService(walletRepo, txRepo, &mockTenantRepo{}, testHMACSecret)
+	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, &mockProductRepo{}, walletSvc)
+
+	err := paymentSvc.HandleChargeSuccess(context.Background(), orderID.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if order.FulfillmentStatus != models.FulfillmentStatusCompleted {
+		t.Fatalf("pickup order should complete after payment, got %s", order.FulfillmentStatus)
+	}
+	if wallet.AvailableBalance.String() != "5000" {
+		t.Fatalf("pickup payment should credit available balance, got %s", wallet.AvailableBalance)
+	}
+	if wallet.PendingBalance.String() != "0" {
+		t.Fatalf("pickup payment should not leave pending balance, got %s", wallet.PendingBalance)
 	}
 }
 

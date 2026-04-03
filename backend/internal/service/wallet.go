@@ -71,6 +71,14 @@ func (s *WalletService) CreditWithTx(ctx context.Context, tx db.DBTX, tenantID u
 	return s.doRecordForUpdate(ctx, wallets, transactions, tenantID, amount, models.TransactionTypeCredit, true, orderID)
 }
 
+// CreditAvailableWithTx performs a CreditAvailable inside an externally-managed database transaction.
+// The caller MUST commit/rollback the tx.
+func (s *WalletService) CreditAvailableWithTx(ctx context.Context, tx db.DBTX, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	wallets := s.wallets.WithTx(tx)
+	transactions := s.transactions.WithTx(tx)
+	return s.doRecordForUpdate(ctx, wallets, transactions, tenantID, amount, models.TransactionTypeCredit, false, orderID)
+}
+
 // CreditAvailable adds funds directly to available balance (for offline/cash/transfer sales).
 func (s *WalletService) CreditAvailable(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
 	return s.record(ctx, tenantID, amount, models.TransactionTypeCredit, false, orderID)

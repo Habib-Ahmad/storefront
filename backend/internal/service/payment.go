@@ -59,6 +59,8 @@ func (s *PaymentService) InitiatePayment(ctx context.Context, order *models.Orde
 }
 
 // HandleChargeSuccess verifies the Paystack charge event and credits the tenant wallet.
+// Delivery orders settle to pending balance until delivery is confirmed.
+// No-delivery orders settle directly to available balance and become completed.
 // reference is the order UUID string used as Paystack reference at initialization.
 func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference string) error {
 	resp, err := s.paystack.VerifyTransaction(ctx, reference)
@@ -100,8 +102,20 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 			return fmt.Errorf("update payment status: %w", err)
 		}
 
-		if _, err := s.walletSvc.CreditWithTx(ctx, dbTx, order.TenantID, resp.Amount, &orderID); err != nil {
-			return fmt.Errorf("credit wallet: %w", err)
+		if !order.IsDelivery {
+			if err := s.orders.WithTx(dbTx).UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusCompleted); err != nil {
+				return fmt.Errorf("update fulfillment status: %w", err)
+			}
+		}
+
+		if order.IsDelivery {
+			if _, err := s.walletSvc.CreditWithTx(ctx, dbTx, order.TenantID, resp.Amount, &orderID); err != nil {
+				return fmt.Errorf("credit wallet: %w", err)
+			}
+		} else {
+			if _, err := s.walletSvc.CreditAvailableWithTx(ctx, dbTx, order.TenantID, resp.Amount, &orderID); err != nil {
+				return fmt.Errorf("credit wallet: %w", err)
+			}
 		}
 
 		return dbTx.Commit(ctx)
@@ -112,8 +126,20 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		return fmt.Errorf("update payment status: %w", err)
 	}
 
-	if _, err := s.walletSvc.Credit(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
-		return fmt.Errorf("credit wallet: %w", err)
+	if !order.IsDelivery {
+		if err := s.orders.UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusCompleted); err != nil {
+			return fmt.Errorf("update fulfillment status: %w", err)
+		}
+	}
+
+	if order.IsDelivery {
+		if _, err := s.walletSvc.Credit(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
+			return fmt.Errorf("credit wallet: %w", err)
+		}
+	} else {
+		if _, err := s.walletSvc.CreditAvailable(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
+			return fmt.Errorf("credit wallet: %w", err)
+		}
 	}
 
 	return nil
