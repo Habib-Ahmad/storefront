@@ -1,0 +1,60 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PublicStorefrontError, getPublicStorefront } from "../public-storefront";
+
+const ok = (data: unknown, status = 200) =>
+  Promise.resolve(
+    new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }),
+  );
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("getPublicStorefront", () => {
+  it("parses the published storefront payload", async () => {
+    vi.mocked(fetch).mockReturnValue(
+      ok({
+        storefront: {
+          name: "Funke Fabrics",
+          slug: "funke-fabrics",
+          logo_url: null,
+          contact_email: "hello@funkefabrics.com",
+          contact_phone: "+2348012345678",
+          address: "12 Allen Avenue, Ikeja",
+        },
+        products: [
+          {
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            name: "Ankara Set",
+            description: "A bright two-piece set",
+            category: "Fashion",
+            image_url: "https://cdn.example.com/ankara.png",
+            price: "24500",
+            in_stock: true,
+          },
+        ],
+      }),
+    );
+
+    await expect(getPublicStorefront("funke-fabrics")).resolves.toMatchObject({
+      storefront: { slug: "funke-fabrics" },
+      products: [expect.objectContaining({ name: "Ankara Set", in_stock: true })],
+    });
+  });
+
+  it("throws a typed error when the storefront is missing", async () => {
+    vi.mocked(fetch).mockReturnValue(ok({ error: "storefront not found" }, 404));
+
+    await expect(getPublicStorefront("missing-store")).rejects.toEqual(
+      expect.objectContaining<Partial<PublicStorefrontError>>({
+        name: "PublicStorefrontError",
+        status: 404,
+        message: "storefront not found",
+      }),
+    );
+  });
+});

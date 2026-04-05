@@ -67,6 +67,9 @@ func (s *stubProductRepoForOrder) GetByID(_ context.Context, _, id uuid.UUID) (*
 func (s *stubProductRepoForOrder) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Product, error) {
 	return nil, nil
 }
+func (s *stubProductRepoForOrder) ListPublicByTenant(_ context.Context, _ uuid.UUID) ([]models.PublicStorefrontProduct, error) {
+	return nil, nil
+}
 func (s *stubProductRepoForOrder) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
 }

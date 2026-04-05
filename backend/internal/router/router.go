@@ -18,6 +18,7 @@ func New(
 	log *slog.Logger,
 	auth *handler.AuthHandler,
 	tier *handler.TierHandler,
+	storefront *handler.StorefrontHandler,
 	tenant *handler.TenantHandler,
 	user *handler.UserHandler,
 	product *handler.ProductHandler,
@@ -57,6 +58,7 @@ func New(
 
 	// Public endpoints
 	r.Get("/tiers", tier.List)
+	r.Get("/storefronts/{slug}", storefront.GetPublic)
 	r.Get("/track/{slug}", order.Track)
 
 	// Authenticated but pre-tenant routes (user has no tenant yet)

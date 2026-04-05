@@ -15,6 +15,7 @@ type ProductRepository interface {
 	Create(ctx context.Context, p *models.Product) error
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Product, error)
 	ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Product, error)
+	ListPublicByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.PublicStorefrontProduct, error)
 	CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	Update(ctx context.Context, p *models.Product) error
 	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
@@ -75,6 +76,48 @@ func (r *productRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limi
 		var p models.Product
 		if err := rows.Scan(&p.ID, &p.TenantID, &p.Name, &p.Description, &p.Category,
 			&p.IsAvailable, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt); err != nil {
+			return nil, err
+		}
+		products = append(products, p)
+	}
+	return products, rows.Err()
+}
+
+func (r *productRepo) ListPublicByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.PublicStorefrontProduct, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT p.id, p.name, p.description, p.category, img.url, v.price,
+		       COALESCE(stock.in_stock, false) AS in_stock
+		FROM products p
+		JOIN LATERAL (
+			SELECT price
+			FROM product_variants
+			WHERE product_id = p.id AND deleted_at IS NULL
+			ORDER BY is_default DESC, created_at ASC
+			LIMIT 1
+		) v ON true
+		LEFT JOIN LATERAL (
+			SELECT url
+			FROM product_images
+			WHERE product_id = p.id
+			ORDER BY is_primary DESC, sort_order ASC, created_at ASC
+			LIMIT 1
+		) img ON true
+		LEFT JOIN LATERAL (
+			SELECT bool_or(stock_qty IS NULL OR stock_qty > 0) AS in_stock
+			FROM product_variants
+			WHERE product_id = p.id AND deleted_at IS NULL
+		) stock ON true
+		WHERE p.tenant_id = $1 AND p.is_available = TRUE AND p.deleted_at IS NULL
+		ORDER BY p.created_at DESC`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []models.PublicStorefrontProduct
+	for rows.Next() {
+		var p models.PublicStorefrontProduct
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Category, &p.ImageURL, &p.Price, &p.InStock); err != nil {
 			return nil, err
 		}
 		products = append(products, p)

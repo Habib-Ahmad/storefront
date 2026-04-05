@@ -64,6 +64,18 @@ export type {
 } from "./products";
 
 export {
+  PublicStorefrontSchema,
+  PublicStorefrontProductSchema,
+  PublicStorefrontResponseSchema,
+} from "./public-storefront";
+
+export type {
+  PublicStorefront,
+  PublicStorefrontProduct,
+  PublicStorefrontResponse,
+} from "./public-storefront";
+
+export {
   PaymentMethodSchema,
   PaymentStatusSchema,
   FulfillmentStatusSchema,

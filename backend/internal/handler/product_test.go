@@ -25,6 +25,7 @@ import (
 type stubProductRepo struct {
 	product        *models.Product
 	products       []models.Product
+	publicProducts []models.PublicStorefrontProduct
 	variant        *models.ProductVariant
 	variants       []models.ProductVariant
 	createErr      error
@@ -52,6 +53,9 @@ func (s *stubProductRepo) GetByID(_ context.Context, _, id uuid.UUID) (*models.P
 }
 func (s *stubProductRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Product, error) {
 	return s.products, nil
+}
+func (s *stubProductRepo) ListPublicByTenant(_ context.Context, _ uuid.UUID) ([]models.PublicStorefrontProduct, error) {
+	return s.publicProducts, nil
 }
 func (s *stubProductRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return len(s.products), nil

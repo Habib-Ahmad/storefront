@@ -69,6 +69,7 @@ func main() {
 	tenantSvc := service.NewTenantService(tenantRepo, tierRepo, walletRepo, userRepo)
 	tenantSvc.SetPool(pool)
 	productSvc := service.NewProductService(productRepo)
+	storefrontSvc := service.NewStorefrontService(tenantRepo, productRepo)
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
 	walletSvc.SetTierRepo(tierRepo)
@@ -84,6 +85,7 @@ func main() {
 	// Handlers
 	authH := handler.NewAuthHandler(userRepo, tenantRepo, log)
 	tierH := handler.NewTierHandler(tierRepo, log)
+	storefrontH := handler.NewStorefrontHandler(storefrontSvc, log)
 	tenantH := handler.NewTenantHandler(tenantSvc, log)
 	userSvc := service.NewUserService(userRepo)
 	userH := handler.NewUserHandler(userSvc, log)
@@ -128,7 +130,7 @@ func main() {
 	addr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router.New(log, authH, tierH, tenantH, userH, productH, orderH, walletH, analyticsH, webhookH, mediaH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
+		Handler:      router.New(log, authH, tierH, storefrontH, tenantH, userH, productH, orderH, walletH, analyticsH, webhookH, mediaH, userRepo, tenantRepo, jwtKeyFunc, cfg.AllowedOrigins),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

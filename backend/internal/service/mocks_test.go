@@ -112,6 +112,7 @@ type mockProductRepo struct {
 	product        *models.Product
 	variant        *models.ProductVariant
 	variantCreated *models.ProductVariant
+	publicProducts []models.PublicStorefrontProduct
 	err            error
 	restocked      map[uuid.UUID]int
 }
@@ -129,6 +130,9 @@ func (m *mockProductRepo) GetByID(_ context.Context, _ uuid.UUID, id uuid.UUID) 
 }
 func (m *mockProductRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Product, error) {
 	return nil, m.err
+}
+func (m *mockProductRepo) ListPublicByTenant(_ context.Context, _ uuid.UUID) ([]models.PublicStorefrontProduct, error) {
+	return m.publicProducts, m.err
 }
 func (m *mockProductRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, m.err
