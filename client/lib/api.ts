@@ -20,6 +20,7 @@ import type {
   Tier,
   TrackingResponse,
   Transaction,
+  UpdateStorefrontRequest,
   UpdateProductRequest,
   UpdateTenantRequest,
   UpdateUserRequest,
@@ -41,6 +42,7 @@ import {
   TierSchema,
   TrackingResponseSchema,
   TransactionSchema,
+  UpdateStorefrontRequestSchema,
   UpdateUserRequestSchema,
   UserSchema,
   WalletSchema,
@@ -69,6 +71,37 @@ function qs(params: PaginationParams): string {
   s.set("limit", String(perPage));
   s.set("offset", String((page - 1) * perPage));
   return s.toString();
+}
+
+function withStorefrontPublishedDefault(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  if ("storefront_published" in value) {
+    return value;
+  }
+
+  return {
+    ...value,
+    storefront_published: false,
+  };
+}
+
+function normalizeMeResponse(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (payload.onboarded !== true) {
+    return value;
+  }
+
+  return {
+    ...payload,
+    tenant: withStorefrontPublishedDefault(payload.tenant),
+  };
 }
 
 // ── Client ─────────────────────────────────────────────
@@ -120,7 +153,7 @@ class ApiClient {
 
   // Auth
   getMe = async (): Promise<MeResponse> =>
-    MeResponseSchema.parse(await this.request<unknown>("GET", "/auth/me"));
+    MeResponseSchema.parse(normalizeMeResponse(await this.request<unknown>("GET", "/auth/me")));
 
   // Tiers (public)
   getTiers = async (): Promise<Tier[]> =>
@@ -134,12 +167,16 @@ class ApiClient {
 
   // Tenants
   onboard = async (data: OnboardRequest): Promise<Tenant> =>
-    TenantSchema.parse(await this.request<unknown>("POST", "/tenants/onboard", data));
-
-  getTenant = async (): Promise<Tenant> =>
-    TenantSchema.parse(await this.request<unknown>("GET", "/tenants/me"));
+    TenantSchema.parse(
+      withStorefrontPublishedDefault(await this.request<unknown>("POST", "/tenants/onboard", data)),
+    );
 
   updateTenant = (data: UpdateTenantRequest) => this.request<void>("PUT", "/tenants/me", data);
+
+  updateStorefront = async (data: UpdateStorefrontRequest): Promise<void> => {
+    UpdateStorefrontRequestSchema.parse(data);
+    await this.request<void>("PUT", "/tenants/me/storefront", data);
+  };
 
   setModules = (data: SetModulesRequest) => this.request<void>("PUT", "/tenants/me/modules", data);
 

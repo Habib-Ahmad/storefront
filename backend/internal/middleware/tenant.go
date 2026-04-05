@@ -36,6 +36,7 @@ func ResolveTenant(users repository.UserRepository, tenants repository.TenantRep
 			}
 
 			ctx := r.Context()
+			ctx = WithUserRole(ctx, user.Role)
 			ctx = setTenant(ctx, tenant)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

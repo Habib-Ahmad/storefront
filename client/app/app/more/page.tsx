@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import {
+  StorefrontIcon,
   PackageIcon,
   WalletIcon,
   GearSixIcon,
@@ -15,6 +16,7 @@ import { useSignOut } from "@/hooks/use-auth";
 import { Separator } from "@/components/ui/separator";
 
 const links = [
+  { href: "/app/storefront", label: "Storefront", icon: StorefrontIcon },
   { href: "/app/products", label: "Products", icon: PackageIcon },
   { href: "/app/wallet", label: "Wallet", icon: WalletIcon },
   { href: "/app/settings", label: "Settings", icon: GearSixIcon },

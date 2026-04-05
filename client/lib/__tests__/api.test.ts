@@ -36,7 +36,7 @@ describe("204 responses", () => {
 describe("error parsing", () => {
   it("throws ApiError with the server message and status", async () => {
     vi.mocked(fetch).mockReturnValue(ok({ error: "not found" }, 404));
-    await expect(api.getTenant()).rejects.toMatchObject({
+    await expect(api.getMe()).rejects.toMatchObject({
       name: "ApiError",
       status: 404,
       message: "not found",
@@ -45,7 +45,7 @@ describe("error parsing", () => {
 
   it("includes field-level errors from the response body", async () => {
     vi.mocked(fetch).mockReturnValue(ok({ error: "invalid", errors: { name: "required" } }, 422));
-    await expect(api.onboard({ name: "", slug: "", admin_email: "" })).rejects.toMatchObject({
+    await expect(api.onboard({ name: "", admin_email: "" })).rejects.toMatchObject({
       fields: { name: "required" },
     });
   });
@@ -53,6 +53,57 @@ describe("error parsing", () => {
   it("falls back to 'Unknown error' when the body has no error field", async () => {
     vi.mocked(fetch).mockReturnValue(Promise.resolve(new Response("bad gateway", { status: 502 })));
     await expect(api.getMe()).rejects.toMatchObject({ status: 502, message: "Unknown error" });
+  });
+
+  it("defaults missing storefront_published to false for onboarding responses", async () => {
+    vi.mocked(fetch).mockReturnValue(
+      ok({
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        tier_id: "550e8400-e29b-41d4-a716-446655440001",
+        name: "Funke Fabrics",
+        slug: "funke-fabrics",
+        active_modules: {
+          inventory: true,
+          payments: true,
+          logistics: false,
+        },
+        status: "active",
+        created_at: "2026-03-14T10:00:00Z",
+        updated_at: "2026-03-14T10:00:00Z",
+      }),
+    );
+
+    await expect(
+      api.onboard({ name: "Funke Fabrics", admin_email: "owner@example.com" }),
+    ).resolves.toMatchObject({ storefront_published: false, slug: "funke-fabrics" });
+  });
+
+  it("defaults missing storefront_published to false inside auth me tenant payloads", async () => {
+    vi.mocked(fetch).mockReturnValue(
+      ok({
+        onboarded: true,
+        tenant: {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          tier_id: "550e8400-e29b-41d4-a716-446655440001",
+          name: "Funke Fabrics",
+          slug: "funke-fabrics",
+          active_modules: {
+            inventory: true,
+            payments: true,
+            logistics: false,
+          },
+          status: "active",
+          created_at: "2026-03-14T10:00:00Z",
+          updated_at: "2026-03-14T10:00:00Z",
+        },
+        role: "admin",
+      }),
+    );
+
+    await expect(api.getMe()).resolves.toMatchObject({
+      onboarded: true,
+      tenant: expect.objectContaining({ storefront_published: false }),
+    });
   });
 });
 
@@ -89,6 +140,7 @@ describe("401 retry", () => {
             tier_id: "550e8400-e29b-41d4-a716-446655440001",
             name: "Funke Fabrics",
             slug: "funke-fabrics",
+            storefront_published: true,
             active_modules: {
               inventory: true,
               payments: true,

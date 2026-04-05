@@ -59,12 +59,14 @@ func TestResolveTenant_Active(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	users := &mockUserRepo{user: &models.User{ID: userID, TenantID: tenantID}}
+	users := &mockUserRepo{user: &models.User{ID: userID, TenantID: tenantID, Role: models.UserRoleAdmin}}
 	tenants := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Status: models.TenantStatusActive}}
 
 	var gotTenant *models.Tenant
+	var gotRole models.UserRole
 	mw := middleware.ResolveTenant(users, tenants)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotTenant = middleware.TenantFromCtx(r.Context())
+		gotRole = middleware.UserRoleFromCtx(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -76,6 +78,35 @@ func TestResolveTenant_Active(t *testing.T) {
 	}
 	if gotTenant == nil || gotTenant.ID != tenantID {
 		t.Fatal("tenant not injected into context")
+	}
+	if gotRole != models.UserRoleAdmin {
+		t.Fatalf("expected role admin in context, got %s", gotRole)
+	}
+}
+
+func TestResolveTenant_OverridesTokenRoleWithDatabaseRole(t *testing.T) {
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	users := &mockUserRepo{user: &models.User{ID: userID, TenantID: tenantID, Role: models.UserRoleAdmin}}
+	tenants := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Status: models.TenantStatusActive}}
+
+	var gotRole models.UserRole
+	mw := middleware.ResolveTenant(users, tenants)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotRole = middleware.UserRoleFromCtx(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := reqWithUserID(userID)
+	req = req.WithContext(middleware.WithUserRole(req.Context(), models.UserRoleStaff))
+	rec := httptest.NewRecorder()
+	mw.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if gotRole != models.UserRoleAdmin {
+		t.Fatalf("expected database role admin in context, got %s", gotRole)
 	}
 }
 

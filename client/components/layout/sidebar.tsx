@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   HouseIcon,
+  StorefrontIcon,
   ShoppingBagIcon,
   PackageIcon,
   TruckIcon,
@@ -30,6 +31,7 @@ import {
 
 const navItems = [
   { href: "/app", label: "Overview", icon: HouseIcon },
+  { href: "/app/storefront", label: "Storefront", icon: StorefrontIcon },
   { href: "/app/orders", label: "Orders", icon: ShoppingBagIcon },
   { href: "/app/products", label: "Products", icon: PackageIcon },
   { href: "/app/deliveries", label: "Deliveries", icon: TruckIcon },

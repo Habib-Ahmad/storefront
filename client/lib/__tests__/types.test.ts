@@ -30,6 +30,7 @@ describe("MeResponseSchema", () => {
         tier_id: "550e8400-e29b-41d4-a716-446655440001",
         name: "Funke Fabrics",
         slug: "funke-fabrics",
+        storefront_published: true,
         contact_email: "hello@funkefabrics.com",
         contact_phone: "+2348012345678",
         address: "12 Allen Avenue, Ikeja",
@@ -95,6 +96,7 @@ describe("TenantSchema", () => {
       tier_id: "550e8400-e29b-41d4-a716-446655440031",
       name: "Funke Fabrics",
       slug: "funke-fabrics",
+      storefront_published: false,
       contact_email: "hello@funkefabrics.com",
       contact_phone: "+2348012345678",
       address: "12 Allen Avenue, Ikeja",
@@ -119,6 +121,7 @@ describe("TenantSchema", () => {
       tier_id: "550e8400-e29b-41d4-a716-446655440031",
       name: "Funke Fabrics",
       slug: "funke-fabrics",
+      storefront_published: false,
       active_modules: {
         inventory: true,
         payments: true,

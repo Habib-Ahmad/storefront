@@ -25,6 +25,7 @@ import (
 type stubTenantRepo struct {
 	tenant    *models.Tenant
 	createErr error
+	updateErr error
 }
 
 func (s *stubTenantRepo) Create(_ context.Context, t *models.Tenant) error {
@@ -42,6 +43,9 @@ func (s *stubTenantRepo) GetBySlug(_ context.Context, _ string) (*models.Tenant,
 	return s.tenant, nil
 }
 func (s *stubTenantRepo) Update(_ context.Context, t *models.Tenant) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
 	s.tenant = t
 	return nil
 }
@@ -97,26 +101,6 @@ func newTenantHandler() *handler.TenantHandler {
 	return handler.NewTenantHandler(svc, slog.Default())
 }
 
-func TestGetMe(t *testing.T) {
-	h := newTenantHandler()
-	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Status: models.TenantStatusActive}
-
-	req := httptest.NewRequest(http.MethodGet, "/tenants/me", nil)
-	req = req.WithContext(injectTenant(req.Context(), tenant))
-	rec := httptest.NewRecorder()
-
-	h.GetMe(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rec.Code)
-	}
-	var got models.Tenant
-	_ = json.NewDecoder(rec.Body).Decode(&got)
-	if got.ID != tenant.ID {
-		t.Fatalf("wrong tenant in response")
-	}
-}
-
 func TestOnboard_MissingFields(t *testing.T) {
 	h := newTenantHandler()
 	body, _ := json.Marshal(map[string]string{"name": "Acme"})
@@ -136,7 +120,6 @@ func TestOnboard_DuplicateSlug_Returns409(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{
 		"name":        "Acme",
-		"slug":        "acme",
 		"admin_email": "admin@acme.com",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
@@ -152,7 +135,6 @@ func TestOnboard_Valid(t *testing.T) {
 	h := newTenantHandler()
 	body, _ := json.Marshal(map[string]any{
 		"name":        "Acme",
-		"slug":        "acme",
 		"admin_email": "admin@acme.com",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/tenants/onboard", bytes.NewReader(body))
@@ -224,7 +206,62 @@ func TestUpdateProfile_InvalidEmail(t *testing.T) {
 	}
 }
 
-// injectTenant places the tenant into ctx using the middleware helper.
+func TestUpdateStorefront_Valid(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Slug: "acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	body, _ := json.Marshal(map[string]any{
+		"slug":                 "acme-store",
+		"storefront_published": true,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me/storefront", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleAdmin))
+	rec := httptest.NewRecorder()
+
+	h.UpdateStorefront(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateStorefront_RejectsNonAdmin(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Slug: "acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	body, _ := json.Marshal(map[string]any{
+		"slug":                 "acme-store",
+		"storefront_published": true,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me/storefront", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleStaff))
+	rec := httptest.NewRecorder()
+
+	h.UpdateStorefront(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateStorefront_RejectsReservedSlug(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Slug: "acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	body, _ := json.Marshal(map[string]any{
+		"slug":                 "app",
+		"storefront_published": true,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me/storefront", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleAdmin))
+	rec := httptest.NewRecorder()
+
+	h.UpdateStorefront(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
 func injectTenant(ctx context.Context, t *models.Tenant) context.Context {
 	return middleware.WithTenant(ctx, t)
 }

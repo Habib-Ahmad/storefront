@@ -17,6 +17,7 @@ import {
 
 const labels: Record<string, string> = {
   "/app": "Overview",
+  "/app/storefront": "Storefront",
   "/app/orders": "Orders",
   "/app/orders/new": "New Order",
   "/app/products": "Products",

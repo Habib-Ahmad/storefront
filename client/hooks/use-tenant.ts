@@ -1,14 +1,15 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { createMutationHook, createQueryHook } from "@/lib/query-factory";
-import type { OnboardRequest } from "@/lib/types";
-
-export const useTiers = createQueryHook("tiers", () => api.getTiers());
-
-export const useTenant = createQueryHook("tenant", () => api.getTenant());
+import { createMutationHook } from "@/lib/query-factory";
+import type { OnboardRequest, UpdateStorefrontRequest } from "@/lib/types";
 
 export const useOnboardTenant = createMutationHook(
   (data: OnboardRequest) => api.onboard(data),
-  ["me", "tenant"],
+  ["me"],
+);
+
+export const useUpdateStorefront = createMutationHook(
+  (data: UpdateStorefrontRequest) => api.updateStorefront(data),
+  ["me"],
 );

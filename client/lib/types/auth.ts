@@ -37,7 +37,6 @@ export const MeResponseSchema = z.union([
 
 export const OnboardRequestSchema = z.object({
   name: z.string(),
-  slug: z.string(),
   admin_email: z.string().email(),
 });
 
@@ -49,6 +48,11 @@ export const UpdateTenantRequestSchema = z.object({
   logo_url: z.string().url().nullable().optional(),
 });
 
+export const UpdateStorefrontRequestSchema = z.object({
+  slug: z.string(),
+  storefront_published: z.boolean(),
+});
+
 export const SetModulesRequestSchema = ActiveModulesSchema;
 
 // ── Inferred types ─────────────────────────────────────
@@ -56,4 +60,5 @@ export const SetModulesRequestSchema = ActiveModulesSchema;
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 export type OnboardRequest = z.infer<typeof OnboardRequestSchema>;
 export type UpdateTenantRequest = z.infer<typeof UpdateTenantRequestSchema>;
+export type UpdateStorefrontRequest = z.infer<typeof UpdateStorefrontRequestSchema>;
 export type SetModulesRequest = z.infer<typeof SetModulesRequestSchema>;

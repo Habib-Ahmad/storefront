@@ -17,12 +17,18 @@ func TestOnboard_CreatesTenanUserAndWallet(t *testing.T) {
 	userRepo := &mockUserRepo{}
 
 	svc := service.NewTenantService(tenantRepo, tierRepo, walletRepo, userRepo)
-	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), "admin@acme.com")
+	tenant, err := svc.Onboard(context.Background(), "Acme", uuid.New(), "admin@acme.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tenant == nil || tenant.Name != "Acme" {
 		t.Fatal("tenant not returned correctly")
+	}
+	if tenant.Slug != "acme" {
+		t.Fatalf("temporary storefront slug should use the business name, got %s", tenant.Slug)
+	}
+	if tenant.StorefrontPublished {
+		t.Fatal("storefront should start unpublished")
 	}
 	if userRepo.user == nil || userRepo.user.Role != models.UserRoleAdmin {
 		t.Fatal("admin user not created")
@@ -64,12 +70,11 @@ func TestRequireModule_PassesEnabled(t *testing.T) {
 }
 
 func TestOnboard_AdminUserBelongsToTenant(t *testing.T) {
-	// The admin user's TenantID must be set to the newly created tenant's ID.
 	tenantRepo := &mockTenantRepo{}
 	userRepo := &mockUserRepo{}
 	svc := service.NewTenantService(tenantRepo, &mockTierRepo{tier: &models.Tier{ID: uuid.New(), Name: "Standard"}}, &mockWalletRepo{}, userRepo)
 
-	tenant, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), "admin@acme.com")
+	tenant, err := svc.Onboard(context.Background(), "Acme", uuid.New(), "admin@acme.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,12 +90,32 @@ func TestOnboard_DefaultsContactEmail(t *testing.T) {
 	tenantRepo := &mockTenantRepo{}
 	svc := service.NewTenantService(tenantRepo, &mockTierRepo{tier: &models.Tier{ID: uuid.New(), Name: "Standard"}}, &mockWalletRepo{}, &mockUserRepo{})
 
-	_, err := svc.Onboard(context.Background(), "Acme", "acme", uuid.New(), "admin@acme.com")
+	_, err := svc.Onboard(context.Background(), "Acme", uuid.New(), "admin@acme.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if tenantRepo.tenant.ContactEmail == nil || *tenantRepo.tenant.ContactEmail != "admin@acme.com" {
 		t.Fatal("contact_email should default to admin email")
+	}
+}
+
+func TestUpdateStorefront_UpdatesSlugAndPublishState(t *testing.T) {
+	tenantID := uuid.New()
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Name: "Acme", Slug: "acme", Status: models.TenantStatusActive}}
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
+
+	err := svc.UpdateStorefront(context.Background(), tenantID, "acme-store", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tenantRepo.updated == nil {
+		t.Fatal("tenant not updated")
+	}
+	if tenantRepo.updated.Slug != "acme-store" {
+		t.Fatalf("slug: want acme-store, got %s", tenantRepo.updated.Slug)
+	}
+	if !tenantRepo.updated.StorefrontPublished {
+		t.Fatal("storefront_published not updated")
 	}
 }
 

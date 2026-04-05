@@ -6,9 +6,7 @@ import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import { motion } from "framer-motion";
 import {
-  ArrowSquareOutIcon,
   CheckCircleIcon,
-  LinkIcon,
   SignOutIcon,
   SpinnerGapIcon,
   StorefrontIcon,
@@ -21,47 +19,20 @@ import { Label } from "@/components/ui/label";
 import { useMe, useSignOut } from "@/hooks/use-auth";
 import { useOnboardTenant } from "@/hooks/use-tenant";
 import { ApiError } from "@/lib/api";
+import { getTemporaryStorefrontSlugPreview } from "@/lib/storefront";
 
 const onboardingSchema = Yup.object({
   name: Yup.string()
     .trim()
     .required("Business name is required")
     .max(80, "Keep it under 80 characters"),
-  slug: Yup.string()
-    .trim()
-    .required("Store link is required")
-    .min(3, "Use at least 3 characters")
-    .max(50, "Keep it under 50 characters")
-    .matches(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only"),
 });
 
 type FormValues = {
   name: string;
-  slug: string;
 };
 
 type SuccessStage = "preparing" | "done";
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
-}
-
-function normalizeStoreLink(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^-+/, "")
-    .slice(0, 50);
-}
-
-function finalizeStoreLink(value: string) {
-  return normalizeStoreLink(value).replace(/-+$/g, "");
-}
 
 function SuccessSparkles() {
   const sparkles = [
@@ -96,8 +67,8 @@ export default function OnboardPage() {
   const onboardTenant = useOnboardTenant();
   const [formError, setFormError] = useState<string | null>(null);
   const [successName, setSuccessName] = useState<string | null>(null);
+  const [successSlug, setSuccessSlug] = useState<string | null>(null);
   const [successStage, setSuccessStage] = useState<SuccessStage>("preparing");
-  const [linkEdited, setLinkEdited] = useState(false);
   const [showIncompleteSetupBanner, setShowIncompleteSetupBanner] = useState(false);
 
   useEffect(() => {
@@ -121,7 +92,7 @@ export default function OnboardPage() {
       setSuccessStage("done");
     }, 2800);
     const redirectTimer = window.setTimeout(() => {
-      router.replace("/app");
+      router.replace("/app/storefront");
     }, 4600);
 
     return () => {
@@ -135,7 +106,6 @@ export default function OnboardPage() {
   const initialValues = useMemo<FormValues>(
     () => ({
       name: "",
-      slug: "",
     }),
     [],
   );
@@ -222,11 +192,17 @@ export default function OnboardPage() {
               <div className="space-y-1.5">
                 <h1 className="text-2xl font-bold tracking-tight">Setting up your store</h1>
                 <p className="text-sm text-muted-foreground">
-                  Creating {successName}, preparing your workspace, and getting everything ready.
+                  Creating {successName}, reserving your temporary storefront link, and getting
+                  everything ready.
                 </p>
               </div>
-              <div className="rounded-xl border border-primary/15 bg-primary/6 px-3 py-2 text-sm text-primary">
-                This usually takes a moment
+              <div className="space-y-2 rounded-xl border border-primary/15 bg-primary/6 px-3 py-3 text-sm text-primary">
+                <p>This usually takes a moment</p>
+                {successSlug && (
+                  <p className="font-medium tracking-tight text-foreground">
+                    storefront.com/{successSlug}
+                  </p>
+                )}
               </div>
             </>
           ) : (
@@ -234,11 +210,17 @@ export default function OnboardPage() {
               <div className="space-y-1.5">
                 <h1 className="text-2xl font-bold tracking-tight">Success. Redirecting you now.</h1>
                 <p className="text-sm text-muted-foreground">
-                  {successName} is ready. Taking you to your dashboard.
+                  {successName} is ready. Taking you to Storefront so you can review the draft link
+                  and publish when you&apos;re ready.
                 </p>
               </div>
-              <div className="rounded-xl border border-primary/15 bg-primary/6 px-3 py-2 text-sm text-primary">
-                Setup complete
+              <div className="space-y-2 rounded-xl border border-primary/15 bg-primary/6 px-3 py-3 text-sm text-primary">
+                <p>Setup complete</p>
+                {successSlug && (
+                  <p className="font-medium tracking-tight text-foreground">
+                    storefront.com/{successSlug}
+                  </p>
+                )}
               </div>
             </>
           )}
@@ -269,9 +251,10 @@ export default function OnboardPage() {
       </div>
 
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Set up your store</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Create your workspace</h1>
         <p className="text-sm text-muted-foreground">
-          One quick step and you&apos;re inside your dashboard
+          We&apos;ll create a private temporary storefront link now so your store identity is
+          visible from day one. You can rename and publish it later.
         </p>
       </div>
 
@@ -284,17 +267,16 @@ export default function OnboardPage() {
           try {
             const tenant = await onboardTenant.mutateAsync({
               name: values.name.trim(),
-              slug: finalizeStoreLink(values.slug),
               admin_email: ownerEmail,
             });
             setSuccessName(tenant.name);
+            setSuccessSlug(tenant.slug);
           } catch (err) {
             if (err instanceof ApiError) {
               setFormError(err.message);
               if (err.fields) {
                 setErrors({
                   name: err.fields.name,
-                  slug: err.fields.slug,
                 });
               }
             } else {
@@ -304,9 +286,9 @@ export default function OnboardPage() {
           }
         }}
       >
-        {({ errors, touched, values, isSubmitting, submitCount, setFieldValue }) => {
+        {({ errors, touched, values, isSubmitting, submitCount, handleChange }) => {
           const tried = submitCount > 0;
-          const preview = finalizeStoreLink(values.slug) || "your-store";
+          const temporarySlugPreview = getTemporaryStorefrontSlugPreview(values.name);
 
           return (
             <Form className="md:card-3d space-y-5 md:rounded-2xl md:p-7">
@@ -340,13 +322,7 @@ export default function OnboardPage() {
                   id="name"
                   name="name"
                   value={values.name}
-                  onChange={(event) => {
-                    const nextName = event.target.value;
-                    setFieldValue("name", nextName);
-                    if (!linkEdited) {
-                      setFieldValue("slug", slugify(nextName));
-                    }
-                  }}
+                  onChange={handleChange}
                   placeholder="e.g. Amina Fashion House"
                   autoComplete="organization"
                   className="h-11"
@@ -356,61 +332,31 @@ export default function OnboardPage() {
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="slug">Store link</Label>
-                  <span className="text-xs text-muted-foreground">You can change this later</span>
+              <div className="overflow-hidden rounded-2xl border border-primary/12 bg-linear-to-br from-primary/10 via-primary/4 to-transparent">
+                <div className="flex items-center gap-2 border-b border-primary/10 px-4 py-2.5 text-xs font-semibold tracking-[0.18em] text-primary/80 uppercase">
+                  <StorefrontIcon className="size-4" weight="fill" />
+                  Temporary storefront link
                 </div>
-                <div className="relative">
-                  <LinkIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="slug"
-                    name="slug"
-                    value={values.slug}
-                    onChange={(event) => {
-                      setLinkEdited(true);
-                      setFieldValue("slug", normalizeStoreLink(event.target.value));
-                    }}
-                    onBlur={(event) => {
-                      setFieldValue("slug", finalizeStoreLink(event.target.value));
-                    }}
-                    placeholder="amina-fashion-house"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className="h-11 pl-9"
-                  />
-                </div>
-                <div className="overflow-hidden rounded-2xl border border-primary/12 bg-linear-to-br from-primary/10 via-primary/4 to-transparent">
-                  <div className="flex items-center justify-between border-b border-primary/10 px-4 py-2.5">
-                    <p className="text-xs font-semibold tracking-[0.18em] text-primary/80 uppercase">
-                      Your store link
-                    </p>
-                    <ArrowSquareOutIcon className="size-4 text-primary" weight="bold" />
+                <div className="space-y-2 px-4 py-4">
+                  <div className="rounded-xl border border-primary/12 bg-background/80 px-3 py-3 text-base font-semibold tracking-tight text-foreground shadow-sm shadow-primary/5">
+                    <span className="text-muted-foreground">storefront.com/</span>
+                    <span>{temporarySlugPreview}</span>
                   </div>
-                  <div className="space-y-2 px-4 py-3.5">
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      <span>Customers will find you at</span>
-                    </div>
-                    <div className="rounded-xl border border-primary/12 bg-background/80 px-3 py-3 text-base font-semibold tracking-tight text-foreground shadow-sm shadow-primary/5">
-                      <span className="text-muted-foreground">storefront.com/</span>
-                      <span>{preview}</span>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This temporary link stays private. You can clean it up, claim your final slug,
+                    and publish from the Storefront tab after onboarding.
+                  </p>
                 </div>
-                {errors.slug && (touched.slug || tried) && (
-                  <p className="text-xs text-destructive">{errors.slug}</p>
-                )}
               </div>
 
               <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-3 text-sm text-muted-foreground">
-                Your public storefront can come later. For now, this sets up your business workspace
-                and dashboard.
+                We may add a short suffix if this temporary link is already taken, but you&apos;ll
+                still be able to change it before launch.
               </div>
 
               <Button type="submit" className="h-11 w-full" disabled={isSubmitting || !ownerEmail}>
                 {isSubmitting && <SpinnerGapIcon className="size-4 animate-spin" />}
-                Create my store
+                Create workspace
               </Button>
             </Form>
           );

@@ -87,9 +87,11 @@ func TestAuthMe_Onboarded(t *testing.T) {
 		Role:     models.UserRoleAdmin,
 	}}
 	tenants := &authTenantRepo{tenant: &models.Tenant{
-		ID:     tenantID,
-		Name:   "Acme",
-		Status: models.TenantStatusActive,
+		ID:                  tenantID,
+		Name:                "Acme",
+		Slug:                "acme",
+		StorefrontPublished: false,
+		Status:              models.TenantStatusActive,
 	}}
 	h := handler.NewAuthHandler(users, tenants, slog.Default())
 
@@ -116,6 +118,12 @@ func TestAuthMe_Onboarded(t *testing.T) {
 	}
 	if body.Tenant.ID != tenantID {
 		t.Fatalf("expected tenant %s, got %s", tenantID, body.Tenant.ID)
+	}
+	if body.Tenant.Slug != "acme" {
+		t.Fatalf("expected tenant slug acme, got %s", body.Tenant.Slug)
+	}
+	if body.Tenant.StorefrontPublished {
+		t.Fatal("expected storefront_published=false")
 	}
 }
 

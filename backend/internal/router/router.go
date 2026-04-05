@@ -71,8 +71,8 @@ func New(
 		r.Use(mw.Authenticate(jwtKeyFunc))
 		r.Use(mw.ResolveTenant(userRepo, tenantRepo))
 
-		r.Get("/tenants/me", tenant.GetMe)
 		r.Put("/tenants/me", tenant.UpdateProfile)
+		r.Put("/tenants/me/storefront", tenant.UpdateStorefront)
 		r.Put("/tenants/me/modules", tenant.SetModules)
 
 		r.Get("/users/me", user.GetMe)

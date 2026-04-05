@@ -35,6 +35,7 @@ export const TenantSchema = z.object({
   tier_id: UUIDSchema,
   name: z.string(),
   slug: z.string(),
+  storefront_published: z.boolean(),
   contact_email: z.string().nullable().optional(),
   contact_phone: z.string().nullable().optional(),
   address: z.string().nullable().optional(),

@@ -24,6 +24,7 @@ type Tenant struct {
 	TierID               uuid.UUID     `json:"tier_id"`
 	Name                 string        `json:"name"`
 	Slug                 string        `json:"slug"`
+	StorefrontPublished  bool          `json:"storefront_published"`
 	ContactEmail         *string       `json:"contact_email,omitempty"`
 	ContactPhone         *string       `json:"contact_phone,omitempty"`
 	Address              *string       `json:"address,omitempty"`

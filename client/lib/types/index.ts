@@ -15,10 +15,17 @@ export {
   MeResponseSchema,
   OnboardRequestSchema,
   UpdateTenantRequestSchema,
+  UpdateStorefrontRequestSchema,
   SetModulesRequestSchema,
 } from "./auth";
 
-export type { MeResponse, OnboardRequest, UpdateTenantRequest, SetModulesRequest } from "./auth";
+export type {
+  MeResponse,
+  OnboardRequest,
+  UpdateTenantRequest,
+  UpdateStorefrontRequest,
+  SetModulesRequest,
+} from "./auth";
 
 export { UpdateUserRequestSchema, TiersResponseSchema } from "./account";
 
