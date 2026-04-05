@@ -139,8 +139,12 @@ export default function StorefrontPage() {
                     <p className="text-xs text-destructive">{errors.slug}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Lowercase letters, numbers, and hyphens only. Reserved routes like app, api, and
-                    track are blocked.
+                    Use lowercase letters, numbers, and hyphens only. Some words, like app, api, and
+                    track, are not available.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    If you change your storefront link, the new one works right away and the old one
+                    stops working.
                   </p>
                 </div>
 

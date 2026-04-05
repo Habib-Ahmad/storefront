@@ -83,6 +83,15 @@ describe("OnboardPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("avoids reserved routes in the temporary storefront preview", async () => {
+    render(<OnboardPage />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Business name"), "App");
+
+    expect(screen.getByText("app-store")).toBeInTheDocument();
+  });
+
   it("shows the success state and waits before redirecting after onboarding", async () => {
     mutateAsyncMock.mockResolvedValue({
       name: "Amina Fashion House",

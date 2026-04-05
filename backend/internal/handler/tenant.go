@@ -15,18 +15,6 @@ import (
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-var reservedStorefrontSlugs = map[string]struct{}{
-	"about":   {},
-	"admin":   {},
-	"api":     {},
-	"app":     {},
-	"contact": {},
-	"login":   {},
-	"onboard": {},
-	"signup":  {},
-	"track":   {},
-}
-
 type TenantHandler struct {
 	svc *service.TenantService
 	log *slog.Logger
@@ -81,7 +69,7 @@ func (h *TenantHandler) UpdateStorefront(w http.ResponseWriter, r *http.Request)
 		respondErr(w, http.StatusUnprocessableEntity, "slug must be lowercase alphanumeric with hyphens only")
 		return
 	}
-	if _, reserved := reservedStorefrontSlugs[req.Slug]; reserved {
+	if service.IsReservedStorefrontSlug(req.Slug) {
 		respondErr(w, http.StatusUnprocessableEntity, "slug is reserved")
 		return
 	}

@@ -18,14 +18,28 @@ var (
 	ErrTenantNotFound = apperr.NotFound("tenant not found")
 	ErrModuleDisabled = apperr.Forbidden("module not enabled for this tenant")
 	ErrSlugTaken      = apperr.Conflict("slug already in use")
+	ErrSlugReserved   = apperr.Unprocessable("slug is reserved")
 	ErrUserExists     = apperr.Conflict("user already belongs to a tenant")
 )
 
 const (
 	defaultStorefrontSlug = "store"
+	reservedSlugSuffix    = "-store"
 	storefrontSlugMaxLen  = 50
 	maxSlugAttempts       = 5
 )
+
+var reservedStorefrontSlugs = map[string]struct{}{
+	"about":   {},
+	"admin":   {},
+	"api":     {},
+	"app":     {},
+	"contact": {},
+	"login":   {},
+	"onboard": {},
+	"signup":  {},
+	"track":   {},
+}
 
 type TenantService struct {
 	tenants repository.TenantRepository
@@ -131,6 +145,9 @@ func (s *TenantService) UpdateStorefront(ctx context.Context, tenantID uuid.UUID
 	if err != nil {
 		return ErrTenantNotFound
 	}
+	if IsReservedStorefrontSlug(slug) {
+		return ErrSlugReserved
+	}
 
 	tenant.Slug = slug
 	tenant.StorefrontPublished = published
@@ -143,6 +160,11 @@ func (s *TenantService) UpdateStorefront(ctx context.Context, tenantID uuid.UUID
 	}
 
 	return nil
+}
+
+func IsReservedStorefrontSlug(slug string) bool {
+	_, reserved := reservedStorefrontSlugs[slug]
+	return reserved
 }
 
 // SetModules replaces the tenant's active_modules configuration.
@@ -174,6 +196,7 @@ func generateTemporaryStorefrontSlug(name string, attempt int) string {
 	if base == "" {
 		base = defaultStorefrontSlug
 	}
+	base = makeTemporaryStorefrontSlugSafe(base)
 
 	suffix := ""
 	if attempt > 0 {
@@ -192,6 +215,21 @@ func generateTemporaryStorefrontSlug(name string, attempt int) string {
 	}
 
 	return base + suffix
+}
+
+func makeTemporaryStorefrontSlugSafe(base string) string {
+	if !IsReservedStorefrontSlug(base) {
+		return base
+	}
+
+	safe := base + reservedSlugSuffix
+	if len(safe) > storefrontSlugMaxLen {
+		safe = strings.Trim(safe[:storefrontSlugMaxLen], "-")
+	}
+	if safe == "" || IsReservedStorefrontSlug(safe) {
+		return defaultStorefrontSlug
+	}
+	return safe
 }
 
 func slugifyStorefrontName(value string) string {

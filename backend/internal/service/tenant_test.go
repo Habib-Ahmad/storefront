@@ -99,6 +99,19 @@ func TestOnboard_DefaultsContactEmail(t *testing.T) {
 	}
 }
 
+func TestOnboard_AvoidsReservedTemporarySlug(t *testing.T) {
+	tenantRepo := &mockTenantRepo{}
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{tier: &models.Tier{ID: uuid.New(), Name: "Standard"}}, &mockWalletRepo{}, &mockUserRepo{})
+
+	tenant, err := svc.Onboard(context.Background(), "App", uuid.New(), "admin@app.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tenant.Slug != "app-store" {
+		t.Fatalf("temporary storefront slug should avoid reserved routes, got %s", tenant.Slug)
+	}
+}
+
 func TestUpdateStorefront_UpdatesSlugAndPublishState(t *testing.T) {
 	tenantID := uuid.New()
 	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Name: "Acme", Slug: "acme", Status: models.TenantStatusActive}}
@@ -116,6 +129,17 @@ func TestUpdateStorefront_UpdatesSlugAndPublishState(t *testing.T) {
 	}
 	if !tenantRepo.updated.StorefrontPublished {
 		t.Fatal("storefront_published not updated")
+	}
+}
+
+func TestUpdateStorefront_RejectsReservedSlug(t *testing.T) {
+	tenantID := uuid.New()
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Name: "Acme", Slug: "acme", Status: models.TenantStatusActive}}
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
+
+	err := svc.UpdateStorefront(context.Background(), tenantID, "app", true)
+	if err != service.ErrSlugReserved {
+		t.Fatalf("expected ErrSlugReserved, got %v", err)
 	}
 }
 
