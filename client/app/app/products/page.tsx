@@ -5,85 +5,15 @@ import Link from "next/link";
 import {
   PlusIcon,
   MagnifyingGlassIcon,
-  TagIcon,
   CaretLeftIcon,
   CaretRightIcon,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { OpenBoxSvg } from "@/components/illustrations";
 import { useProducts } from "@/hooks/use-products";
-import type { Product } from "@/lib/types";
-
-function formatPrice(variants?: Product["variants"]): string {
-  if (!variants || variants.length === 0) return "—";
-  const prices = variants.map((v) => parseFloat(v.price));
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      minimumFractionDigits: 0,
-    }).format(n);
-  return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
-}
-
-function totalStock(variants?: Product["variants"]): number | null {
-  if (!variants || variants.length === 0) return null;
-  if (variants.some((v) => v.stock_qty === null || v.stock_qty === undefined)) return null;
-  return variants.reduce((sum, v) => sum + (v.stock_qty ?? 0), 0);
-}
-
-function ProductCard({ product }: { product: Product }) {
-  const stock = totalStock(product.variants);
-  const primary = product.images?.find((i) => i.is_primary) ?? product.images?.[0];
-
-  return (
-    <Link href={`/app/products/${product.id}`} className="block">
-      <div className="card-3d overflow-hidden rounded-2xl transition-all hover:ring-2 hover:ring-primary/20">
-        <div className="flex aspect-square items-center justify-center bg-muted">
-          {primary ? (
-            <img src={primary.url} alt={product.name} className="size-full object-cover" />
-          ) : (
-            <TagIcon className="size-10 text-muted-foreground/40" />
-          )}
-        </div>
-        <div className="space-y-1.5 p-3">
-          <p className="truncate text-sm font-medium">{product.name}</p>
-          <p className="text-sm font-semibold text-primary">{formatPrice(product.variants)}</p>
-          <div className="flex items-center gap-2">
-            <Badge variant={product.is_available ? "default" : "secondary"} className="text-xs">
-              {product.is_available ? "Active" : "Draft"}
-            </Badge>
-            {stock !== null && (
-              <span
-                className={`text-xs ${stock === 0 ? "text-destructive" : "text-muted-foreground"}`}
-              >
-                {stock === 0 ? "Out of stock" : `${stock} in stock`}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ProductSkeleton() {
-  return (
-    <div className="card-3d overflow-hidden rounded-2xl">
-      <Skeleton className="aspect-square" />
-      <div className="space-y-2 p-3">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-5 w-16 rounded-full" />
-      </div>
-    </div>
-  );
-}
+import { ProductCard } from "./product-card";
+import { ProductSkeleton } from "./product-skeleton";
 
 export default function ProductsPage() {
   const [page, setPage] = useState(1);
