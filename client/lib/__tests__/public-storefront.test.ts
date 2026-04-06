@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PublicStorefrontError, getPublicStorefront } from "../public-storefront";
+import {
+  PublicStorefrontError,
+  getPublicStorefront,
+  getPublicStorefrontProduct,
+} from "../public-storefront";
 
 const ok = (data: unknown, status = 200) =>
   Promise.resolve(
@@ -56,5 +60,55 @@ describe("getPublicStorefront", () => {
         message: "storefront not found",
       }),
     );
+  });
+});
+
+describe("getPublicStorefrontProduct", () => {
+  it("parses the public product detail payload", async () => {
+    vi.mocked(fetch).mockReturnValue(
+      ok({
+        storefront: {
+          name: "Funke Fabrics",
+          slug: "funke-fabrics",
+          logo_url: null,
+          contact_email: "hello@funkefabrics.com",
+          contact_phone: "+2348012345678",
+          address: "12 Allen Avenue, Ikeja",
+        },
+        product: {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          name: "Ankara Set",
+          description: "A bright two-piece set",
+          category: "Fashion",
+          image_url: "https://cdn.example.com/ankara.png",
+          price: "24500",
+          in_stock: true,
+        },
+        variants: [
+          {
+            id: "550e8400-e29b-41d4-a716-446655440001",
+            attributes: { size: "M", color: "Blue" },
+            price: "24500",
+            in_stock: true,
+            is_default: true,
+          },
+        ],
+        images: [
+          {
+            id: "550e8400-e29b-41d4-a716-446655440002",
+            url: "https://cdn.example.com/ankara.png",
+            sort_order: 0,
+            is_primary: true,
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      getPublicStorefrontProduct("funke-fabrics", "550e8400-e29b-41d4-a716-446655440000"),
+    ).resolves.toMatchObject({
+      product: { name: "Ankara Set" },
+      variants: [expect.objectContaining({ is_default: true })],
+    });
   });
 });

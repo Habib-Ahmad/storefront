@@ -1,5 +1,7 @@
 import {
+  PublicStorefrontProductDetailResponseSchema,
   PublicStorefrontResponseSchema,
+  type PublicStorefrontProductDetailResponse,
   type PublicStorefrontResponse,
 } from "./types/public-storefront";
 
@@ -29,4 +31,26 @@ export async function getPublicStorefront(slug: string): Promise<PublicStorefron
   }
 
   return PublicStorefrontResponseSchema.parse(await response.json());
+}
+
+export async function getPublicStorefrontProduct(
+  slug: string,
+  productId: string,
+): Promise<PublicStorefrontProductDetailResponse> {
+  const response = await fetch(
+    `${API_BASE}/storefronts/${encodeURIComponent(slug)}/products/${encodeURIComponent(productId)}`,
+    {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new PublicStorefrontError(response.status, payload.error ?? "Unable to load product");
+  }
+
+  return PublicStorefrontProductDetailResponseSchema.parse(await response.json());
 }

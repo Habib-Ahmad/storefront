@@ -94,3 +94,81 @@ func TestGetPublicBySlug_NotFound(t *testing.T) {
 		t.Fatalf("expected ErrStorefrontNotFound, got %v", err)
 	}
 }
+
+func TestGetPublicProductBySlug_ReturnsPublishedProductDetail(t *testing.T) {
+	tenantID := uuid.New()
+	productID := uuid.New()
+	inStockQty := 4
+	svc := service.NewStorefrontService(
+		&mockTenantRepo{tenant: &models.Tenant{
+			ID:                  tenantID,
+			Name:                "Funke Fabrics",
+			Slug:                "funke-fabrics",
+			StorefrontPublished: true,
+			Status:              models.TenantStatusActive,
+		}},
+		&mockProductRepo{
+			product: &models.Product{
+				ID:          productID,
+				TenantID:    tenantID,
+				Name:        "Ankara Set",
+				Description: stringPtr("Two-piece outfit"),
+				IsAvailable: true,
+			},
+			variants: []models.ProductVariant{{
+				ID:         uuid.New(),
+				ProductID:  productID,
+				Attributes: []byte(`{"size":"M","color":"Blue"}`),
+				Price:      decimal.NewFromInt(24500),
+				StockQty:   &inStockQty,
+				IsDefault:  true,
+			}},
+			images: []models.ProductImage{{
+				ID:        uuid.New(),
+				ProductID: productID,
+				URL:       "https://cdn.example.com/ankara-set.png",
+				SortOrder: 0,
+				IsPrimary: true,
+			}},
+		},
+	)
+
+	out, err := svc.GetPublicProductBySlug(context.Background(), "funke-fabrics", productID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Product.Name != "Ankara Set" {
+		t.Fatalf("expected product name to be Ankara Set, got %q", out.Product.Name)
+	}
+	if len(out.Variants) != 1 || !out.Variants[0].InStock {
+		t.Fatalf("expected one in-stock variant, got %+v", out.Variants)
+	}
+	if len(out.Images) != 1 || out.Images[0].URL == "" {
+		t.Fatalf("expected one image, got %+v", out.Images)
+	}
+	if !out.Product.Price.Equal(decimal.NewFromInt(24500)) {
+		t.Fatalf("expected starting price 24500, got %s", out.Product.Price)
+	}
+}
+
+func TestGetPublicProductBySlug_HidesUnavailableProduct(t *testing.T) {
+	tenantID := uuid.New()
+	svc := service.NewStorefrontService(
+		&mockTenantRepo{tenant: &models.Tenant{
+			ID:                  tenantID,
+			Slug:                "funke-fabrics",
+			StorefrontPublished: true,
+			Status:              models.TenantStatusActive,
+		}},
+		&mockProductRepo{product: &models.Product{ID: uuid.New(), TenantID: tenantID, IsAvailable: false}},
+	)
+
+	_, err := svc.GetPublicProductBySlug(context.Background(), "funke-fabrics", uuid.New())
+	if !errors.Is(err, service.ErrStorefrontNotFound) {
+		t.Fatalf("expected ErrStorefrontNotFound, got %v", err)
+	}
+}
+
+func stringPtr(value string) *string {
+	return &value
+}

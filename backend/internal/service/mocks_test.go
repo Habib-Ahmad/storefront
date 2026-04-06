@@ -111,8 +111,10 @@ func (m *mockUserRepo) WithTx(_ db.DBTX) repository.UserRepository { return m }
 type mockProductRepo struct {
 	product        *models.Product
 	variant        *models.ProductVariant
+	variants       []models.ProductVariant
 	variantCreated *models.ProductVariant
 	publicProducts []models.PublicStorefrontProduct
+	images         []models.ProductImage
 	err            error
 	restocked      map[uuid.UUID]int
 }
@@ -148,7 +150,7 @@ func (m *mockProductRepo) GetVariantByID(_ context.Context, _ uuid.UUID) (*model
 	return m.variant, m.err
 }
 func (m *mockProductRepo) ListVariants(_ context.Context, _ uuid.UUID) ([]models.ProductVariant, error) {
-	return nil, m.err
+	return m.variants, m.err
 }
 func (m *mockProductRepo) UpdateVariant(_ context.Context, v *models.ProductVariant) error {
 	m.variant = v
@@ -170,7 +172,7 @@ func (m *mockProductRepo) AddImage(_ context.Context, img *models.ProductImage) 
 	return m.err
 }
 func (m *mockProductRepo) ListImagesByProduct(_ context.Context, _ uuid.UUID) ([]models.ProductImage, error) {
-	return nil, m.err
+	return m.images, m.err
 }
 func (m *mockProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error { return m.err }
 func (m *mockProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error {

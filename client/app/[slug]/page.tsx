@@ -18,7 +18,7 @@ export default async function StorefrontPage({ params }: Props) {
       <main className="min-h-screen bg-background text-foreground">
         <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <StorefrontHero storefront={storefront} productCount={products.length} />
-          <StorefrontCatalog products={products} />
+          <StorefrontCatalog slug={storefront.slug} products={products} />
         </section>
       </main>
     );

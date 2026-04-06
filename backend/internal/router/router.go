@@ -59,6 +59,7 @@ func New(
 	// Public endpoints
 	r.Get("/tiers", tier.List)
 	r.Get("/storefronts/{slug}", storefront.GetPublic)
+	r.Get("/storefronts/{slug}/products/{id}", storefront.GetPublicProduct)
 	r.Get("/track/{slug}", order.Track)
 
 	// Authenticated but pre-tenant routes (user has no tenant yet)
