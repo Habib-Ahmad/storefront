@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, Mail, MapPin, MessageCircle, Phone, ShoppingBag } from "lucide-react";
 import type { PublicStorefrontProductDetailResponse } from "@/lib/types/public-storefront";
 import { formatCurrency } from "../../storefront-formatters";
 
@@ -46,6 +46,10 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
     [variants],
   );
   const whatsappHref = storefront.contact_phone ? toWhatsAppHref(storefront.contact_phone) : null;
+  const canCheckout = selectedVariant?.in_stock ?? product.in_stock;
+  const checkoutHref = selectedVariant
+    ? `/${storefront.slug}/products/${product.id}/checkout?variant=${selectedVariant.id}`
+    : `/${storefront.slug}/products/${product.id}/checkout`;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -173,15 +177,30 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
                 Ready to place an order?
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Choose your preferred option, then contact {storefront.name} to confirm payment,
-                pickup, or delivery details.
+                Start checkout to send your order details to {storefront.name}. Payment confirmation
+                is handled after the order is submitted.
               </p>
 
               <div className="mt-6 space-y-3">
+                {canCheckout ? (
+                  <Link
+                    href={checkoutHref}
+                    className="flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Continue to checkout
+                  </Link>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 rounded-full bg-muted px-4 py-3 text-sm font-medium text-muted-foreground">
+                    <ShoppingBag className="h-4 w-4" />
+                    Currently sold out
+                  </div>
+                )}
+
                 {storefront.contact_phone ? (
                   <a
                     href={`tel:${storefront.contact_phone}`}
-                    className="flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                    className="flex items-center justify-center gap-2 rounded-full border border-border/70 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground/20"
                   >
                     <Phone className="h-4 w-4" />
                     Call the store

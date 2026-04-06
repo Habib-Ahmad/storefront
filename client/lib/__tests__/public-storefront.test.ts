@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createPublicStorefrontOrder,
   PublicStorefrontError,
   getPublicStorefront,
   getPublicStorefrontProduct,
@@ -109,6 +110,55 @@ describe("getPublicStorefrontProduct", () => {
     ).resolves.toMatchObject({
       product: { name: "Ankara Set" },
       variants: [expect.objectContaining({ is_default: true })],
+    });
+  });
+});
+
+describe("createPublicStorefrontOrder", () => {
+  it("parses the public checkout response", async () => {
+    vi.mocked(fetch).mockReturnValue(
+      ok(
+        {
+          storefront: {
+            name: "Funke Fabrics",
+            slug: "funke-fabrics",
+            logo_url: null,
+            contact_email: "hello@funkefabrics.com",
+            contact_phone: "+2348012345678",
+            address: "12 Allen Avenue, Ikeja",
+          },
+          order: {
+            tracking_slug: "abc123def456",
+            is_delivery: true,
+            customer_name: "Chidi",
+            customer_phone: "08012345678",
+            customer_email: "chidi@example.com",
+            shipping_address: "23 Abuja",
+            note: "Please call on arrival",
+            total_amount: "49000",
+            shipping_fee: "0",
+            payment_method: "online",
+            payment_status: "pending",
+            fulfillment_status: "processing",
+          },
+        },
+        201,
+      ),
+    );
+
+    await expect(
+      createPublicStorefrontOrder("funke-fabrics", {
+        is_delivery: true,
+        customer_name: "Chidi",
+        customer_phone: "08012345678",
+        customer_email: "chidi@example.com",
+        shipping_address: "23 Abuja",
+        note: "Please call on arrival",
+        items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 2 }],
+      }),
+    ).resolves.toMatchObject({
+      storefront: { slug: "funke-fabrics" },
+      order: { tracking_slug: "abc123def456", payment_status: "pending" },
     });
   });
 });

@@ -1,6 +1,10 @@
 import {
+  CreatePublicStorefrontOrderRequestSchema,
+  PublicStorefrontCheckoutResponseSchema,
   PublicStorefrontProductDetailResponseSchema,
   PublicStorefrontResponseSchema,
+  type CreatePublicStorefrontOrderRequest,
+  type PublicStorefrontCheckoutResponse,
   type PublicStorefrontProductDetailResponse,
   type PublicStorefrontResponse,
 } from "./types/public-storefront";
@@ -53,4 +57,25 @@ export async function getPublicStorefrontProduct(
   }
 
   return PublicStorefrontProductDetailResponseSchema.parse(await response.json());
+}
+
+export async function createPublicStorefrontOrder(
+  slug: string,
+  data: CreatePublicStorefrontOrderRequest,
+): Promise<PublicStorefrontCheckoutResponse> {
+  const response = await fetch(`${API_BASE}/storefronts/${encodeURIComponent(slug)}/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(CreatePublicStorefrontOrderRequestSchema.parse(data)),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new PublicStorefrontError(response.status, payload.error ?? "Unable to place order");
+  }
+
+  return PublicStorefrontCheckoutResponseSchema.parse(payload);
 }

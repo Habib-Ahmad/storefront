@@ -52,3 +52,23 @@ type PublicStorefrontProductDetail struct {
 	Variants   []PublicStorefrontProductVariant `json:"variants"`
 	Images     []PublicStorefrontProductImage   `json:"images"`
 }
+
+type PublicStorefrontCheckoutOrder struct {
+	TrackingSlug      string            `json:"tracking_slug"`
+	IsDelivery        bool              `json:"is_delivery"`
+	CustomerName      *string           `json:"customer_name,omitempty"`
+	CustomerPhone     *string           `json:"customer_phone,omitempty"`
+	CustomerEmail     *string           `json:"customer_email,omitempty"`
+	ShippingAddress   *string           `json:"shipping_address,omitempty"`
+	Note              *string           `json:"note,omitempty"`
+	TotalAmount       decimal.Decimal   `json:"total_amount"`
+	ShippingFee       decimal.Decimal   `json:"shipping_fee"`
+	PaymentMethod     PaymentMethod     `json:"payment_method"`
+	PaymentStatus     PaymentStatus     `json:"payment_status"`
+	FulfillmentStatus FulfillmentStatus `json:"fulfillment_status"`
+}
+
+type PublicStorefrontCheckoutResponse struct {
+	Storefront PublicStorefront              `json:"storefront"`
+	Order      PublicStorefrontCheckoutOrder `json:"order"`
+}

@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/apperr"
@@ -19,6 +21,7 @@ var (
 	ErrOrderNotFound         = apperr.NotFound("order not found")
 	ErrProductUnavailable    = apperr.Unprocessable("product is not available")
 	ErrOrderNotCancellable   = apperr.Conflict("only processing orders can be cancelled")
+	ErrCheckoutUnavailable   = apperr.Forbidden("checkout unavailable")
 )
 
 // generateTrackingSlug returns a 12-character lowercase hex string (48 bits of entropy).
@@ -52,6 +55,36 @@ func initialFulfillmentStatus(order *models.Order) models.FulfillmentStatus {
 	}
 
 	return models.FulfillmentStatusProcessing
+}
+
+func (s *OrderService) CreatePublic(ctx context.Context, slug string, order *models.Order, items []models.OrderItem) (*models.Tenant, *models.Order, error) {
+	if s.tenants == nil {
+		return nil, nil, fmt.Errorf("tenant repository not configured")
+	}
+
+	tenant, err := s.tenants.GetBySlug(ctx, slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, ErrStorefrontNotFound
+		}
+		return nil, nil, fmt.Errorf("get storefront tenant: %w", err)
+	}
+	if tenant == nil || tenant.Status != models.TenantStatusActive || !tenant.StorefrontPublished {
+		return nil, nil, ErrStorefrontNotFound
+	}
+	if !tenant.ActiveModules.Payments {
+		return nil, nil, ErrCheckoutUnavailable
+	}
+
+	order.TenantID = tenant.ID
+	order.PaymentMethod = models.PaymentMethodOnline
+
+	out, err := s.Create(ctx, order, items)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return tenant, out, nil
 }
 
 // Create validates and persists a new order with its line items.

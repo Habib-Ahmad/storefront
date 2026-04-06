@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
@@ -120,9 +121,37 @@ func (s *stubDispatcher) Dispatch(_ context.Context, _, _ uuid.UUID, _ terminala
 	return &models.Shipment{ID: uuid.New()}, nil
 }
 
+type stubTenantRepoForOrder struct{ tenant *models.Tenant }
+
+func (s *stubTenantRepoForOrder) Create(_ context.Context, t *models.Tenant) error {
+	t.ID = uuid.New()
+	return nil
+}
+func (s *stubTenantRepoForOrder) GetByID(_ context.Context, _ uuid.UUID) (*models.Tenant, error) {
+	return s.tenant, nil
+}
+func (s *stubTenantRepoForOrder) GetBySlug(_ context.Context, _ string) (*models.Tenant, error) {
+	return s.tenant, nil
+}
+func (s *stubTenantRepoForOrder) Update(_ context.Context, _ *models.Tenant) error { return nil }
+func (s *stubTenantRepoForOrder) SoftDelete(_ context.Context, _ uuid.UUID) error  { return nil }
+func (s *stubTenantRepoForOrder) WithTx(_ db.DBTX) repository.TenantRepository     { return s }
+
 func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
 	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, &stubDispatcher{}, slog.Default())
+}
+
+func newPublicOrderHandler(tenant *models.Tenant, variant *models.ProductVariant) *handler.OrderHandler {
+	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
+	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: tenant})
+	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, &stubDispatcher{}, slog.Default())
+}
+
+func withURLParam(r *http.Request, key, value string) *http.Request {
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add(key, value)
+	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }
 
 func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {
@@ -289,5 +318,78 @@ func TestCreateOrder_EmptyBody(t *testing.T) {
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreatePublicOrder_Valid(t *testing.T) {
+	variantID := uuid.New()
+	h := newPublicOrderHandler(&models.Tenant{
+		ID:                  uuid.New(),
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: true},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
+	body, _ := json.Marshal(map[string]any{
+		"customer_name":    "Chidi",
+		"customer_phone":   "08012345678",
+		"customer_email":   "chidi@example.com",
+		"is_delivery":      true,
+		"shipping_address": "23 Abuja",
+		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/orders", bytes.NewReader(body))
+	req = withURLParam(req, "slug", "funke-fabrics")
+	rec := httptest.NewRecorder()
+	h.CreatePublic(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Storefront struct {
+			Slug string `json:"slug"`
+		} `json:"storefront"`
+		Order struct {
+			TrackingSlug  string `json:"tracking_slug"`
+			PaymentStatus string `json:"payment_status"`
+		} `json:"order"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Storefront.Slug != "funke-fabrics" {
+		t.Fatalf("storefront slug: want funke-fabrics, got %s", resp.Storefront.Slug)
+	}
+	if resp.Order.PaymentStatus != "pending" {
+		t.Fatalf("payment status: want pending, got %s", resp.Order.PaymentStatus)
+	}
+	if resp.Order.TrackingSlug == "" {
+		t.Fatal("expected tracking slug in response")
+	}
+}
+
+func TestCreatePublicOrder_CheckoutUnavailable(t *testing.T) {
+	variantID := uuid.New()
+	h := newPublicOrderHandler(&models.Tenant{
+		ID:                  uuid.New(),
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: false},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
+	body, _ := json.Marshal(map[string]any{
+		"customer_name":  "Chidi",
+		"customer_phone": "08012345678",
+		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/orders", bytes.NewReader(body))
+	req = withURLParam(req, "slug", "funke-fabrics")
+	rec := httptest.NewRecorder()
+	h.CreatePublic(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

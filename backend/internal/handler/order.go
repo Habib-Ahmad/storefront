@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -25,6 +26,39 @@ type dispatcher interface {
 	Dispatch(ctx context.Context, orderID, tenantID uuid.UUID, req terminalaf.BookRequest) (*models.Shipment, error)
 }
 
+type orderCreateItemRequest struct {
+	VariantID string `json:"variant_id"`
+	Quantity  int    `json:"quantity"`
+}
+
+type orderCreateRequest struct {
+	IsDelivery      bool                     `json:"is_delivery"`
+	PaymentMethod   string                   `json:"payment_method"   validate:"omitempty,oneof=online cash transfer"`
+	CustomerName    *string                  `json:"customer_name"`
+	CustomerPhone   *string                  `json:"customer_phone"`
+	CustomerEmail   *string                  `json:"customer_email" validate:"omitempty,email"`
+	ShippingAddress *string                  `json:"shipping_address"`
+	Note            *string                  `json:"note"`
+	ShippingFee     float64                  `json:"shipping_fee"`
+	TotalAmount     *float64                 `json:"total_amount"`
+	Items           []orderCreateItemRequest `json:"items"`
+}
+
+type publicOrderCreateRequest struct {
+	IsDelivery      bool                     `json:"is_delivery"`
+	CustomerName    string                   `json:"customer_name" validate:"required"`
+	CustomerPhone   string                   `json:"customer_phone" validate:"required"`
+	CustomerEmail   *string                  `json:"customer_email" validate:"omitempty,email"`
+	ShippingAddress *string                  `json:"shipping_address"`
+	Note            *string                  `json:"note"`
+	Items           []orderCreateItemRequest `json:"items" validate:"required,min=1,dive"`
+}
+
+type orderCreateResp struct {
+	*models.Order
+	AuthorizationURL string `json:"authorization_url,omitempty"`
+}
+
 type OrderHandler struct {
 	svc         *service.OrderService
 	paymentSvc  paymentInitiator
@@ -36,52 +70,35 @@ func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, shi
 	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, shipmentSvc: shipmentSvc, log: log}
 }
 
-// POST /orders
-func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
-	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, false, true, false); err != nil {
-		respondErr(w, http.StatusForbidden, "payments module not enabled")
-		return
-	}
-
-	var req struct {
-		IsDelivery      bool     `json:"is_delivery"`
-		PaymentMethod   string   `json:"payment_method"   validate:"omitempty,oneof=online cash transfer"`
-		CustomerName    *string  `json:"customer_name"`
-		CustomerPhone   *string  `json:"customer_phone"`
-		CustomerEmail   *string  `json:"customer_email"`
-		ShippingAddress *string  `json:"shipping_address"`
-		Note            *string  `json:"note"`
-		ShippingFee     float64  `json:"shipping_fee"`
-		TotalAmount     *float64 `json:"total_amount"`
-		Items           []struct {
-			VariantID string `json:"variant_id"`
-			Quantity  int    `json:"quantity"`
-		} `json:"items"`
-	}
-	if !decodeValid(w, r, &req) {
-		return
-	}
-
-	if len(req.Items) == 0 && (req.TotalAmount == nil || *req.TotalAmount <= 0) {
-		respondErr(w, http.StatusUnprocessableEntity, "items or total_amount required")
-		return
-	}
-
-	var items []models.OrderItem
-	for _, ri := range req.Items {
+func buildOrderItems(w http.ResponseWriter, itemsReq []orderCreateItemRequest) ([]models.OrderItem, bool) {
+	items := make([]models.OrderItem, 0, len(itemsReq))
+	for _, ri := range itemsReq {
 		vid, err := uuid.Parse(ri.VariantID)
 		if err != nil {
 			respondErr(w, http.StatusBadRequest, "invalid variant_id: "+ri.VariantID)
-			return
+			return nil, false
 		}
 		if ri.Quantity <= 0 {
 			respondErr(w, http.StatusBadRequest, "quantity must be positive")
-			return
+			return nil, false
 		}
 		items = append(items, models.OrderItem{VariantID: vid, Quantity: ri.Quantity})
 	}
+	return items, true
+}
 
+func normalizeOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func buildMerchantOrder(req orderCreateRequest, tenantID uuid.UUID) *models.Order {
 	paymentMethod := models.PaymentMethodOnline
 	if req.PaymentMethod != "" {
 		paymentMethod = models.PaymentMethod(req.PaymentMethod)
@@ -92,18 +109,89 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.TotalAmount != nil {
 		totalAmount = decimal.NewFromFloat(*req.TotalAmount)
 	}
-	order := &models.Order{
-		TenantID:        tenant.ID,
+
+	return &models.Order{
+		TenantID:        tenantID,
 		IsDelivery:      req.IsDelivery,
 		PaymentMethod:   paymentMethod,
-		CustomerName:    req.CustomerName,
-		CustomerPhone:   req.CustomerPhone,
-		CustomerEmail:   req.CustomerEmail,
-		ShippingAddress: req.ShippingAddress,
-		Note:            req.Note,
+		CustomerName:    normalizeOptionalString(req.CustomerName),
+		CustomerPhone:   normalizeOptionalString(req.CustomerPhone),
+		CustomerEmail:   normalizeOptionalString(req.CustomerEmail),
+		ShippingAddress: normalizeOptionalString(req.ShippingAddress),
+		Note:            normalizeOptionalString(req.Note),
 		ShippingFee:     shippingFee,
 		TotalAmount:     totalAmount,
 	}
+}
+
+func buildPublicOrder(req publicOrderCreateRequest) *models.Order {
+	customerName := strings.TrimSpace(req.CustomerName)
+	customerPhone := strings.TrimSpace(req.CustomerPhone)
+
+	return &models.Order{
+		IsDelivery:      req.IsDelivery,
+		PaymentMethod:   models.PaymentMethodOnline,
+		CustomerName:    &customerName,
+		CustomerPhone:   &customerPhone,
+		CustomerEmail:   normalizeOptionalString(req.CustomerEmail),
+		ShippingAddress: normalizeOptionalString(req.ShippingAddress),
+		Note:            normalizeOptionalString(req.Note),
+		ShippingFee:     decimal.Zero,
+	}
+}
+
+func publicStorefrontFromTenant(tenant *models.Tenant) models.PublicStorefront {
+	return models.PublicStorefront{
+		Name:         tenant.Name,
+		Slug:         tenant.Slug,
+		LogoURL:      tenant.LogoURL,
+		ContactEmail: tenant.ContactEmail,
+		ContactPhone: tenant.ContactPhone,
+		Address:      tenant.Address,
+	}
+}
+
+func publicCheckoutOrderFromOrder(order *models.Order) models.PublicStorefrontCheckoutOrder {
+	return models.PublicStorefrontCheckoutOrder{
+		TrackingSlug:      order.TrackingSlug,
+		IsDelivery:        order.IsDelivery,
+		CustomerName:      order.CustomerName,
+		CustomerPhone:     order.CustomerPhone,
+		CustomerEmail:     order.CustomerEmail,
+		ShippingAddress:   order.ShippingAddress,
+		Note:              order.Note,
+		TotalAmount:       order.TotalAmount,
+		ShippingFee:       order.ShippingFee,
+		PaymentMethod:     order.PaymentMethod,
+		PaymentStatus:     order.PaymentStatus,
+		FulfillmentStatus: order.FulfillmentStatus,
+	}
+}
+
+// POST /orders
+func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, true, false); err != nil {
+		respondErr(w, http.StatusForbidden, "payments module not enabled")
+		return
+	}
+
+	var req orderCreateRequest
+	if !decodeValid(w, r, &req) {
+		return
+	}
+
+	if len(req.Items) == 0 && (req.TotalAmount == nil || *req.TotalAmount <= 0) {
+		respondErr(w, http.StatusUnprocessableEntity, "items or total_amount required")
+		return
+	}
+
+	items, ok := buildOrderItems(w, req.Items)
+	if !ok {
+		return
+	}
+
+	order := buildMerchantOrder(req, tenant.ID)
 
 	out, err := h.svc.Create(r.Context(), order, items)
 	if err != nil {
@@ -128,11 +216,45 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type orderCreateResp struct {
-		*models.Order
-		AuthorizationURL string `json:"authorization_url,omitempty"`
-	}
 	respond(w, http.StatusCreated, orderCreateResp{Order: out, AuthorizationURL: authURL})
+}
+
+// POST /storefronts/{slug}/orders
+func (h *OrderHandler) CreatePublic(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		respondErr(w, http.StatusBadRequest, "invalid storefront slug")
+		return
+	}
+
+	var req publicOrderCreateRequest
+	if !decodeValid(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.CustomerName) == "" {
+		respondErr(w, http.StatusUnprocessableEntity, "customer_name is required")
+		return
+	}
+	if strings.TrimSpace(req.CustomerPhone) == "" {
+		respondErr(w, http.StatusUnprocessableEntity, "customer_phone is required")
+		return
+	}
+
+	items, ok := buildOrderItems(w, req.Items)
+	if !ok {
+		return
+	}
+
+	tenant, order, err := h.svc.CreatePublic(r.Context(), slug, buildPublicOrder(req), items)
+	if err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+
+	respond(w, http.StatusCreated, models.PublicStorefrontCheckoutResponse{
+		Storefront: publicStorefrontFromTenant(tenant),
+		Order:      publicCheckoutOrderFromOrder(order),
+	})
 }
 
 // GET /orders/{id}
