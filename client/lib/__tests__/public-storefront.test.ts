@@ -149,7 +149,6 @@ describe("createPublicStorefrontOrder", () => {
     await expect(
       createPublicStorefrontOrder("funke-fabrics", {
         is_delivery: true,
-        customer_name: "Chidi",
         customer_phone: "08012345678",
         customer_email: "chidi@example.com",
         shipping_address: "23 Abuja",

@@ -46,7 +46,7 @@ type orderCreateRequest struct {
 
 type publicOrderCreateRequest struct {
 	IsDelivery      bool                     `json:"is_delivery"`
-	CustomerName    string                   `json:"customer_name" validate:"required"`
+	CustomerName    *string                  `json:"customer_name"`
 	CustomerPhone   string                   `json:"customer_phone" validate:"required"`
 	CustomerEmail   *string                  `json:"customer_email" validate:"omitempty,email"`
 	ShippingAddress *string                  `json:"shipping_address"`
@@ -125,13 +125,12 @@ func buildMerchantOrder(req orderCreateRequest, tenantID uuid.UUID) *models.Orde
 }
 
 func buildPublicOrder(req publicOrderCreateRequest) *models.Order {
-	customerName := strings.TrimSpace(req.CustomerName)
 	customerPhone := strings.TrimSpace(req.CustomerPhone)
 
 	return &models.Order{
 		IsDelivery:      req.IsDelivery,
 		PaymentMethod:   models.PaymentMethodOnline,
-		CustomerName:    &customerName,
+		CustomerName:    normalizeOptionalString(req.CustomerName),
 		CustomerPhone:   &customerPhone,
 		CustomerEmail:   normalizeOptionalString(req.CustomerEmail),
 		ShippingAddress: normalizeOptionalString(req.ShippingAddress),
@@ -229,10 +228,6 @@ func (h *OrderHandler) CreatePublic(w http.ResponseWriter, r *http.Request) {
 
 	var req publicOrderCreateRequest
 	if !decodeValid(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.CustomerName) == "" {
-		respondErr(w, http.StatusUnprocessableEntity, "customer_name is required")
 		return
 	}
 	if strings.TrimSpace(req.CustomerPhone) == "" {

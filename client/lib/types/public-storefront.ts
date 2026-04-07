@@ -70,7 +70,7 @@ export const CreatePublicStorefrontOrderItemSchema = z.object({
 
 export const CreatePublicStorefrontOrderRequestSchema = z.object({
   is_delivery: z.boolean(),
-  customer_name: z.string().min(1),
+  customer_name: z.string().min(1).nullable().optional(),
   customer_phone: z.string().min(1),
   customer_email: z.string().email().nullable().optional(),
   shipping_address: z.string().nullable().optional(),

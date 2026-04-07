@@ -2,7 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, MapPin, MessageCircle, Phone, ShoppingBag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
+  ShoppingCart,
+  Zap,
+} from "lucide-react";
+import { PublicStorefrontActions } from "@/components/public-storefront-actions";
+import { addStorefrontCartItem } from "@/lib/storefront-cart";
 import type { PublicStorefrontProductDetailResponse } from "@/lib/types/public-storefront";
 import { formatCurrency } from "../../storefront-formatters";
 
@@ -24,6 +36,7 @@ function toWhatsAppHref(phone: string) {
 }
 
 export function PublicProductDetail({ detail }: PublicProductDetailProps) {
+  const router = useRouter();
   const { storefront, product, variants, images } = detail;
   const defaultVariantIndex = variants.findIndex((variant) => variant.is_default);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(
@@ -46,15 +59,49 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
     [variants],
   );
   const whatsappHref = storefront.contact_phone ? toWhatsAppHref(storefront.contact_phone) : null;
+  const [showCartNotice, setShowCartNotice] = useState(false);
   const canCheckout = selectedVariant?.in_stock ?? product.in_stock;
-  const checkoutHref = selectedVariant
-    ? `/${storefront.slug}/products/${product.id}/checkout?variant=${selectedVariant.id}`
-    : `/${storefront.slug}/products/${product.id}/checkout`;
+
+  function buildCartItem() {
+    if (!selectedVariant) {
+      return null;
+    }
+
+    return {
+      productId: product.id,
+      productName: product.name,
+      variantId: selectedVariant.id,
+      variantLabel: formatVariantLabel(selectedVariant.attributes),
+      unitPrice: selectedVariant.price,
+      quantity: 1,
+      imageUrl: selectedImage?.url ?? product.image_url ?? null,
+    };
+  }
+
+  function handleAddToCart() {
+    const item = buildCartItem();
+    if (!item) {
+      return;
+    }
+
+    addStorefrontCartItem(storefront.slug, item);
+    setShowCartNotice(true);
+  }
+
+  function handleBuyNow() {
+    const item = buildCartItem();
+    if (!item) {
+      return;
+    }
+
+    addStorefrontCartItem(storefront.slug, item);
+    router.push(`/${storefront.slug}/checkout`);
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <div className="border-b border-border/60 pb-4">
+        <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-4">
           <Link
             href={`/${storefront.slug}`}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -62,6 +109,7 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
             <ArrowLeft className="h-4 w-4" />
             Back to {storefront.name}
           </Link>
+          <PublicStorefrontActions slug={storefront.slug} />
         </div>
 
         <div className="grid gap-10 py-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] lg:gap-14 lg:py-12">
@@ -171,31 +219,69 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
 
             <div className="rounded-[1.75rem] border border-border/60 bg-card p-6">
               <p className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                Order this item
+                Cart options
               </p>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-                Ready to place an order?
+                Choose what to do next
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Start checkout to send your order details to {storefront.name}. Payment confirmation
-                is handled after the order is submitted.
+                Add this item to your cart or head straight to checkout.
               </p>
 
               <div className="mt-6 space-y-3">
                 {canCheckout ? (
-                  <Link
-                    href={checkoutHref}
-                    className="flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    Continue to checkout
-                  </Link>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-4 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      Add to cart
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBuyNow}
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-border/70 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground/20"
+                    >
+                      <Zap className="h-4 w-4" />
+                      Buy now
+                    </button>
+                  </>
                 ) : (
                   <div className="flex items-center justify-center gap-2 rounded-full bg-muted px-4 py-3 text-sm font-medium text-muted-foreground">
-                    <ShoppingBag className="h-4 w-4" />
+                    <ShoppingCart className="h-4 w-4" />
                     Currently sold out
                   </div>
                 )}
+
+                {showCartNotice ? (
+                  <div className="rounded-[1.5rem] border border-border/60 bg-background p-4">
+                    <div className="flex items-start gap-2 text-sm text-foreground">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <div>
+                        <p className="font-medium">Added to your cart</p>
+                        <p className="mt-1 text-muted-foreground">
+                          You can keep browsing or head to checkout now.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <Link
+                        href={`/${storefront.slug}`}
+                        className="inline-flex items-center justify-center rounded-full border border-border/70 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground/20"
+                      >
+                        Continue shopping
+                      </Link>
+                      <Link
+                        href={`/${storefront.slug}/checkout`}
+                        className="inline-flex items-center justify-center rounded-full bg-foreground px-4 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                      >
+                        Go to checkout
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
 
                 {storefront.contact_phone ? (
                   <a

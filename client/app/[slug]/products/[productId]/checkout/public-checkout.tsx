@@ -2,15 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle2,
-  LoaderCircle,
-  MapPin,
-  Package,
-  Phone,
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, LoaderCircle, MapPin, Phone } from "lucide-react";
+import { PublicStorefrontActions } from "@/components/public-storefront-actions";
 import { PublicStorefrontError, createPublicStorefrontOrder } from "@/lib/public-storefront";
 import type {
   PublicStorefrontCheckoutResponse,
@@ -45,10 +38,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
 
   const [selectedVariantId, setSelectedVariantId] = useState(defaultVariant?.id ?? "");
   const [quantity, setQuantity] = useState(1);
-  const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("pickup");
-  const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
   const [note, setNote] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -76,16 +66,12 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
       setSubmitError("This option is currently sold out.");
       return;
     }
-    if (!customerName.trim()) {
-      setSubmitError("Enter your name to continue.");
-      return;
-    }
     if (!customerPhone.trim()) {
-      setSubmitError("Enter a phone number so the store can reach you.");
+      setSubmitError("Enter a phone number for delivery updates.");
       return;
     }
-    if (fulfillment === "delivery" && !shippingAddress.trim()) {
-      setSubmitError("Enter a delivery address for delivery orders.");
+    if (!shippingAddress.trim()) {
+      setSubmitError("Enter a delivery address.");
       return;
     }
 
@@ -94,11 +80,9 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
 
     try {
       const response = await createPublicStorefrontOrder(storefront.slug, {
-        is_delivery: fulfillment === "delivery",
-        customer_name: customerName.trim(),
+        is_delivery: true,
         customer_phone: customerPhone.trim(),
-        customer_email: customerEmail.trim() || null,
-        shipping_address: fulfillment === "delivery" ? shippingAddress.trim() || null : null,
+        shipping_address: shippingAddress.trim(),
         note: note.trim() || null,
         items: [{ variant_id: selectedVariant.id, quantity: quantityValue }],
       });
@@ -118,13 +102,16 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
     return (
       <main className="min-h-screen bg-background text-foreground">
         <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-          <Link
-            href={`/${storefront.slug}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to {storefront.name}
-          </Link>
+          <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-4">
+            <Link
+              href={`/${storefront.slug}`}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to {storefront.name}
+            </Link>
+            <PublicStorefrontActions slug={storefront.slug} />
+          </div>
 
           <div className="mt-6 rounded-[2rem] border border-border/60 bg-card p-6 sm:p-8">
             <div className="flex items-center gap-3 text-emerald-600">
@@ -135,8 +122,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
               {storefront.name} has your checkout request
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Payment confirmation is not attached yet. The store will follow up using the contact
-              details you provided, and you can use your tracking link to check fulfillment status.
+              We have your delivery request. Payment comes next once the store confirms the order.
             </p>
 
             <div className="mt-8 grid gap-4 rounded-[1.5rem] border border-border/60 bg-background p-5 sm:grid-cols-2">
@@ -150,7 +136,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
               </div>
               <div>
                 <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  Amount pending confirmation
+                  Order subtotal
                 </p>
                 <p className="mt-2 text-lg font-semibold text-foreground">
                   {formatCurrency(result.order.total_amount)}
@@ -163,7 +149,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                 href={`/track/${result.order.tracking_slug}`}
                 className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
               >
-                Track this order
+                Track order
               </Link>
               <Link
                 href={`/${storefront.slug}`}
@@ -182,13 +168,16 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
     <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <div className="border-b border-border/60 pb-4">
-          <Link
-            href={`/${storefront.slug}/products/${product.id}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to product
-          </Link>
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href={`/${storefront.slug}/products/${product.id}`}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to product
+            </Link>
+            <PublicStorefrontActions slug={storefront.slug} />
+          </div>
         </div>
 
         <div className="grid gap-8 py-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:gap-12 lg:py-12">
@@ -244,7 +233,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
               <div className="flex items-start justify-between gap-4 text-sm">
                 <span className="text-muted-foreground">Delivery fee</span>
                 <span className="text-right font-medium text-foreground">
-                  {fulfillment === "delivery" ? "Confirmed after review" : "No delivery fee"}
+                  Confirmed before payment
                 </span>
               </div>
             </div>
@@ -260,14 +249,14 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
           <section className="space-y-6 rounded-[1.75rem] border border-border/60 bg-card p-5 sm:p-6 lg:p-8">
             <div>
               <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                Guest checkout
+                Direct checkout
               </p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
-                Send your order request
+                Delivery details
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                This checkout creates a pending order and gives you a tracking link. Payment will be
-                confirmed after the order is submitted.
+                Keep this short: choose the quantity, add one phone number, and tell us where to
+                deliver.
               </p>
             </div>
 
@@ -297,16 +286,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                 </div>
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-foreground">Your name</span>
-                  <input
-                    value={customerName}
-                    onChange={(event) => setCustomerName(event.target.value)}
-                    className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm transition-colors outline-none focus:border-foreground/30"
-                    placeholder="Full name"
-                  />
-                </label>
+              <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_10rem]">
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-foreground">Phone number</span>
                   <input
@@ -316,46 +296,6 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                     placeholder="08012345678"
                   />
                 </label>
-                <label className="space-y-2 sm:col-span-2">
-                  <span className="text-sm font-medium text-foreground">Email address</span>
-                  <input
-                    value={customerEmail}
-                    onChange={(event) => setCustomerEmail(event.target.value)}
-                    className="w-full rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm transition-colors outline-none focus:border-foreground/30"
-                    placeholder="Optional"
-                    type="email"
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_10rem]">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-foreground">Fulfillment</p>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFulfillment("pickup")}
-                      className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                        fulfillment === "pickup"
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border/70 bg-background text-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      Pickup
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFulfillment("delivery")}
-                      className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                        fulfillment === "delivery"
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border/70 bg-background text-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      Delivery
-                    </button>
-                  </div>
-                </div>
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-foreground">Quantity</span>
@@ -370,34 +310,31 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                 </label>
               </div>
 
-              {fulfillment === "delivery" ? (
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-foreground">Delivery address</span>
-                  <textarea
-                    value={shippingAddress}
-                    onChange={(event) => setShippingAddress(event.target.value)}
-                    className="min-h-28 w-full rounded-[1.5rem] border border-border/70 bg-background px-4 py-3 text-sm transition-colors outline-none focus:border-foreground/30"
-                    placeholder="Street, area, city"
-                  />
-                </label>
-              ) : null}
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-foreground">Delivery address</span>
+                <textarea
+                  value={shippingAddress}
+                  onChange={(event) => setShippingAddress(event.target.value)}
+                  className="min-h-28 w-full rounded-[1.5rem] border border-border/70 bg-background px-4 py-3 text-sm transition-colors outline-none focus:border-foreground/30"
+                  placeholder="Street, area, city"
+                />
+              </label>
 
               <label className="space-y-2">
-                <span className="text-sm font-medium text-foreground">Order note</span>
+                <span className="text-sm font-medium text-foreground">Delivery note</span>
                 <textarea
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
                   className="min-h-28 w-full rounded-[1.5rem] border border-border/70 bg-background px-4 py-3 text-sm transition-colors outline-none focus:border-foreground/30"
-                  placeholder="Optional delivery note, preferred pickup time, or special instruction"
+                  placeholder="Optional gate code, landmark, or short note"
                 />
               </label>
 
               <div className="rounded-[1.5rem] border border-border/60 bg-background p-4 text-sm text-muted-foreground">
                 <div className="flex items-start gap-2">
-                  <Package className="mt-0.5 h-4 w-4 shrink-0" />
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>
-                    Orders are submitted in a pending state for now. Delivery fee and payment steps
-                    will be confirmed directly by {storefront.name} after checkout.
+                    We will confirm the delivery fee and payment before the order moves forward.
                   </p>
                 </div>
               </div>
@@ -412,7 +349,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    Estimated subtotal
+                    Order subtotal
                   </p>
                   <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
                     {formatExtendedCurrency(subtotal)}
@@ -429,7 +366,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                   ) : (
                     <Phone className="h-4 w-4" />
                   )}
-                  Submit order
+                  Place order
                 </button>
               </div>
             </form>

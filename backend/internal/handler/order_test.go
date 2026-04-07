@@ -332,7 +332,6 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 		ActiveModules:       models.ActiveModules{Payments: true},
 	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
 	body, _ := json.Marshal(map[string]any{
-		"customer_name":    "Chidi",
 		"customer_phone":   "08012345678",
 		"customer_email":   "chidi@example.com",
 		"is_delivery":      true,
