@@ -114,6 +114,11 @@ func (r *orderRepo) GetByIDInternal(ctx context.Context, id uuid.UUID) (*models.
 		`SELECT `+orderCols+` FROM orders WHERE id = $1`, id))
 }
 
+func (r *orderRepo) GetByIDInternalForUpdate(ctx context.Context, id uuid.UUID) (*models.Order, error) {
+	return scanOrder(r.db.QueryRow(ctx,
+		`SELECT `+orderCols+` FROM orders WHERE id = $1 FOR UPDATE`, id))
+}
+
 func (r *orderRepo) GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error) {
 	return scanOrder(r.db.QueryRow(ctx,
 		`SELECT `+orderCols+` FROM orders WHERE tracking_slug = $1`, slug))

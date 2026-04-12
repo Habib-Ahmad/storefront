@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -28,6 +29,10 @@ type PaymentService struct {
 	products  repository.ProductRepository
 	walletSvc *WalletService
 	pool      TxBeginner
+}
+
+type orderLockingRepository interface {
+	GetByIDInternalForUpdate(ctx context.Context, id uuid.UUID) (*models.Order, error)
 }
 
 func NewPaymentService(
@@ -77,20 +82,6 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		return fmt.Errorf("invalid reference: %w", err)
 	}
 
-	order, err := s.orders.GetByIDInternal(ctx, orderID)
-	if err != nil {
-		return fmt.Errorf("get order: %w", err)
-	}
-
-	if order.PaymentStatus == models.PaymentStatusPaid {
-		return nil
-	}
-
-	expectedAmount := order.TotalAmount.Add(order.ShippingFee)
-	if !resp.Amount.Equal(expectedAmount) {
-		return ErrPaymentAmountMismatch
-	}
-
 	// Atomic: update payment status + credit wallet in a single DB transaction.
 	if s.pool != nil {
 		dbTx, err := s.pool.Begin(ctx)
@@ -99,12 +90,35 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		}
 		defer dbTx.Rollback(ctx) //nolint:errcheck
 
-		if err := s.orders.WithTx(dbTx).UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusPaid); err != nil {
+		txOrders := s.orders.WithTx(dbTx)
+		lockingOrders, ok := txOrders.(orderLockingRepository)
+		if !ok {
+			return fmt.Errorf("order repository does not support row locking")
+		}
+
+		order, err := lockingOrders.GetByIDInternalForUpdate(ctx, orderID)
+		if err != nil {
+			return fmt.Errorf("get order: %w", err)
+		}
+
+		if order.PaymentStatus == models.PaymentStatusPaid {
+			return nil
+		}
+		if order.PaymentStatus != models.PaymentStatusPending {
+			return nil
+		}
+
+		expectedAmount := order.TotalAmount.Add(order.ShippingFee)
+		if !resp.Amount.Equal(expectedAmount) {
+			return ErrPaymentAmountMismatch
+		}
+
+		if err := txOrders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusPaid); err != nil {
 			return fmt.Errorf("update payment status: %w", err)
 		}
 
 		if !order.IsDelivery {
-			if err := s.orders.WithTx(dbTx).UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusCompleted); err != nil {
+			if err := txOrders.UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusCompleted); err != nil {
 				return fmt.Errorf("update fulfillment status: %w", err)
 			}
 		}
@@ -120,6 +134,23 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		}
 
 		return dbTx.Commit(ctx)
+	}
+
+	order, err := s.orders.GetByIDInternal(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("get order: %w", err)
+	}
+
+	if order.PaymentStatus == models.PaymentStatusPaid {
+		return nil
+	}
+	if order.PaymentStatus != models.PaymentStatusPending {
+		return nil
+	}
+
+	expectedAmount := order.TotalAmount.Add(order.ShippingFee)
+	if !resp.Amount.Equal(expectedAmount) {
+		return ErrPaymentAmountMismatch
 	}
 
 	// Fallback (no pool): non-atomic path for tests / simple setups.
@@ -146,20 +177,11 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 	return nil
 }
 
-// HandleChargeFailed marks the order as payment-failed and restores stock.
+// HandleChargeFailed marks the order as payment-failed, cancels fulfillment, and restores stock.
 func (s *PaymentService) HandleChargeFailed(ctx context.Context, reference string) error {
 	orderID, err := uuid.Parse(reference)
 	if err != nil {
 		return fmt.Errorf("invalid reference: %w", err)
-	}
-
-	order, err := s.orders.GetByIDInternal(ctx, orderID)
-	if err != nil {
-		return fmt.Errorf("get order: %w", err)
-	}
-
-	if order.PaymentStatus != models.PaymentStatusPending {
-		return nil
 	}
 
 	if s.pool != nil {
@@ -169,11 +191,29 @@ func (s *PaymentService) HandleChargeFailed(ctx context.Context, reference strin
 		}
 		defer dbTx.Rollback(ctx) //nolint:errcheck
 
-		if err := s.orders.WithTx(dbTx).UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusFailed); err != nil {
-			return fmt.Errorf("update payment status: %w", err)
+		txOrders := s.orders.WithTx(dbTx)
+		lockingOrders, ok := txOrders.(orderLockingRepository)
+		if !ok {
+			return fmt.Errorf("order repository does not support row locking")
 		}
 
-		items, err := s.orders.WithTx(dbTx).ListItems(ctx, orderID)
+		order, err := lockingOrders.GetByIDInternalForUpdate(ctx, orderID)
+		if err != nil {
+			return fmt.Errorf("get order: %w", err)
+		}
+
+		if order.PaymentStatus != models.PaymentStatusPending {
+			return nil
+		}
+
+		if err := txOrders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusFailed); err != nil {
+			return fmt.Errorf("update payment status: %w", err)
+		}
+		if err := txOrders.UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusCancelled); err != nil {
+			return fmt.Errorf("update fulfillment status: %w", err)
+		}
+
+		items, err := txOrders.ListItems(ctx, orderID)
 		if err != nil {
 			return fmt.Errorf("list items for restock: %w", err)
 		}
@@ -186,8 +226,20 @@ func (s *PaymentService) HandleChargeFailed(ctx context.Context, reference strin
 		return dbTx.Commit(ctx)
 	}
 
+	order, err := s.orders.GetByIDInternal(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("get order: %w", err)
+	}
+
+	if order.PaymentStatus != models.PaymentStatusPending {
+		return nil
+	}
+
 	if err := s.orders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusFailed); err != nil {
 		return fmt.Errorf("update payment status: %w", err)
+	}
+	if err := s.orders.UpdateFulfillmentStatus(ctx, order.TenantID, orderID, models.FulfillmentStatusCancelled); err != nil {
+		return fmt.Errorf("update fulfillment status: %w", err)
 	}
 
 	items, err := s.orders.ListItems(ctx, orderID)
@@ -199,4 +251,48 @@ func (s *PaymentService) HandleChargeFailed(ctx context.Context, reference strin
 	}
 
 	return nil
+}
+
+// ExpirePendingOrder fails a stale unpaid order using the same rollback path as a failed charge.
+func (s *PaymentService) ExpirePendingOrder(ctx context.Context, orderID uuid.UUID) error {
+	return s.HandleChargeFailed(ctx, orderID.String())
+}
+
+// SweepExpiredPendingOrders expires stale online orders in small batches.
+func (s *PaymentService) SweepExpiredPendingOrders(ctx context.Context, pool TxQueryer, ttl time.Duration, batchSize int) (int, error) {
+	if ttl <= 0 {
+		return 0, nil
+	}
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
+	cutoff := time.Now().Add(-ttl)
+	rows, err := pool.Query(ctx, `
+		SELECT id
+		FROM orders
+		WHERE payment_method = 'online'
+		  AND payment_status = 'pending'
+		  AND fulfillment_status = 'processing'
+		  AND created_at <= $1
+		ORDER BY created_at ASC
+		LIMIT $2`, cutoff, batchSize)
+	if err != nil {
+		return 0, fmt.Errorf("list stale pending orders: %w", err)
+	}
+	defer rows.Close()
+
+	var expired int
+	for rows.Next() {
+		var orderID uuid.UUID
+		if err := rows.Scan(&orderID); err != nil {
+			return expired, fmt.Errorf("scan stale pending order: %w", err)
+		}
+		if err := s.ExpirePendingOrder(ctx, orderID); err != nil {
+			return expired, fmt.Errorf("expire pending order %s: %w", orderID, err)
+		}
+		expired++
+	}
+
+	return expired, rows.Err()
 }

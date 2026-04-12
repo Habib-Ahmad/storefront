@@ -241,6 +241,12 @@ export function ActionCard({
 
   const helperText = (() => {
     if (!order.is_delivery) {
+      if (order.fulfillment_status === "cancelled") {
+        return order.payment_status === "failed"
+          ? "This pickup order was cancelled before payment completed."
+          : "This pickup order has already been cancelled.";
+      }
+
       if (order.fulfillment_status === "completed") {
         return "This pickup order is complete.";
       }

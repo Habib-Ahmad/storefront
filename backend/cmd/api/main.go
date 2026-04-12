@@ -67,6 +67,9 @@ func main() {
 	if cfg.TerminalAfricaAPIKey == "" {
 		log.Warn("TERMINAL_AFRICA_API_KEY is empty — shipping features will fail")
 	}
+	if cfg.PendingOrderTTL <= 0 {
+		log.Warn("PENDING_ORDER_TTL disables stale pending-order cleanup")
+	}
 
 	// Services
 	tenantSvc := service.NewTenantService(tenantRepo, tierRepo, walletRepo, userRepo)
@@ -108,7 +111,7 @@ func main() {
 
 	// Monthly audit log partitions
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		scheduler.RunMonthlyPartitioner(ctx, pool, log)
@@ -117,6 +120,10 @@ func main() {
 	go func() {
 		defer wg.Done()
 		scheduler.RunDailyChainVerifier(ctx, walletRepo, walletSvc, log)
+	}()
+	go func() {
+		defer wg.Done()
+		scheduler.RunPendingOrderExpiry(ctx, pool, paymentSvc, cfg.PendingOrderTTL, log)
 	}()
 
 	// Fetch Supabase JWKS (ES256 public key) for JWT verification

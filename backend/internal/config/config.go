@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -14,8 +15,9 @@ type Config struct {
 	DatabaseURL string
 	HMACSecret  string
 
-	SupabaseURL  string
-	PublicAppURL string
+	SupabaseURL     string
+	PublicAppURL    string
+	PendingOrderTTL time.Duration
 
 	PaystackSecretKey string
 
@@ -43,8 +45,9 @@ func Load() (*Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		HMACSecret:  os.Getenv("HMAC_SECRET"),
 
-		SupabaseURL:  os.Getenv("SUPABASE_URL"),
-		PublicAppURL: strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")),
+		SupabaseURL:     os.Getenv("SUPABASE_URL"),
+		PublicAppURL:    strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")),
+		PendingOrderTTL: getDurationEnv("PENDING_ORDER_TTL", 30*time.Minute),
 
 		PaystackSecretKey: os.Getenv("PAYSTACK_SECRET_KEY"),
 
@@ -82,6 +85,18 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getDurationEnv(key string, fallback time.Duration) time.Duration {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func parseOrigins(raw string) []string {

@@ -334,6 +334,12 @@ func (s *OrderService) Cancel(ctx context.Context, tenantID, orderID uuid.UUID) 
 		_ = s.products.RestoreStock(ctx, item.VariantID, item.Quantity)
 	}
 
+	if order.PaymentStatus == models.PaymentStatusPending && order.PaymentMethod == models.PaymentMethodOnline {
+		if err := s.orders.UpdatePaymentStatus(ctx, tenantID, orderID, models.PaymentStatusFailed); err != nil {
+			return fmt.Errorf("fail payment status: %w", err)
+		}
+	}
+
 	if order.PaymentStatus == models.PaymentStatusPaid {
 		if err := s.orders.UpdatePaymentStatus(ctx, tenantID, orderID, models.PaymentStatusRefunded); err != nil {
 			return fmt.Errorf("refund payment status: %w", err)

@@ -40,6 +40,10 @@ type TxBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
+type TxQueryer interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 func NewWalletService(
 	wallets repository.WalletRepository,
 	transactions repository.TransactionRepository,

@@ -436,6 +436,7 @@ func TestCancelOrder_PendingPayment_NoRefund(t *testing.T) {
 			ID:                orderID,
 			TenantID:          tenantID,
 			FulfillmentStatus: models.FulfillmentStatusProcessing,
+			PaymentMethod:     models.PaymentMethodOnline,
 			PaymentStatus:     models.PaymentStatusPending,
 			TotalAmount:       decimal.NewFromInt(2000),
 		},
@@ -456,9 +457,8 @@ func TestCancelOrder_PendingPayment_NoRefund(t *testing.T) {
 	if productRepo.restocked[variantID] != 1 {
 		t.Fatalf("expected restock of 1, got %d", productRepo.restocked[variantID])
 	}
-	// payment status should NOT be updated (no refund needed for unpaid order)
-	if orderRepo.paymentStatus == models.PaymentStatusRefunded {
-		t.Fatal("pending order should not be refunded")
+	if orderRepo.paymentStatus != models.PaymentStatusFailed {
+		t.Fatalf("pending online order should be marked failed when cancelled, got %s", orderRepo.paymentStatus)
 	}
 }
 

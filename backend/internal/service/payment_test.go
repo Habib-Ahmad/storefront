@@ -93,7 +93,15 @@ func TestInitiatePayment_AdapterError(t *testing.T) {
 func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
-	order := &models.Order{ID: orderID, TenantID: tenantID, IsDelivery: true, TotalAmount: decimal.NewFromInt(5000)}
+	order := &models.Order{
+		ID:                orderID,
+		TenantID:          tenantID,
+		IsDelivery:        true,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+		TotalAmount:       decimal.NewFromInt(5000),
+	}
 	wallet := &models.Wallet{ID: uuid.New(), TenantID: tenantID}
 
 	ps := &mockPaystackClient{
@@ -188,10 +196,13 @@ func TestHandleChargeSuccess_AmountMismatch(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
 	order := &models.Order{
-		ID:          orderID,
-		TenantID:    tenantID,
-		TotalAmount: decimal.NewFromInt(5000),
-		ShippingFee: decimal.NewFromInt(500),
+		ID:                orderID,
+		TenantID:          tenantID,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+		TotalAmount:       decimal.NewFromInt(5000),
+		ShippingFee:       decimal.NewFromInt(500),
 	}
 	ps := &mockPaystackClient{
 		verResp: &paystack.VerifyResponse{
@@ -205,5 +216,43 @@ func TestHandleChargeSuccess_AmountMismatch(t *testing.T) {
 	err := svc.HandleChargeSuccess(context.Background(), orderID.String())
 	if !errors.Is(err, service.ErrPaymentAmountMismatch) {
 		t.Fatalf("expected ErrPaymentAmountMismatch, got %v", err)
+	}
+}
+
+func TestHandleChargeFailed_CancelsAndRestocks(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	variantID := uuid.New()
+	orderRepo := &mockOrderRepo{
+		order: &models.Order{
+			ID:                orderID,
+			TenantID:          tenantID,
+			PaymentMethod:     models.PaymentMethodOnline,
+			PaymentStatus:     models.PaymentStatusPending,
+			FulfillmentStatus: models.FulfillmentStatusProcessing,
+		},
+		items: []models.OrderItem{{VariantID: variantID, Quantity: 1}},
+	}
+	productRepo := &mockProductRepo{}
+	walletSvc := service.NewWalletService(
+		&mockWalletRepo{wallet: &models.Wallet{ID: uuid.New(), TenantID: tenantID}},
+		&mockTxRepo{},
+		&mockTenantRepo{},
+		testHMACSecret,
+	)
+	svc := service.NewPaymentService(&mockPaystackClient{}, orderRepo, productRepo, walletSvc)
+
+	err := svc.HandleChargeFailed(context.Background(), orderID.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if orderRepo.paymentStatus != models.PaymentStatusFailed {
+		t.Fatalf("expected failed payment status, got %s", orderRepo.paymentStatus)
+	}
+	if orderRepo.fulfillmentStatus != models.FulfillmentStatusCancelled {
+		t.Fatalf("expected cancelled fulfillment status, got %s", orderRepo.fulfillmentStatus)
+	}
+	if productRepo.restocked[variantID] != 1 {
+		t.Fatalf("expected restock of 1, got %d", productRepo.restocked[variantID])
 	}
 }

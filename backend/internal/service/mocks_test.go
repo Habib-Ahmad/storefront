@@ -203,6 +203,9 @@ func (m *mockOrderRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*models.Orde
 func (m *mockOrderRepo) GetByIDInternal(_ context.Context, _ uuid.UUID) (*models.Order, error) {
 	return m.order, m.err
 }
+func (m *mockOrderRepo) GetByIDInternalForUpdate(_ context.Context, _ uuid.UUID) (*models.Order, error) {
+	return m.order, m.err
+}
 func (m *mockOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.Order, error) {
 	return m.order, m.err
 }
