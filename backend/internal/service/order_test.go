@@ -211,9 +211,12 @@ func TestCreatePublicOrder_UsesPublishedTenantAndOnlinePayment(t *testing.T) {
 	svc.SetTenantRepo(tenantRepo)
 
 	order := &models.Order{IsDelivery: true, CustomerName: name("Funke"), CustomerPhone: phone("08012345678"), ShippingAddress: addr("12 Allen Avenue")}
-	outTenant, outOrder, err := svc.CreatePublic(context.Background(), "funke-fabrics", order, []models.OrderItem{{VariantID: variantID, Quantity: 2}})
+	outTenant, outOrder, reusedExisting, err := svc.CreatePublic(context.Background(), "funke-fabrics", order, []models.OrderItem{{VariantID: variantID, Quantity: 2}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if reusedExisting {
+		t.Fatal("expected a fresh public checkout order")
 	}
 	if outTenant.ID != tenantID {
 		t.Fatalf("tenant id: want %s, got %s", tenantID, outTenant.ID)
@@ -242,7 +245,7 @@ func TestCreatePublicOrder_UnpublishedStorefrontNotFound(t *testing.T) {
 	svc := service.NewOrderService(&mockOrderRepo{}, productRepo)
 	svc.SetTenantRepo(tenantRepo)
 
-	_, _, err := svc.CreatePublic(context.Background(), "hidden-store", &models.Order{CustomerName: name("Funke"), CustomerPhone: phone("08012345678")}, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	_, _, _, err := svc.CreatePublic(context.Background(), "hidden-store", &models.Order{CustomerName: name("Funke"), CustomerPhone: phone("08012345678")}, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
 	if !errors.Is(err, service.ErrStorefrontNotFound) {
 		t.Fatalf("expected ErrStorefrontNotFound, got %v", err)
 	}
@@ -261,9 +264,53 @@ func TestCreatePublicOrder_PaymentsDisabled(t *testing.T) {
 	svc := service.NewOrderService(&mockOrderRepo{}, productRepo)
 	svc.SetTenantRepo(tenantRepo)
 
-	_, _, err := svc.CreatePublic(context.Background(), "funke-fabrics", &models.Order{CustomerName: name("Funke"), CustomerPhone: phone("08012345678")}, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	_, _, _, err := svc.CreatePublic(context.Background(), "funke-fabrics", &models.Order{CustomerName: name("Funke"), CustomerPhone: phone("08012345678")}, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
 	if !errors.Is(err, service.ErrCheckoutUnavailable) {
 		t.Fatalf("expected ErrCheckoutUnavailable, got %v", err)
+	}
+}
+
+func TestCreatePublicOrder_ReusesExistingCheckoutID(t *testing.T) {
+	variantID := uuid.New()
+	tenantID := uuid.New()
+	checkoutID := uuid.New()
+	existingOrderID := uuid.New()
+	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(4200), StockQty: nil}}
+	orderRepo := &mockOrderRepo{order: &models.Order{
+		ID:               existingOrderID,
+		TenantID:         tenantID,
+		PublicCheckoutID: &checkoutID,
+		PaymentMethod:    models.PaymentMethodOnline,
+		PaymentStatus:    models.PaymentStatusPending,
+	}}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{
+		ID:                  tenantID,
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: true},
+	}}
+	svc := service.NewOrderService(orderRepo, productRepo)
+	svc.SetTenantRepo(tenantRepo)
+
+	order := &models.Order{
+		IsDelivery:       true,
+		PublicCheckoutID: &checkoutID,
+		CustomerPhone:    phone("08012345678"),
+		ShippingAddress:  addr("12 Allen Avenue"),
+	}
+	outTenant, outOrder, reusedExisting, err := svc.CreatePublic(context.Background(), "funke-fabrics", order, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !reusedExisting {
+		t.Fatal("expected existing checkout to be reused")
+	}
+	if outTenant.ID != tenantID {
+		t.Fatalf("tenant id: want %s, got %s", tenantID, outTenant.ID)
+	}
+	if outOrder.ID != existingOrderID {
+		t.Fatalf("order id: want %s, got %s", existingOrderID, outOrder.ID)
 	}
 }
 

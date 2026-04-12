@@ -79,6 +79,13 @@ func (s *WalletService) CreditAvailableWithTx(ctx context.Context, tx db.DBTX, t
 	return s.doRecordForUpdate(ctx, wallets, transactions, tenantID, amount, models.TransactionTypeCredit, false, orderID)
 }
 
+// RecordCommissionWithTx appends a commission deduction entry inside an externally-managed transaction.
+func (s *WalletService) RecordCommissionWithTx(ctx context.Context, tx db.DBTX, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
+	wallets := s.wallets.WithTx(tx)
+	transactions := s.transactions.WithTx(tx)
+	return s.doRecordForUpdate(ctx, wallets, transactions, tenantID, amount.Neg(), models.TransactionTypeCommission, false, orderID)
+}
+
 // CreditAvailable adds funds directly to available balance (for offline/cash/transfer sales).
 func (s *WalletService) CreditAvailable(ctx context.Context, tenantID uuid.UUID, amount decimal.Decimal, orderID *uuid.UUID) (*models.Transaction, error) {
 	return s.record(ctx, tenantID, amount, models.TransactionTypeCredit, false, orderID)

@@ -141,6 +141,7 @@ describe("createPublicStorefrontOrder", () => {
             payment_status: "pending",
             fulfillment_status: "processing",
           },
+          authorization_url: "https://paystack.test/authorize",
         },
         201,
       ),
@@ -149,6 +150,7 @@ describe("createPublicStorefrontOrder", () => {
     await expect(
       createPublicStorefrontOrder("funke-fabrics", {
         is_delivery: true,
+        checkout_id: "550e8400-e29b-41d4-a716-446655440099",
         customer_phone: "08012345678",
         customer_email: "chidi@example.com",
         shipping_address: "23 Abuja",
@@ -158,6 +160,7 @@ describe("createPublicStorefrontOrder", () => {
     ).resolves.toMatchObject({
       storefront: { slug: "funke-fabrics" },
       order: { tracking_slug: "abc123def456", payment_status: "pending" },
+      authorization_url: "https://paystack.test/authorize",
     });
   });
 });

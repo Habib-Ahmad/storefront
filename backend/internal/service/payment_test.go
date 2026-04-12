@@ -20,9 +20,11 @@ type mockPaystackClient struct {
 	initErr  error
 	verResp  *paystack.VerifyResponse
 	verErr   error
+	initReq  *paystack.InitializeRequest
 }
 
-func (m *mockPaystackClient) InitializeTransaction(_ context.Context, _ paystack.InitializeRequest) (*paystack.InitializeResponse, error) {
+func (m *mockPaystackClient) InitializeTransaction(_ context.Context, req paystack.InitializeRequest) (*paystack.InitializeResponse, error) {
+	m.initReq = &req
 	return m.initResp, m.initErr
 }
 
@@ -56,12 +58,24 @@ func TestInitiatePayment_ReturnsAuthURL(t *testing.T) {
 	}
 	svc := newPaymentSvc(ps, &mockOrderRepo{order: order}, &models.Wallet{ID: uuid.New()})
 
-	url, err := svc.InitiatePayment(context.Background(), order, "buyer@example.com", "SUB_123")
+	url, err := svc.InitiatePayment(
+		context.Background(),
+		order,
+		"buyer@example.com",
+		"SUB_123",
+		"https://storefront.test/track/abc123",
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if url != "https://paystack.com/pay/xyz" {
 		t.Fatalf("expected auth URL, got %s", url)
+	}
+	if ps.initReq == nil {
+		t.Fatal("expected initialize request to be captured")
+	}
+	if ps.initReq.CallbackURL != "https://storefront.test/track/abc123" {
+		t.Fatalf("expected callback URL to be forwarded, got %s", ps.initReq.CallbackURL)
 	}
 }
 
@@ -70,7 +84,7 @@ func TestInitiatePayment_AdapterError(t *testing.T) {
 	ps := &mockPaystackClient{initErr: errors.New("paystack down")}
 	svc := newPaymentSvc(ps, &mockOrderRepo{order: order}, &models.Wallet{ID: uuid.New()})
 
-	_, err := svc.InitiatePayment(context.Background(), order, "buyer@example.com", "")
+	_, err := svc.InitiatePayment(context.Background(), order, "buyer@example.com", "", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

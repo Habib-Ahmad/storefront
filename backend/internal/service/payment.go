@@ -43,11 +43,12 @@ func (s *PaymentService) SetPool(pool TxBeginner) { s.pool = pool }
 
 // InitiatePayment creates a Paystack transaction and returns the redirect URL.
 // The Paystack reference equals the order UUID so webhook callbacks can reverse-map it.
-func (s *PaymentService) InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode string) (string, error) {
+func (s *PaymentService) InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode, callbackURL string) (string, error) {
 	req := paystack.InitializeRequest{
 		Email:          customerEmail,
 		Amount:         order.TotalAmount.Add(order.ShippingFee),
 		Reference:      order.ID.String(),
+		CallbackURL:    callbackURL,
 		SubaccountCode: subaccountCode,
 		Metadata:       map[string]any{"order_id": order.ID},
 	}
@@ -159,6 +160,30 @@ func (s *PaymentService) HandleChargeFailed(ctx context.Context, reference strin
 
 	if order.PaymentStatus != models.PaymentStatusPending {
 		return nil
+	}
+
+	if s.pool != nil {
+		dbTx, err := s.pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx: %w", err)
+		}
+		defer dbTx.Rollback(ctx) //nolint:errcheck
+
+		if err := s.orders.WithTx(dbTx).UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusFailed); err != nil {
+			return fmt.Errorf("update payment status: %w", err)
+		}
+
+		items, err := s.orders.WithTx(dbTx).ListItems(ctx, orderID)
+		if err != nil {
+			return fmt.Errorf("list items for restock: %w", err)
+		}
+		for _, item := range items {
+			if err := s.products.WithTx(dbTx).RestoreStock(ctx, item.VariantID, item.Quantity); err != nil {
+				return fmt.Errorf("restore stock for variant %s: %w", item.VariantID, err)
+			}
+		}
+
+		return dbTx.Commit(ctx)
 	}
 
 	if err := s.orders.UpdatePaymentStatus(ctx, order.TenantID, orderID, models.PaymentStatusFailed); err != nil {

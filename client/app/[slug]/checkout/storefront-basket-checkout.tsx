@@ -20,6 +20,7 @@ import {
   useStorefrontCart,
 } from "@/lib/storefront-cart";
 import type { PublicStorefrontCheckoutResponse } from "@/lib/types/public-storefront";
+import { createClientUUID } from "@/lib/utils";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
 import { formatCurrency } from "../storefront-formatters";
 
@@ -35,6 +36,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<PublicStorefrontCheckoutResponse | null>(null);
+  const [checkoutId] = useState(() => createClientUUID());
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,6 +60,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
     try {
       const response = await createPublicStorefrontOrder(slug, {
         is_delivery: true,
+        checkout_id: checkoutId,
         customer_phone: customerPhone.trim(),
         shipping_address: shippingAddress.trim(),
         note: note.trim() || null,
@@ -67,6 +70,10 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
         })),
       });
       clearStorefrontCart(slug);
+      if (response.authorization_url) {
+        window.location.href = response.authorization_url;
+        return;
+      }
       setResult(response);
     } catch (error) {
       if (error instanceof PublicStorefrontError) {
@@ -103,7 +110,8 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
               Your order is in
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              We have your delivery request. Payment comes next once the store confirms the order.
+              We have your order. If payment did not start automatically, use your order page for
+              the latest payment and fulfillment status.
             </p>
 
             <div className="mt-8 grid gap-4 rounded-[1.5rem] border border-border/60 bg-background p-5 sm:grid-cols-2">
@@ -127,10 +135,10 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href={`/track/${result.order.tracking_slug}`}
+                href={`/order/${result.order.tracking_slug}`}
                 className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
               >
-                Track order
+                View order
               </Link>
               <Link
                 href={`/${slug}`}
@@ -266,7 +274,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
                 </div>
                 <div className="mt-3 flex items-start justify-between gap-4 text-sm text-muted-foreground">
                   <span>Delivery fee</span>
-                  <span className="text-right">Confirmed before payment</span>
+                  <span className="text-right">Included in the current checkout total</span>
                 </div>
               </div>
             </aside>
@@ -280,7 +288,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
                   Where should we deliver?
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Enter one phone number and one delivery address. We will confirm the order before
+                  Enter one phone number and one delivery address, then continue straight to
                   payment.
                 </p>
               </div>
@@ -339,7 +347,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                    Place order
+                    Continue to payment
                   </button>
                 </div>
               </form>

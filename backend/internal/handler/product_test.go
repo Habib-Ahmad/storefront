@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
@@ -95,6 +96,7 @@ func (s *stubProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error { re
 func (s *stubProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error {
 	return s.updateImageErr
 }
+func (s *stubProductRepo) WithTx(_ db.DBTX) repository.ProductRepository { return s }
 
 var _ repository.ProductRepository = (*stubProductRepo)(nil)
 

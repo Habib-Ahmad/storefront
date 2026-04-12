@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/adapter/terminalaf"
@@ -38,6 +40,12 @@ func (s *stubOrderRepo) GetByIDInternal(_ context.Context, _ uuid.UUID) (*models
 }
 func (s *stubOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.Order, error) {
 	return s.order, nil
+}
+func (s *stubOrderRepo) GetByPublicCheckoutID(_ context.Context, _ uuid.UUID, checkoutID uuid.UUID) (*models.Order, error) {
+	if s.order != nil && s.order.PublicCheckoutID != nil && *s.order.PublicCheckoutID == checkoutID && s.order.PaymentStatus != models.PaymentStatusFailed {
+		return s.order, nil
+	}
+	return nil, pgx.ErrNoRows
 }
 func (s *stubOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
 	return nil, nil
@@ -108,11 +116,33 @@ func (s *stubProductRepoForOrder) DeleteImage(_ context.Context, _ uuid.UUID) er
 func (s *stubProductRepoForOrder) UpdateImage(_ context.Context, _ *models.ProductImage) error {
 	return nil
 }
+func (s *stubProductRepoForOrder) WithTx(_ db.DBTX) repository.ProductRepository { return s }
 
-type stubPaymentInitiator struct{}
+type stubPaymentInitiator struct {
+	authorizationURL string
+	customerEmail    string
+	subaccountCode   string
+	callbackURL      string
+	initErr          error
+	failedReference  string
+}
 
-func (s *stubPaymentInitiator) InitiatePayment(_ context.Context, _ *models.Order, _, _ string) (string, error) {
+func (s *stubPaymentInitiator) InitiatePayment(_ context.Context, _ *models.Order, customerEmail, subaccountCode, callbackURL string) (string, error) {
+	s.customerEmail = customerEmail
+	s.subaccountCode = subaccountCode
+	s.callbackURL = callbackURL
+	if s.initErr != nil {
+		return "", s.initErr
+	}
+	if s.authorizationURL != "" {
+		return s.authorizationURL, nil
+	}
 	return "https://paystack.com/pay/stub", nil
+}
+
+func (s *stubPaymentInitiator) HandleChargeFailed(_ context.Context, reference string) error {
+	s.failedReference = reference
+	return nil
 }
 
 type stubDispatcher struct{}
@@ -138,14 +168,22 @@ func (s *stubTenantRepoForOrder) SoftDelete(_ context.Context, _ uuid.UUID) erro
 func (s *stubTenantRepoForOrder) WithTx(_ db.DBTX) repository.TenantRepository     { return s }
 
 func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
+	return newOrderHandlerWithPayment(variant, &stubPaymentInitiator{})
+}
+
+func newOrderHandlerWithPayment(variant *models.ProductVariant, payment *stubPaymentInitiator) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
-	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, &stubDispatcher{}, slog.Default())
+	return handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "", slog.Default())
 }
 
 func newPublicOrderHandler(tenant *models.Tenant, variant *models.ProductVariant) *handler.OrderHandler {
+	return newPublicOrderHandlerWithPayment(tenant, variant, &stubPaymentInitiator{})
+}
+
+func newPublicOrderHandlerWithPayment(tenant *models.Tenant, variant *models.ProductVariant, payment *stubPaymentInitiator) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
 	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: tenant})
-	return handler.NewOrderHandler(svc, &stubPaymentInitiator{}, &stubDispatcher{}, slog.Default())
+	return handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
 }
 
 func withURLParam(r *http.Request, key, value string) *http.Request {
@@ -323,17 +361,18 @@ func TestCreateOrder_EmptyBody(t *testing.T) {
 
 func TestCreatePublicOrder_Valid(t *testing.T) {
 	variantID := uuid.New()
-	h := newPublicOrderHandler(&models.Tenant{
+	payment := &stubPaymentInitiator{}
+	h := newPublicOrderHandlerWithPayment(&models.Tenant{
 		ID:                  uuid.New(),
 		Name:                "Funke Fabrics",
 		Slug:                "funke-fabrics",
 		StorefrontPublished: true,
 		Status:              models.TenantStatusActive,
 		ActiveModules:       models.ActiveModules{Payments: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
 	body, _ := json.Marshal(map[string]any{
+		"checkout_id":      uuid.New().String(),
 		"customer_phone":   "08012345678",
-		"customer_email":   "chidi@example.com",
 		"is_delivery":      true,
 		"shipping_address": "23 Abuja",
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
@@ -354,6 +393,7 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 			TrackingSlug  string `json:"tracking_slug"`
 			PaymentStatus string `json:"payment_status"`
 		} `json:"order"`
+		AuthorizationURL string `json:"authorization_url"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -366,6 +406,69 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 	}
 	if resp.Order.TrackingSlug == "" {
 		t.Fatal("expected tracking slug in response")
+	}
+	if resp.AuthorizationURL == "" {
+		t.Fatal("expected authorization_url in response")
+	}
+	if payment.customerEmail != "guest@storefront.ng" {
+		t.Fatalf("expected guest email fallback, got %s", payment.customerEmail)
+	}
+	if payment.callbackURL != "https://storefront.test/order/"+resp.Order.TrackingSlug {
+		t.Fatalf("unexpected callback URL: %s", payment.callbackURL)
+	}
+}
+
+func TestCreateOrder_InitPaymentFailureReturnsError(t *testing.T) {
+	variantID := uuid.New()
+	payment := &stubPaymentInitiator{initErr: errors.New("paystack unavailable")}
+	h := newOrderHandlerWithPayment(&models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
+	phone := "08012345678"
+	body, _ := json.Marshal(map[string]any{
+		"customer_name":    "Chidi",
+		"is_delivery":      true,
+		"customer_phone":   phone,
+		"shipping_address": "23 Abuja",
+		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if payment.failedReference == "" {
+		t.Fatal("expected payment rollback to be triggered")
+	}
+}
+
+func TestCreatePublicOrder_InitPaymentFailureReturnsError(t *testing.T) {
+	variantID := uuid.New()
+	payment := &stubPaymentInitiator{initErr: errors.New("paystack unavailable")}
+	h := newPublicOrderHandlerWithPayment(&models.Tenant{
+		ID:                  uuid.New(),
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: true},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
+	body, _ := json.Marshal(map[string]any{
+		"checkout_id":      uuid.New().String(),
+		"customer_phone":   "08012345678",
+		"is_delivery":      true,
+		"shipping_address": "23 Abuja",
+		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/orders", bytes.NewReader(body))
+	req = withURLParam(req, "slug", "funke-fabrics")
+	rec := httptest.NewRecorder()
+	h.CreatePublic(rec, req)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if payment.failedReference == "" {
+		t.Fatal("expected payment rollback to be triggered")
 	}
 }
 
@@ -380,6 +483,7 @@ func TestCreatePublicOrder_CheckoutUnavailable(t *testing.T) {
 		ActiveModules:       models.ActiveModules{Payments: false},
 	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
 	body, _ := json.Marshal(map[string]any{
+		"checkout_id":    uuid.New().String(),
 		"customer_name":  "Chidi",
 		"customer_phone": "08012345678",
 		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},

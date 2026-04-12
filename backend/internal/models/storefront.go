@@ -69,6 +69,7 @@ type PublicStorefrontCheckoutOrder struct {
 }
 
 type PublicStorefrontCheckoutResponse struct {
-	Storefront PublicStorefront              `json:"storefront"`
-	Order      PublicStorefrontCheckoutOrder `json:"order"`
+	Storefront       PublicStorefront              `json:"storefront"`
+	Order            PublicStorefrontCheckoutOrder `json:"order"`
+	AuthorizationURL string                        `json:"authorization_url,omitempty"`
 }

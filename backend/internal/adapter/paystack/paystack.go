@@ -43,6 +43,9 @@ func (c *Client) InitializeTransaction(ctx context.Context, req InitializeReques
 		"reference": req.Reference,
 		"metadata":  req.Metadata,
 	}
+	if req.CallbackURL != "" {
+		body["callback_url"] = req.CallbackURL
+	}
 	if req.SubaccountCode != "" {
 		body["subaccount"] = req.SubaccountCode
 	}
@@ -105,6 +108,7 @@ type InitializeRequest struct {
 	Email          string
 	Amount         decimal.Decimal
 	Reference      string
+	CallbackURL    string
 	SubaccountCode string
 	Metadata       map[string]any
 }

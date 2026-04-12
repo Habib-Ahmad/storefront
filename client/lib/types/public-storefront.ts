@@ -70,6 +70,7 @@ export const CreatePublicStorefrontOrderItemSchema = z.object({
 
 export const CreatePublicStorefrontOrderRequestSchema = z.object({
   is_delivery: z.boolean(),
+  checkout_id: UUIDSchema,
   customer_name: z.string().min(1).nullable().optional(),
   customer_phone: z.string().min(1),
   customer_email: z.string().email().nullable().optional(),
@@ -81,6 +82,7 @@ export const CreatePublicStorefrontOrderRequestSchema = z.object({
 export const PublicStorefrontCheckoutResponseSchema = z.object({
   storefront: PublicStorefrontSchema,
   order: PublicStorefrontCheckoutOrderSchema,
+  authorization_url: z.string().url().optional(),
 });
 
 export type PublicStorefront = z.infer<typeof PublicStorefrontSchema>;

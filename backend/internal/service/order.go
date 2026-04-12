@@ -12,6 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"storefront/backend/internal/apperr"
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/repository"
 )
@@ -39,6 +40,7 @@ type OrderService struct {
 	walletSvc *WalletService
 	tenants   repository.TenantRepository
 	tiers     repository.TierRepository
+	pool      TxBeginner
 }
 
 func NewOrderService(orders repository.OrderRepository, products repository.ProductRepository) *OrderService {
@@ -48,6 +50,7 @@ func NewOrderService(orders repository.OrderRepository, products repository.Prod
 func (s *OrderService) SetWalletService(w *WalletService)           { s.walletSvc = w }
 func (s *OrderService) SetTenantRepo(t repository.TenantRepository) { s.tenants = t }
 func (s *OrderService) SetTierRepo(t repository.TierRepository)     { s.tiers = t }
+func (s *OrderService) SetPool(pool TxBeginner)                     { s.pool = pool }
 
 func initialFulfillmentStatus(order *models.Order) models.FulfillmentStatus {
 	if !order.IsDelivery && order.PaymentStatus == models.PaymentStatusPaid {
@@ -57,23 +60,33 @@ func initialFulfillmentStatus(order *models.Order) models.FulfillmentStatus {
 	return models.FulfillmentStatusProcessing
 }
 
-func (s *OrderService) CreatePublic(ctx context.Context, slug string, order *models.Order, items []models.OrderItem) (*models.Tenant, *models.Order, error) {
+func (s *OrderService) CreatePublic(ctx context.Context, slug string, order *models.Order, items []models.OrderItem) (*models.Tenant, *models.Order, bool, error) {
 	if s.tenants == nil {
-		return nil, nil, fmt.Errorf("tenant repository not configured")
+		return nil, nil, false, fmt.Errorf("tenant repository not configured")
 	}
 
 	tenant, err := s.tenants.GetBySlug(ctx, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, ErrStorefrontNotFound
+			return nil, nil, false, ErrStorefrontNotFound
 		}
-		return nil, nil, fmt.Errorf("get storefront tenant: %w", err)
+		return nil, nil, false, fmt.Errorf("get storefront tenant: %w", err)
 	}
 	if tenant == nil || tenant.Status != models.TenantStatusActive || !tenant.StorefrontPublished {
-		return nil, nil, ErrStorefrontNotFound
+		return nil, nil, false, ErrStorefrontNotFound
 	}
 	if !tenant.ActiveModules.Payments {
-		return nil, nil, ErrCheckoutUnavailable
+		return nil, nil, false, ErrCheckoutUnavailable
+	}
+
+	if order.PublicCheckoutID != nil {
+		existingOrder, existingErr := s.orders.GetByPublicCheckoutID(ctx, tenant.ID, *order.PublicCheckoutID)
+		switch {
+		case existingErr == nil:
+			return tenant, existingOrder, true, nil
+		case !errors.Is(existingErr, pgx.ErrNoRows):
+			return nil, nil, false, fmt.Errorf("get public checkout order: %w", existingErr)
+		}
 	}
 
 	order.TenantID = tenant.ID
@@ -81,10 +94,10 @@ func (s *OrderService) CreatePublic(ctx context.Context, slug string, order *mod
 
 	out, err := s.Create(ctx, order, items)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
-	return tenant, out, nil
+	return tenant, out, false, nil
 }
 
 // Create validates and persists a new order with its line items.
@@ -93,6 +106,34 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	if err := validateDelivery(order); err != nil {
 		return nil, err
 	}
+
+	if s.pool != nil {
+		return s.createTx(ctx, order, items)
+	}
+
+	return s.createWithRepos(ctx, order, items, s.orders, s.products, nil)
+}
+
+func (s *OrderService) createTx(ctx context.Context, order *models.Order, items []models.OrderItem) (*models.Order, error) {
+	dbTx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer dbTx.Rollback(ctx) //nolint:errcheck
+
+	out, err := s.createWithRepos(ctx, order, items, s.orders.WithTx(dbTx), s.products.WithTx(dbTx), dbTx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := dbTx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return out, nil
+}
+
+func (s *OrderService) createWithRepos(ctx context.Context, order *models.Order, items []models.OrderItem, orders repository.OrderRepository, products repository.ProductRepository, dbTx db.DBTX) (*models.Order, error) {
 
 	slug, err := generateTrackingSlug()
 	if err != nil {
@@ -107,12 +148,12 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	var decrements []variantDecrement
 
 	for i := range items {
-		v, err := s.products.GetVariantByID(ctx, items[i].VariantID)
+		v, err := products.GetVariantByID(ctx, items[i].VariantID)
 		if err != nil {
 			return nil, fmt.Errorf("variant %s: %w", items[i].VariantID, ErrVariantNotFound)
 		}
 
-		product, err := s.products.GetByID(ctx, order.TenantID, v.ProductID)
+		product, err := products.GetByID(ctx, order.TenantID, v.ProductID)
 		if err != nil {
 			return nil, fmt.Errorf("product for variant %s: %w", v.ID, ErrVariantNotFound)
 		}
@@ -135,7 +176,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	}
 
 	for _, d := range decrements {
-		if err := s.products.DecrementStock(ctx, d.variantID, d.quantity); err != nil {
+		if err := products.DecrementStock(ctx, d.variantID, d.quantity); err != nil {
 			return nil, fmt.Errorf("decrement stock for variant %s: %w", d.variantID, err)
 		}
 	}
@@ -159,7 +200,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	// Retry with a new slug on unique-constraint collision (unlikely but possible).
 	const maxSlugRetries = 3
 	for attempt := 0; attempt < maxSlugRetries; attempt++ {
-		err = s.orders.Create(ctx, order, items)
+		err = orders.Create(ctx, order, items)
 		if err == nil {
 			break
 		}
@@ -177,7 +218,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 	}
 
 	if order.PaymentMethod != models.PaymentMethodOnline && order.PaymentMethod != "" {
-		if err := s.settleOffline(ctx, order); err != nil {
+		if err := s.settleOffline(ctx, dbTx, order); err != nil {
 			return nil, fmt.Errorf("settle offline: %w", err)
 		}
 	}
@@ -188,7 +229,7 @@ func (s *OrderService) Create(ctx context.Context, order *models.Order, items []
 // settleOffline credits the tenant wallet for a cash/transfer sale.
 // Funds go to available_balance (not pending) since payment is already received.
 // Commission is deducted if tiers are configured.
-func (s *OrderService) settleOffline(ctx context.Context, order *models.Order) error {
+func (s *OrderService) settleOffline(ctx context.Context, dbTx db.DBTX, order *models.Order) error {
 	if s.walletSvc == nil {
 		return nil
 	}
@@ -198,7 +239,12 @@ func (s *OrderService) settleOffline(ctx context.Context, order *models.Order) e
 
 	var commission decimal.Decimal
 	if s.tenants != nil && s.tiers != nil {
-		tenant, err := s.tenants.GetByID(ctx, order.TenantID)
+		tenantRepo := s.tenants
+		if dbTx != nil {
+			tenantRepo = tenantRepo.WithTx(dbTx)
+		}
+
+		tenant, err := tenantRepo.GetByID(ctx, order.TenantID)
 		if err == nil {
 			tier, err := s.tiers.GetByID(ctx, tenant.TierID)
 			if err == nil && tier.CommissionRate.IsPositive() {
@@ -208,13 +254,25 @@ func (s *OrderService) settleOffline(ctx context.Context, order *models.Order) e
 	}
 
 	netAmount := amount.Sub(commission)
-	if _, err := s.walletSvc.CreditAvailable(ctx, order.TenantID, netAmount, &orderID); err != nil {
-		return fmt.Errorf("credit wallet: %w", err)
+	if dbTx != nil {
+		if _, err := s.walletSvc.CreditAvailableWithTx(ctx, dbTx, order.TenantID, netAmount, &orderID); err != nil {
+			return fmt.Errorf("credit wallet: %w", err)
+		}
+	} else {
+		if _, err := s.walletSvc.CreditAvailable(ctx, order.TenantID, netAmount, &orderID); err != nil {
+			return fmt.Errorf("credit wallet: %w", err)
+		}
 	}
 
 	if commission.IsPositive() {
-		if _, err := s.walletSvc.RecordCommission(ctx, order.TenantID, commission, &orderID); err != nil {
-			return fmt.Errorf("record commission: %w", err)
+		if dbTx != nil {
+			if _, err := s.walletSvc.RecordCommissionWithTx(ctx, dbTx, order.TenantID, commission, &orderID); err != nil {
+				return fmt.Errorf("record commission: %w", err)
+			}
+		} else {
+			if _, err := s.walletSvc.RecordCommission(ctx, order.TenantID, commission, &orderID); err != nil {
+				return fmt.Errorf("record commission: %w", err)
+			}
 		}
 	}
 

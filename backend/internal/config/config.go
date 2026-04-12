@@ -14,7 +14,8 @@ type Config struct {
 	DatabaseURL string
 	HMACSecret  string
 
-	SupabaseURL string
+	SupabaseURL  string
+	PublicAppURL string
 
 	PaystackSecretKey string
 
@@ -42,7 +43,8 @@ func Load() (*Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		HMACSecret:  os.Getenv("HMAC_SECRET"),
 
-		SupabaseURL: os.Getenv("SUPABASE_URL"),
+		SupabaseURL:  os.Getenv("SUPABASE_URL"),
+		PublicAppURL: strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")),
 
 		PaystackSecretKey: os.Getenv("PAYSTACK_SECRET_KEY"),
 

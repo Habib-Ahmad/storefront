@@ -61,6 +61,9 @@ func main() {
 	if cfg.PaystackSecretKey == "" {
 		log.Warn("PAYSTACK_SECRET_KEY is empty — payment webhooks will fail")
 	}
+	if cfg.PublicAppURL == "" {
+		log.Warn("PUBLIC_APP_URL is empty — public Paystack callbacks will not return to order confirmation")
+	}
 	if cfg.TerminalAfricaAPIKey == "" {
 		log.Warn("TERMINAL_AFRICA_API_KEY is empty — shipping features will fail")
 	}
@@ -71,6 +74,7 @@ func main() {
 	productSvc := service.NewProductService(productRepo)
 	storefrontSvc := service.NewStorefrontService(tenantRepo, productRepo)
 	orderSvc := service.NewOrderService(orderRepo, productRepo)
+	orderSvc.SetPool(pool)
 	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, cfg.HMACSecret)
 	walletSvc.SetTierRepo(tierRepo)
 	walletSvc.SetAuditLogRepo(auditLogRepo)
@@ -90,7 +94,7 @@ func main() {
 	userSvc := service.NewUserService(userRepo)
 	userH := handler.NewUserHandler(userSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
-	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, shipmentSvc, log)
+	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, shipmentSvc, cfg.PublicAppURL, log)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 	analyticsRepo := repository.NewAnalyticsRepository(pool)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, log)

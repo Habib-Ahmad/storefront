@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -18,7 +19,8 @@ import (
 
 // paymentInitiator is satisfied by *service.PaymentService.
 type paymentInitiator interface {
-	InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode string) (string, error)
+	InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode, callbackURL string) (string, error)
+	HandleChargeFailed(ctx context.Context, reference string) error
 }
 
 // dispatcher is satisfied by *service.ShipmentService.
@@ -49,6 +51,7 @@ type publicOrderCreateRequest struct {
 	CustomerName    *string                  `json:"customer_name"`
 	CustomerPhone   string                   `json:"customer_phone" validate:"required"`
 	CustomerEmail   *string                  `json:"customer_email" validate:"omitempty,email"`
+	CheckoutID      string                   `json:"checkout_id" validate:"required,uuid"`
 	ShippingAddress *string                  `json:"shipping_address"`
 	Note            *string                  `json:"note"`
 	Items           []orderCreateItemRequest `json:"items" validate:"required,min=1,dive"`
@@ -60,14 +63,15 @@ type orderCreateResp struct {
 }
 
 type OrderHandler struct {
-	svc         *service.OrderService
-	paymentSvc  paymentInitiator
-	shipmentSvc dispatcher
-	log         *slog.Logger
+	svc          *service.OrderService
+	paymentSvc   paymentInitiator
+	shipmentSvc  dispatcher
+	publicAppURL string
+	log          *slog.Logger
 }
 
-func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, shipmentSvc dispatcher, log *slog.Logger) *OrderHandler {
-	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, shipmentSvc: shipmentSvc, log: log}
+func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, shipmentSvc dispatcher, publicAppURL string, log *slog.Logger) *OrderHandler {
+	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, shipmentSvc: shipmentSvc, publicAppURL: publicAppURL, log: log}
 }
 
 func buildOrderItems(w http.ResponseWriter, itemsReq []orderCreateItemRequest) ([]models.OrderItem, bool) {
@@ -98,6 +102,36 @@ func normalizeOptionalString(value *string) *string {
 	return &trimmed
 }
 
+func paymentEmail(customerEmail *string) string {
+	if customerEmail == nil {
+		return "guest@storefront.ng"
+	}
+	trimmed := strings.TrimSpace(*customerEmail)
+	if trimmed == "" {
+		return "guest@storefront.ng"
+	}
+	return trimmed
+}
+
+func buildPublicPaymentCallbackURL(baseURL, trackingSlug string) string {
+	trimmed := strings.TrimSpace(baseURL)
+	if trimmed == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+
+	basePath := strings.TrimRight(parsed.Path, "/")
+	parsed.Path = basePath + "/order/" + trackingSlug
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+
+	return parsed.String()
+}
+
 func buildMerchantOrder(req orderCreateRequest, tenantID uuid.UUID) *models.Order {
 	paymentMethod := models.PaymentMethodOnline
 	if req.PaymentMethod != "" {
@@ -124,18 +158,19 @@ func buildMerchantOrder(req orderCreateRequest, tenantID uuid.UUID) *models.Orde
 	}
 }
 
-func buildPublicOrder(req publicOrderCreateRequest) *models.Order {
+func buildPublicOrder(req publicOrderCreateRequest, checkoutID uuid.UUID) *models.Order {
 	customerPhone := strings.TrimSpace(req.CustomerPhone)
 
 	return &models.Order{
-		IsDelivery:      req.IsDelivery,
-		PaymentMethod:   models.PaymentMethodOnline,
-		CustomerName:    normalizeOptionalString(req.CustomerName),
-		CustomerPhone:   &customerPhone,
-		CustomerEmail:   normalizeOptionalString(req.CustomerEmail),
-		ShippingAddress: normalizeOptionalString(req.ShippingAddress),
-		Note:            normalizeOptionalString(req.Note),
-		ShippingFee:     decimal.Zero,
+		IsDelivery:       req.IsDelivery,
+		PaymentMethod:    models.PaymentMethodOnline,
+		PublicCheckoutID: &checkoutID,
+		CustomerName:     normalizeOptionalString(req.CustomerName),
+		CustomerPhone:    &customerPhone,
+		CustomerEmail:    normalizeOptionalString(req.CustomerEmail),
+		ShippingAddress:  normalizeOptionalString(req.ShippingAddress),
+		Note:             normalizeOptionalString(req.Note),
+		ShippingFee:      decimal.Zero,
 	}
 }
 
@@ -199,19 +234,19 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var authURL string
-	if out.PaymentMethod == models.PaymentMethodOnline {
-		email := "guest@storefront.ng"
-		if req.CustomerEmail != nil && *req.CustomerEmail != "" {
-			email = *req.CustomerEmail
-		}
+	if out.PaymentMethod == models.PaymentMethodOnline && h.paymentSvc != nil {
 		subaccount := ""
 		if tenant.PaystackSubaccountID != nil {
 			subaccount = *tenant.PaystackSubaccountID
 		}
-		authURL, err = h.paymentSvc.InitiatePayment(r.Context(), out, email, subaccount)
+		authURL, err = h.paymentSvc.InitiatePayment(r.Context(), out, paymentEmail(req.CustomerEmail), subaccount, "")
 		if err != nil {
 			h.log.Error("initiate payment", "order_id", out.ID, "error", err)
-			authURL = ""
+			if failErr := h.paymentSvc.HandleChargeFailed(r.Context(), out.ID.String()); failErr != nil {
+				h.log.Error("rollback merchant payment init failure", "order_id", out.ID, "error", failErr)
+			}
+			respondErr(w, http.StatusBadGateway, "could not start payment")
+			return
 		}
 	}
 
@@ -234,21 +269,56 @@ func (h *OrderHandler) CreatePublic(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnprocessableEntity, "customer_phone is required")
 		return
 	}
+	checkoutID, err := uuid.Parse(req.CheckoutID)
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid checkout_id")
+		return
+	}
 
 	items, ok := buildOrderItems(w, req.Items)
 	if !ok {
 		return
 	}
 
-	tenant, order, err := h.svc.CreatePublic(r.Context(), slug, buildPublicOrder(req), items)
+	tenant, order, reusedExisting, err := h.svc.CreatePublic(r.Context(), slug, buildPublicOrder(req, checkoutID), items)
 	if err != nil {
 		handleErr(w, h.log, r, err)
 		return
 	}
 
-	respond(w, http.StatusCreated, models.PublicStorefrontCheckoutResponse{
-		Storefront: publicStorefrontFromTenant(tenant),
-		Order:      publicCheckoutOrderFromOrder(order),
+	var authURL string
+	if !reusedExisting && order.PaymentMethod == models.PaymentMethodOnline && h.paymentSvc != nil {
+		subaccount := ""
+		if tenant.PaystackSubaccountID != nil {
+			subaccount = *tenant.PaystackSubaccountID
+		}
+
+		authURL, err = h.paymentSvc.InitiatePayment(
+			r.Context(),
+			order,
+			paymentEmail(order.CustomerEmail),
+			subaccount,
+			buildPublicPaymentCallbackURL(h.publicAppURL, order.TrackingSlug),
+		)
+		if err != nil {
+			h.log.Error("initiate public payment", "order_id", order.ID, "error", err)
+			if failErr := h.paymentSvc.HandleChargeFailed(r.Context(), order.ID.String()); failErr != nil {
+				h.log.Error("rollback public payment init failure", "order_id", order.ID, "error", failErr)
+			}
+			respondErr(w, http.StatusBadGateway, "could not start payment")
+			return
+		}
+	}
+
+	status := http.StatusCreated
+	if reusedExisting {
+		status = http.StatusOK
+	}
+
+	respond(w, status, models.PublicStorefrontCheckoutResponse{
+		Storefront:       publicStorefrontFromTenant(tenant),
+		Order:            publicCheckoutOrderFromOrder(order),
+		AuthorizationURL: authURL,
 	})
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
 )
 
@@ -32,12 +33,20 @@ type ProductRepository interface {
 	ListImagesByProduct(ctx context.Context, productID uuid.UUID) ([]models.ProductImage, error)
 	UpdateImage(ctx context.Context, img *models.ProductImage) error
 	DeleteImage(ctx context.Context, id uuid.UUID) error
+	WithTx(tx db.DBTX) ProductRepository
 }
 
-type productRepo struct{ db *pgxpool.Pool }
+type productRepo struct {
+	db   db.DBTX
+	pool *pgxpool.Pool
+}
 
 func NewProductRepository(db *pgxpool.Pool) ProductRepository {
-	return &productRepo{db: db}
+	return &productRepo{db: db, pool: db}
+}
+
+func (r *productRepo) WithTx(tx db.DBTX) ProductRepository {
+	return &productRepo{db: tx, pool: r.pool}
 }
 
 func (r *productRepo) Create(ctx context.Context, p *models.Product) error {

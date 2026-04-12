@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"storefront/backend/internal/db"
 	"storefront/backend/internal/models"
@@ -178,6 +179,7 @@ func (m *mockProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error { re
 func (m *mockProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error {
 	return m.err
 }
+func (m *mockProductRepo) WithTx(_ db.DBTX) repository.ProductRepository { return m }
 
 // ── Order repo mock ───────────────────────────────────────────
 
@@ -203,6 +205,12 @@ func (m *mockOrderRepo) GetByIDInternal(_ context.Context, _ uuid.UUID) (*models
 }
 func (m *mockOrderRepo) GetByTrackingSlug(_ context.Context, _ string) (*models.Order, error) {
 	return m.order, m.err
+}
+func (m *mockOrderRepo) GetByPublicCheckoutID(_ context.Context, _ uuid.UUID, checkoutID uuid.UUID) (*models.Order, error) {
+	if m.order != nil && m.order.PublicCheckoutID != nil && *m.order.PublicCheckoutID == checkoutID && m.order.PaymentStatus != models.PaymentStatusFailed {
+		return m.order, nil
+	}
+	return nil, pgx.ErrNoRows
 }
 func (m *mockOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
 	return nil, m.err

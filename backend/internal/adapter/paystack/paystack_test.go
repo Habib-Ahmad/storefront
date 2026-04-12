@@ -6,6 +6,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,6 +28,20 @@ func TestInitializeTransaction(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if payload["callback_url"] != "https://storefront.test/track/ref_xyz" {
+			t.Fatalf("expected callback_url in request, got %v", payload["callback_url"])
+		}
+
 		json.NewEncoder(w).Encode(map[string]any{
 			"status":  true,
 			"message": "Authorization URL created",
@@ -40,9 +55,10 @@ func TestInitializeTransaction(t *testing.T) {
 
 	c := newTestClient(srv)
 	resp, err := c.InitializeTransaction(context.Background(), paystack.InitializeRequest{
-		Email:     "buyer@example.com",
-		Amount:    decimal.NewFromInt(5000),
-		Reference: "ref_xyz",
+		Email:       "buyer@example.com",
+		Amount:      decimal.NewFromInt(5000),
+		Reference:   "ref_xyz",
+		CallbackURL: "https://storefront.test/track/ref_xyz",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
