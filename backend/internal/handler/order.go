@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -60,6 +61,10 @@ type publicOrderCreateRequest struct {
 type orderCreateResp struct {
 	*models.Order
 	AuthorizationURL string `json:"authorization_url,omitempty"`
+}
+
+type paymentResumeResp struct {
+	AuthorizationURL string `json:"authorization_url"`
 }
 
 type OrderHandler struct {
@@ -130,6 +135,13 @@ func buildPublicPaymentCallbackURL(baseURL, trackingSlug string) string {
 	parsed.Fragment = ""
 
 	return parsed.String()
+}
+
+func paystackSubaccount(tenant *models.Tenant) string {
+	if tenant == nil || tenant.PaystackSubaccountID == nil {
+		return ""
+	}
+	return *tenant.PaystackSubaccountID
 }
 
 func buildMerchantOrder(req orderCreateRequest, tenantID uuid.UUID) *models.Order {
@@ -402,6 +414,45 @@ func (h *OrderHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, map[string]string{"status": "cancelled"})
 }
 
+// POST /orders/{id}/resume-payment
+func (h *OrderHandler) ResumePayment(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	order, err := h.svc.GetByID(r.Context(), tenant.ID, id)
+	if err != nil {
+		respondErr(w, http.StatusNotFound, "order not found")
+		return
+	}
+	if err := service.EnsurePaymentResumable(order); err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+	if h.paymentSvc == nil {
+		serverErr(w, h.log, r, errors.New("payment service not configured"))
+		return
+	}
+
+	authorizationURL, err := h.paymentSvc.InitiatePayment(
+		r.Context(),
+		order,
+		paymentEmail(order.CustomerEmail),
+		paystackSubaccount(tenant),
+		"",
+	)
+	if err != nil {
+		h.log.Error("resume merchant payment", "order_id", order.ID, "error", err)
+		respondErr(w, http.StatusBadGateway, "could not start payment")
+		return
+	}
+
+	respond(w, http.StatusOK, paymentResumeResp{AuthorizationURL: authorizationURL})
+}
+
 // GET /orders/{id}/items
 func (h *OrderHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
@@ -447,4 +498,48 @@ func (h *OrderHandler) Track(w http.ResponseWriter, r *http.Request) {
 		PaymentStatus:     order.PaymentStatus,
 		FulfillmentStatus: order.FulfillmentStatus,
 	})
+}
+
+// POST /track/{slug}/resume-payment — public, no auth
+func (h *OrderHandler) ResumePaymentPublic(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		respondErr(w, http.StatusBadRequest, "tracking slug required")
+		return
+	}
+
+	order, err := h.svc.GetByTrackingSlug(r.Context(), slug)
+	if err != nil {
+		respondErr(w, http.StatusNotFound, "order not found")
+		return
+	}
+	if err := service.EnsurePaymentResumable(order); err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+	if h.paymentSvc == nil {
+		serverErr(w, h.log, r, errors.New("payment service not configured"))
+		return
+	}
+
+	tenant, err := h.svc.GetTenantByID(r.Context(), order.TenantID)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+
+	authorizationURL, err := h.paymentSvc.InitiatePayment(
+		r.Context(),
+		order,
+		paymentEmail(order.CustomerEmail),
+		paystackSubaccount(tenant),
+		buildPublicPaymentCallbackURL(h.publicAppURL, order.TrackingSlug),
+	)
+	if err != nil {
+		h.log.Error("resume public payment", "order_id", order.ID, "error", err)
+		respondErr(w, http.StatusBadGateway, "could not start payment")
+		return
+	}
+
+	respond(w, http.StatusOK, paymentResumeResp{AuthorizationURL: authorizationURL})
 }

@@ -4,8 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2, LoaderCircle, MapPin, Phone } from "lucide-react";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
+import { PublicPendingOrderBanner } from "@/components/public-pending-order-banner";
+import {
+  getOrCreateCheckoutId,
+  productRecoveryKey,
+  rememberPendingOrder,
+} from "@/lib/public-checkout-recovery";
 import { PublicStorefrontError, createPublicStorefrontOrder } from "@/lib/public-storefront";
-import { createClientUUID } from "@/lib/utils";
 import type {
   PublicStorefrontCheckoutResponse,
   PublicStorefrontProductDetailResponse,
@@ -31,6 +36,7 @@ function formatExtendedCurrency(amount: number) {
 
 export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps) {
   const { storefront, product, variants, images } = detail;
+  const recoveryKey = productRecoveryKey(storefront.slug, product.id);
   const defaultVariant =
     variants.find((variant) => variant.id === initialVariantId) ??
     variants.find((variant) => variant.is_default) ??
@@ -45,7 +51,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<PublicStorefrontCheckoutResponse | null>(null);
-  const [checkoutId] = useState(() => createClientUUID());
+  const [checkoutId] = useState(() => getOrCreateCheckoutId(recoveryKey, storefront.slug));
 
   const selectedVariant = useMemo(
     () => variants.find((variant) => variant.id === selectedVariantId) ?? variants[0] ?? null,
@@ -89,8 +95,13 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
         note: note.trim() || null,
         items: [{ variant_id: selectedVariant.id, quantity: quantityValue }],
       });
+      rememberPendingOrder(recoveryKey, storefront.slug, response.order.tracking_slug);
       if (response.authorization_url) {
         window.location.href = response.authorization_url;
+        return;
+      }
+      if (response.order.payment_status === "pending") {
+        window.location.href = `/order/${response.order.tracking_slug}`;
         return;
       }
       setResult(response);
@@ -186,6 +197,10 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
             </Link>
             <PublicStorefrontActions slug={storefront.slug} />
           </div>
+        </div>
+
+        <div className="pt-6">
+          <PublicPendingOrderBanner storefrontSlug={storefront.slug} />
         </div>
 
         <div className="grid gap-8 py-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:gap-12 lg:py-12">

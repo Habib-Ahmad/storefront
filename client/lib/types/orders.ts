@@ -68,6 +68,10 @@ export const TrackingResponseSchema = z.object({
   fulfillment_status: FulfillmentStatusSchema,
 });
 
+export const ResumePaymentResponseSchema = z.object({
+  authorization_url: z.string().url(),
+});
+
 export const CreateOrderResponseSchema = OrderSchema.extend({
   authorization_url: z.string().optional(),
 });
@@ -107,6 +111,7 @@ export type Order = z.infer<typeof OrderSchema>;
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Shipment = z.infer<typeof ShipmentSchema>;
 export type TrackingResponse = z.infer<typeof TrackingResponseSchema>;
+export type ResumePaymentResponse = z.infer<typeof ResumePaymentResponseSchema>;
 export type CreateOrderItemRequest = z.infer<typeof CreateOrderItemRequestSchema>;
 export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
 export type CreateOrderResponse = z.infer<typeof CreateOrderResponseSchema>;

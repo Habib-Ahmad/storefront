@@ -219,6 +219,32 @@ func TestHandleChargeSuccess_AmountMismatch(t *testing.T) {
 	}
 }
 
+func TestHandleChargeSuccess_ReferenceMismatch(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	order := &models.Order{
+		ID:                orderID,
+		TenantID:          tenantID,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+		TotalAmount:       decimal.NewFromInt(5000),
+	}
+	ps := &mockPaystackClient{
+		verResp: &paystack.VerifyResponse{
+			Status:    "success",
+			Amount:    decimal.NewFromInt(5000),
+			Reference: uuid.New().String(),
+		},
+	}
+	svc := newPaymentSvc(ps, &mockOrderRepo{order: order}, &models.Wallet{ID: uuid.New(), TenantID: tenantID})
+
+	err := svc.HandleChargeSuccess(context.Background(), orderID.String())
+	if !errors.Is(err, service.ErrPaymentReferenceMismatch) {
+		t.Fatalf("expected ErrPaymentReferenceMismatch, got %v", err)
+	}
+}
+
 func TestHandleChargeFailed_CancelsAndRestocks(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()

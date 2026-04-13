@@ -6,6 +6,7 @@ const pushMock = vi.fn();
 const refreshMock = vi.fn();
 const mockUseParams = vi.fn();
 const mockCancelOrderMutate = vi.fn();
+const mockResumeOrderPaymentMutate = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -23,6 +24,7 @@ const mockUseOrder = vi.fn();
 const mockUseOrderItems = vi.fn();
 const mockUseCreateOrder = vi.fn();
 const mockUseCancelOrder = vi.fn();
+const mockUseResumeOrderPayment = vi.fn();
 const mockUseProducts = vi.fn();
 const mockUseVariants = vi.fn();
 
@@ -35,6 +37,7 @@ vi.mock("@/hooks/use-orders", () => ({
     isPending: false,
   }),
   useCancelOrder: () => mockUseCancelOrder(),
+  useResumeOrderPayment: () => mockUseResumeOrderPayment(),
 }));
 
 vi.mock("@/hooks/use-products", () => ({
@@ -71,6 +74,10 @@ beforeEach(() => {
   });
   mockUseCancelOrder.mockReturnValue({
     mutateAsync: mockCancelOrderMutate,
+    isPending: false,
+  });
+  mockUseResumeOrderPayment.mockReturnValue({
+    mutateAsync: mockResumeOrderPaymentMutate,
     isPending: false,
   });
 });
@@ -602,5 +609,50 @@ describe("OrderDetailPage", () => {
     expect(screen.getByText("Delivery details for this order.")).toBeInTheDocument();
     expect(screen.getByText("12 Allen Avenue, Ikeja")).toBeInTheDocument();
     expect(screen.getByText(/dispatch setup is not ready in this screen yet/i)).toBeInTheDocument();
+  });
+
+  it("shows continue payment for pending online orders", async () => {
+    mockUseOrder.mockReturnValue({
+      data: {
+        ...baseOrder,
+        is_delivery: true,
+        payment_method: "online",
+        payment_status: "pending",
+        fulfillment_status: "processing",
+        shipping_address: "12 Allen Avenue, Ikeja",
+        shipping_fee: "1500",
+      },
+      isLoading: false,
+    });
+    mockUseOrderItems.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    mockUseResumeOrderPayment.mockReturnValue({
+      mutateAsync: mockResumeOrderPaymentMutate,
+      isPending: false,
+    });
+    mockResumeOrderPaymentMutate.mockResolvedValue({
+      authorization_url: "https://paystack.test/resume",
+    });
+
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        href: "",
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    render(<OrderDetailPage />);
+
+    await userEvent.click(screen.getByRole("button", { name: /continue payment/i }));
+
+    await waitFor(() => {
+      expect(mockResumeOrderPaymentMutate).toHaveBeenCalledWith("order-1");
+    });
+
+    expect(window.location.href).toBe("https://paystack.test/resume");
   });
 });

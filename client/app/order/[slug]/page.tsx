@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowRight, CheckCircle2, CircleAlert, Clock3, PackageCheck } from "lucide-react";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
 import { ApiError, api } from "@/lib/api";
+import { OrderRecoverySync } from "./order-recovery-sync";
+import { ResumePaymentButton } from "./resume-payment-button";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -46,10 +48,17 @@ export default async function OrderSummaryPage({ params }: Props) {
 
   try {
     const tracking = await api.track(slug);
+    const canResumePayment =
+      tracking.payment_status === "pending" && tracking.fulfillment_status === "processing";
 
     return (
       <main className="min-h-screen bg-background text-foreground">
         <section className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+          <OrderRecoverySync
+            trackingSlug={tracking.tracking_slug}
+            paymentStatus={tracking.payment_status}
+            fulfillmentStatus={tracking.fulfillment_status}
+          />
           <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-4">
             <div className="text-sm text-muted-foreground">Order confirmation</div>
             <PublicStorefrontActions />
@@ -108,6 +117,7 @@ export default async function OrderSummaryPage({ params }: Props) {
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              {canResumePayment ? <ResumePaymentButton slug={tracking.tracking_slug} /> : null}
               <Link
                 href={`/track/${tracking.tracking_slug}`}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
+  Clock3,
   Mail,
   MapPin,
   MessageCircle,
@@ -14,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
+import { PublicPendingOrderBanner } from "@/components/public-pending-order-banner";
 import { addStorefrontCartItem } from "@/lib/storefront-cart";
 import type { PublicStorefrontProductDetailResponse } from "@/lib/types/public-storefront";
 import { formatCurrency } from "../../storefront-formatters";
@@ -110,6 +112,10 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
             Back to {storefront.name}
           </Link>
           <PublicStorefrontActions slug={storefront.slug} />
+        </div>
+
+        <div className="pt-6">
+          <PublicPendingOrderBanner storefrontSlug={storefront.slug} />
         </div>
 
         <div className="grid gap-10 py-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] lg:gap-14 lg:py-12">

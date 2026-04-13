@@ -32,6 +32,18 @@ export function useCancelOrder() {
   });
 }
 
+export function useResumeOrderPayment() {
+  return useMutation({
+    mutationFn: (id: string) => api.resumeOrderPayment(id),
+  });
+}
+
+export function useResumeTrackedOrderPayment() {
+  return useMutation({
+    mutationFn: (slug: string) => api.resumeTrackedOrderPayment(slug),
+  });
+}
+
 export function useDispatchOrder() {
   const qc = useQueryClient();
   return useMutation({

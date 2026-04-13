@@ -57,13 +57,7 @@ func main() {
 	paystackClient := paystack.New(cfg.PaystackSecretKey)
 	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
 
-	// Warn if adapter API keys are missing
-	if cfg.PaystackSecretKey == "" {
-		log.Warn("PAYSTACK_SECRET_KEY is empty — payment webhooks will fail")
-	}
-	if cfg.PublicAppURL == "" {
-		log.Warn("PUBLIC_APP_URL is empty — public Paystack callbacks will not return to order confirmation")
-	}
+	// Warn if non-core adapter API keys are missing
 	if cfg.TerminalAfricaAPIKey == "" {
 		log.Warn("TERMINAL_AFRICA_API_KEY is empty — shipping features will fail")
 	}

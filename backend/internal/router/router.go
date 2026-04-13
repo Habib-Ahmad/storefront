@@ -62,6 +62,7 @@ func New(
 	r.Get("/storefronts/{slug}/products/{id}", storefront.GetPublicProduct)
 	r.Post("/storefronts/{slug}/orders", order.CreatePublic)
 	r.Get("/track/{slug}", order.Track)
+	r.Post("/track/{slug}/resume-payment", order.ResumePaymentPublic)
 
 	// Authenticated but pre-tenant routes (user has no tenant yet)
 	r.Group(func(r chi.Router) {
@@ -101,6 +102,7 @@ func New(
 		r.Get("/orders/{id}", order.Get)
 		r.Get("/orders/{id}/items", order.ListItems)
 		r.Post("/orders/{id}/cancel", order.Cancel)
+		r.Post("/orders/{id}/resume-payment", order.ResumePayment)
 		r.Post("/orders/{id}/dispatch", order.Dispatch)
 
 		r.Get("/wallet", wallet.GetBalance)

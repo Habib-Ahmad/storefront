@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { useCancelOrder, useOrder, useOrderItems } from "@/hooks/use-orders";
+import { useCancelOrder, useOrder, useOrderItems, useResumeOrderPayment } from "@/hooks/use-orders";
 import { ApiError } from "@/lib/api";
 import { OrderCancelDialog } from "./order-cancel-dialog";
 import {
@@ -23,6 +23,7 @@ export default function OrderDetailPage() {
   const { data: order, isLoading: orderLoading } = useOrder(id);
   const { data: items, isLoading: itemsLoading } = useOrderItems(id);
   const cancelOrder = useCancelOrder();
+  const resumeOrderPayment = useResumeOrderPayment();
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -69,9 +70,23 @@ export default function OrderDetailPage() {
       <ActionCard
         order={order}
         actionError={actionError}
+        isResumingPayment={resumeOrderPayment.isPending}
         onCancel={() => {
           setActionError(null);
           setCancelDialogOpen(true);
+        }}
+        onResumePayment={async () => {
+          try {
+            setActionError(null);
+            const response = await resumeOrderPayment.mutateAsync(order.id);
+            window.location.href = response.authorization_url;
+          } catch (err) {
+            if (err instanceof ApiError) {
+              setActionError(err.message);
+            } else {
+              setActionError("Unable to continue payment");
+            }
+          }
         }}
       />
 

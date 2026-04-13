@@ -18,11 +18,12 @@ import (
 )
 
 var (
-	ErrDeliveryFieldsMissing = apperr.Unprocessable("customer_phone and shipping_address are required for delivery orders")
-	ErrOrderNotFound         = apperr.NotFound("order not found")
-	ErrProductUnavailable    = apperr.Unprocessable("product is not available")
-	ErrOrderNotCancellable   = apperr.Conflict("only processing orders can be cancelled")
-	ErrCheckoutUnavailable   = apperr.Forbidden("checkout unavailable")
+	ErrDeliveryFieldsMissing    = apperr.Unprocessable("customer_phone and shipping_address are required for delivery orders")
+	ErrOrderNotFound            = apperr.NotFound("order not found")
+	ErrProductUnavailable       = apperr.Unprocessable("product is not available")
+	ErrOrderNotCancellable      = apperr.Conflict("only processing orders can be cancelled")
+	ErrCheckoutUnavailable      = apperr.Forbidden("checkout unavailable")
+	ErrPaymentResumeUnavailable = apperr.Conflict("only pending online orders can resume payment")
 )
 
 // generateTrackingSlug returns a 12-character lowercase hex string (48 bits of entropy).
@@ -298,6 +299,29 @@ func (s *OrderService) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*mo
 
 func (s *OrderService) GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error) {
 	return s.orders.GetByTrackingSlug(ctx, slug)
+}
+
+func (s *OrderService) GetTenantByID(ctx context.Context, tenantID uuid.UUID) (*models.Tenant, error) {
+	if s.tenants == nil {
+		return nil, fmt.Errorf("tenant repository not configured")
+	}
+	return s.tenants.GetByID(ctx, tenantID)
+}
+
+func EnsurePaymentResumable(order *models.Order) error {
+	if order == nil {
+		return ErrOrderNotFound
+	}
+	if order.PaymentMethod != models.PaymentMethodOnline {
+		return ErrPaymentResumeUnavailable
+	}
+	if order.PaymentStatus != models.PaymentStatusPending {
+		return ErrPaymentResumeUnavailable
+	}
+	if order.FulfillmentStatus != models.FulfillmentStatusProcessing {
+		return ErrPaymentResumeUnavailable
+	}
+	return nil
 }
 
 func (s *OrderService) List(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error) {

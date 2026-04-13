@@ -1,4 +1,5 @@
 import {
+  ArrowSquareOutIcon,
   CurrencyNgnIcon,
   EnvelopeSimpleIcon,
   MapPinIcon,
@@ -231,13 +232,21 @@ export function ItemsCard({ items, order }: { items: OrderItem[]; order: Order }
 export function ActionCard({
   order,
   onCancel,
+  onResumePayment,
   actionError,
+  isResumingPayment,
 }: {
   order: Order;
   onCancel: () => void;
+  onResumePayment: () => void;
   actionError: string | null;
+  isResumingPayment: boolean;
 }) {
   const canCancel = order.fulfillment_status === "processing";
+  const canResumePayment =
+    order.payment_method === "online" &&
+    order.payment_status === "pending" &&
+    order.fulfillment_status === "processing";
 
   const helperText = (() => {
     if (!order.is_delivery) {
@@ -294,8 +303,19 @@ export function ActionCard({
         </p>
       )}
 
-      {canCancel ? (
+      {canCancel || canResumePayment ? (
         <div className="flex flex-wrap gap-3">
+          {canResumePayment ? (
+            <Button
+              type="button"
+              onClick={onResumePayment}
+              className="gap-2"
+              disabled={isResumingPayment}
+            >
+              <ArrowSquareOutIcon className="size-4" />
+              {isResumingPayment ? "Opening payment..." : "Continue payment"}
+            </Button>
+          ) : null}
           <Button type="button" variant="destructive" onClick={onCancel} className="gap-2">
             <XCircleIcon className="size-4" />
             Cancel order

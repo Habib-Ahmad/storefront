@@ -442,6 +442,105 @@ func TestCreateOrder_InitPaymentFailureReturnsError(t *testing.T) {
 	}
 }
 
+func TestResumePayment_Valid(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	subaccount := "SUB_merchant"
+	payment := &stubPaymentInitiator{authorizationURL: "https://paystack.com/pay/resume"}
+	svc := service.NewOrderService(&stubOrderRepo{order: &models.Order{
+		ID:                orderID,
+		TenantID:          tenantID,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+	}}, &stubProductRepoForOrder{})
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "", slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/orders/"+orderID.String()+"/resume-payment", nil)
+	req = withURLParam(req, "id", orderID.String())
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID, PaystackSubaccountID: &subaccount}))
+	rec := httptest.NewRecorder()
+
+	h.ResumePayment(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		AuthorizationURL string `json:"authorization_url"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.AuthorizationURL != "https://paystack.com/pay/resume" {
+		t.Fatalf("unexpected authorization URL: %s", resp.AuthorizationURL)
+	}
+	if payment.customerEmail != "guest@storefront.ng" {
+		t.Fatalf("expected guest email fallback, got %s", payment.customerEmail)
+	}
+	if payment.subaccountCode != subaccount {
+		t.Fatalf("expected subaccount %s, got %s", subaccount, payment.subaccountCode)
+	}
+	if payment.callbackURL != "" {
+		t.Fatalf("merchant resume should not set callback URL, got %s", payment.callbackURL)
+	}
+}
+
+func TestResumePaymentPublic_Valid(t *testing.T) {
+	tenantID := uuid.New()
+	payment := &stubPaymentInitiator{authorizationURL: "https://paystack.com/pay/public-resume"}
+	subaccount := "SUB_public"
+	trackingSlug := "abc123def456"
+	svc := service.NewOrderService(&stubOrderRepo{order: &models.Order{
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		TrackingSlug:      trackingSlug,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+	}}, &stubProductRepoForOrder{})
+	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: &models.Tenant{ID: tenantID, PaystackSubaccountID: &subaccount}})
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/resume-payment", nil)
+	req = withURLParam(req, "slug", trackingSlug)
+	rec := httptest.NewRecorder()
+
+	h.ResumePaymentPublic(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if payment.callbackURL != "https://storefront.test/order/"+trackingSlug {
+		t.Fatalf("unexpected callback URL: %s", payment.callbackURL)
+	}
+	if payment.subaccountCode != subaccount {
+		t.Fatalf("expected subaccount %s, got %s", subaccount, payment.subaccountCode)
+	}
+}
+
+func TestResumePayment_RejectsCancelledOrder(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	payment := &stubPaymentInitiator{}
+	svc := service.NewOrderService(&stubOrderRepo{order: &models.Order{
+		ID:                orderID,
+		TenantID:          tenantID,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusFailed,
+		FulfillmentStatus: models.FulfillmentStatusCancelled,
+	}}, &stubProductRepoForOrder{})
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "", slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/orders/"+orderID.String()+"/resume-payment", nil)
+	req = withURLParam(req, "id", orderID.String())
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID}))
+	rec := httptest.NewRecorder()
+
+	h.ResumePayment(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestCreatePublicOrder_InitPaymentFailureReturnsError(t *testing.T) {
 	variantID := uuid.New()
 	payment := &stubPaymentInitiator{initErr: errors.New("paystack unavailable")}

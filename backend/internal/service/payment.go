@@ -16,6 +16,7 @@ import (
 
 var ErrPaymentVerificationFailed = apperr.New(http.StatusBadGateway, "payment verification failed")
 var ErrPaymentAmountMismatch = apperr.New(http.StatusConflict, "payment amount does not match order total")
+var ErrPaymentReferenceMismatch = apperr.New(http.StatusConflict, "payment reference does not match order")
 
 // PaystackClient is the subset of paystack.Client used by PaymentService.
 type PaystackClient interface {
@@ -75,6 +76,9 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 	}
 	if resp.Status != "success" {
 		return ErrPaymentVerificationFailed
+	}
+	if resp.Reference != reference {
+		return ErrPaymentReferenceMismatch
 	}
 
 	orderID, err := uuid.Parse(reference)

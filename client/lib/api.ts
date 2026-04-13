@@ -14,6 +14,7 @@ import type {
   ProductDetailResponse,
   ProductImage,
   ProductVariant,
+  ResumePaymentResponse,
   SetModulesRequest,
   Shipment,
   Tenant,
@@ -38,6 +39,7 @@ import {
   ProductSchema,
   AnalyticsSummarySchema,
   ProductVariantSchema,
+  ResumePaymentResponseSchema,
   TenantSchema,
   TierSchema,
   TrackingResponseSchema,
@@ -165,6 +167,11 @@ class ApiClient {
       await this.request<unknown>("GET", `/track/${encodeURIComponent(slug)}`),
     );
 
+  resumeTrackedOrderPayment = async (slug: string): Promise<ResumePaymentResponse> =>
+    ResumePaymentResponseSchema.parse(
+      await this.request<unknown>("POST", `/track/${encodeURIComponent(slug)}/resume-payment`),
+    );
+
   // Tenants
   onboard = async (data: OnboardRequest): Promise<Tenant> =>
     TenantSchema.parse(
@@ -256,6 +263,11 @@ class ApiClient {
     this.request<CreateOrderResponse>("POST", "/orders", data);
 
   cancelOrder = (id: string) => this.request<{ status: string }>("POST", `/orders/${id}/cancel`);
+
+  resumeOrderPayment = async (id: string): Promise<ResumePaymentResponse> =>
+    ResumePaymentResponseSchema.parse(
+      await this.request<unknown>("POST", `/orders/${id}/resume-payment`),
+    );
 
   dispatchOrder = (id: string, data: unknown) =>
     this.request<Shipment>("POST", `/orders/${id}/dispatch`, data);

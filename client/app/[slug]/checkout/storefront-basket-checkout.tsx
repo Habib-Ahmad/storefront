@@ -14,14 +14,19 @@ import {
 } from "lucide-react";
 import { PublicStorefrontError, createPublicStorefrontOrder } from "@/lib/public-storefront";
 import {
+  basketRecoveryKey,
+  getOrCreateCheckoutId,
+  rememberPendingOrder,
+} from "@/lib/public-checkout-recovery";
+import {
   clearStorefrontCart,
   removeStorefrontCartItem,
   updateStorefrontCartItemQuantity,
   useStorefrontCart,
 } from "@/lib/storefront-cart";
 import type { PublicStorefrontCheckoutResponse } from "@/lib/types/public-storefront";
-import { createClientUUID } from "@/lib/utils";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
+import { PublicPendingOrderBanner } from "@/components/public-pending-order-banner";
 import { formatCurrency } from "../storefront-formatters";
 
 interface StorefrontBasketCheckoutProps {
@@ -29,6 +34,7 @@ interface StorefrontBasketCheckoutProps {
 }
 
 export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps) {
+  const recoveryKey = basketRecoveryKey(slug);
   const { items, isEmpty, subtotal } = useStorefrontCart(slug);
   const [customerPhone, setCustomerPhone] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
@@ -36,7 +42,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<PublicStorefrontCheckoutResponse | null>(null);
-  const [checkoutId] = useState(() => createClientUUID());
+  const [checkoutId] = useState(() => getOrCreateCheckoutId(recoveryKey, slug));
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,8 +76,13 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
         })),
       });
       clearStorefrontCart(slug);
+      rememberPendingOrder(recoveryKey, slug, response.order.tracking_slug);
       if (response.authorization_url) {
         window.location.href = response.authorization_url;
+        return;
+      }
+      if (response.order.payment_status === "pending") {
+        window.location.href = `/order/${response.order.tracking_slug}`;
         return;
       }
       setResult(response);
@@ -165,6 +176,10 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
             Back to store
           </Link>
           <PublicStorefrontActions slug={slug} />
+        </div>
+
+        <div className="mt-6">
+          <PublicPendingOrderBanner storefrontSlug={slug} />
         </div>
 
         {isEmpty ? (

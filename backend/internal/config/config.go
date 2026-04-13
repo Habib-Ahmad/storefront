@@ -76,6 +76,12 @@ func Load() (*Config, error) {
 	if cfg.SupabaseURL == "" {
 		errs = append(errs, errors.New("SUPABASE_URL is required"))
 	}
+	if cfg.PaystackSecretKey == "" {
+		errs = append(errs, errors.New("PAYSTACK_SECRET_KEY is required"))
+	}
+	if cfg.PublicAppURL == "" {
+		errs = append(errs, errors.New("PUBLIC_APP_URL is required"))
+	}
 
 	return cfg, errors.Join(errs...)
 }
