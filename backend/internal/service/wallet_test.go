@@ -195,7 +195,7 @@ func TestDebit_ChainEntry(t *testing.T) {
 }
 
 func TestReleasePending_MovesBalance(t *testing.T) {
-	// Spec §7: PENDING_BALANCE moves to AVAILABLE_BALANCE only on Terminal Africa 'delivered' webhook.
+	// Spec §7: PENDING_BALANCE moves to AVAILABLE_BALANCE only after confirmed delivery.
 	tenantID := uuid.New()
 	w := &models.Wallet{
 		ID:               uuid.New(),

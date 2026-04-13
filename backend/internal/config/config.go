@@ -20,9 +20,7 @@ type Config struct {
 	PendingOrderTTL time.Duration
 
 	PaystackSecretKey string
-
-	TerminalAfricaAPIKey string
-	ShipbubbleAPIKey     string
+	ShipbubbleAPIKey  string
 
 	R2AccountID  string
 	R2AccessKey  string
@@ -50,9 +48,7 @@ func Load() (*Config, error) {
 		PendingOrderTTL: getDurationEnv("PENDING_ORDER_TTL", 30*time.Minute),
 
 		PaystackSecretKey: os.Getenv("PAYSTACK_SECRET_KEY"),
-
-		TerminalAfricaAPIKey: os.Getenv("TERMINAL_AFRICA_API_KEY"),
-		ShipbubbleAPIKey:     os.Getenv("SHIPBUBBLE_API_KEY"),
+		ShipbubbleAPIKey:  os.Getenv("SHIPBUBBLE_API_KEY"),
 
 		R2AccountID:  os.Getenv("R2_ACCOUNT_ID"),
 		R2AccessKey:  os.Getenv("R2_ACCESS_KEY"),

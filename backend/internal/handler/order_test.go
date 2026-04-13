@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"storefront/backend/internal/adapter/terminalaf"
 	"storefront/backend/internal/db"
 	"storefront/backend/internal/handler"
 	"storefront/backend/internal/models"
@@ -152,12 +151,6 @@ func (s *stubPaymentInitiator) HandleChargeFailed(_ context.Context, reference s
 	return nil
 }
 
-type stubDispatcher struct{}
-
-func (s *stubDispatcher) Dispatch(_ context.Context, _, _ uuid.UUID, _ terminalaf.BookRequest) (*models.Shipment, error) {
-	return &models.Shipment{ID: uuid.New()}, nil
-}
-
 type stubDeliveryQuoter struct {
 	shippingFee          decimal.Decimal
 	err                  error
@@ -218,7 +211,7 @@ func newOrderHandler(variant *models.ProductVariant) *handler.OrderHandler {
 
 func newOrderHandlerWithPayment(variant *models.ProductVariant, payment *stubPaymentInitiator) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
-	return handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "", slog.Default())
+	return handler.NewOrderHandler(svc, payment, "", slog.Default())
 }
 
 func newPublicOrderHandler(tenant *models.Tenant, variant *models.ProductVariant) *handler.OrderHandler {
@@ -228,7 +221,7 @@ func newPublicOrderHandler(tenant *models.Tenant, variant *models.ProductVariant
 func newPublicOrderHandlerWithPayment(tenant *models.Tenant, variant *models.ProductVariant, payment *stubPaymentInitiator) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
 	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: tenant})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "https://storefront.test", slog.Default())
 	h.SetDeliveryQuoteService(&stubDeliveryQuoter{shippingFee: decimal.NewFromInt(1500)})
 	return h
 }
@@ -236,7 +229,7 @@ func newPublicOrderHandlerWithPayment(tenant *models.Tenant, variant *models.Pro
 func newPublicOrderHandlerWithServices(tenant *models.Tenant, variant *models.ProductVariant, payment *stubPaymentInitiator, quoter *stubDeliveryQuoter) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
 	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: tenant})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "https://storefront.test", slog.Default())
 	h.SetDeliveryQuoteService(quoter)
 	return h
 }
@@ -594,7 +587,7 @@ func TestResumePayment_Valid(t *testing.T) {
 		PaymentStatus:     models.PaymentStatusPending,
 		FulfillmentStatus: models.FulfillmentStatusProcessing,
 	}}, &stubProductRepoForOrder{})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "", slog.Default())
 	req := httptest.NewRequest(http.MethodPost, "/orders/"+orderID.String()+"/resume-payment", nil)
 	req = withURLParam(req, "id", orderID.String())
 	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID, PaystackSubaccountID: &subaccount}))
@@ -639,7 +632,7 @@ func TestResumePaymentPublic_Valid(t *testing.T) {
 		FulfillmentStatus: models.FulfillmentStatusProcessing,
 	}}, &stubProductRepoForOrder{})
 	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: &models.Tenant{ID: tenantID, PaystackSubaccountID: &subaccount}})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "https://storefront.test", slog.Default())
 	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/resume-payment", nil)
 	req = withURLParam(req, "slug", trackingSlug)
 	rec := httptest.NewRecorder()
@@ -670,7 +663,7 @@ func TestConfirmPaymentPublic_Valid(t *testing.T) {
 		PaymentStatus:     models.PaymentStatusPending,
 		FulfillmentStatus: models.FulfillmentStatusProcessing,
 	}}, &stubProductRepoForOrder{})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "https://storefront.test", slog.Default())
 	body, _ := json.Marshal(map[string]any{"reference": orderID.String()})
 	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/confirm-payment", bytes.NewReader(body))
 	req = withURLParam(req, "slug", trackingSlug)
@@ -698,7 +691,7 @@ func TestConfirmPaymentPublic_RejectsMismatchedReference(t *testing.T) {
 		PaymentStatus:     models.PaymentStatusPending,
 		FulfillmentStatus: models.FulfillmentStatusProcessing,
 	}}, &stubProductRepoForOrder{})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "https://storefront.test", slog.Default())
 	body, _ := json.Marshal(map[string]any{"reference": uuid.New().String()})
 	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/confirm-payment", bytes.NewReader(body))
 	req = withURLParam(req, "slug", trackingSlug)
@@ -722,7 +715,7 @@ func TestResumePayment_RejectsCancelledOrder(t *testing.T) {
 		PaymentStatus:     models.PaymentStatusFailed,
 		FulfillmentStatus: models.FulfillmentStatusCancelled,
 	}}, &stubProductRepoForOrder{})
-	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, "", slog.Default())
 	req := httptest.NewRequest(http.MethodPost, "/orders/"+orderID.String()+"/resume-payment", nil)
 	req = withURLParam(req, "id", orderID.String())
 	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID}))

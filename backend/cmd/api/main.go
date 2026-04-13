@@ -12,7 +12,6 @@ import (
 
 	"storefront/backend/internal/adapter/paystack"
 	"storefront/backend/internal/adapter/shipbubble"
-	"storefront/backend/internal/adapter/terminalaf"
 	"storefront/backend/internal/config"
 	"storefront/backend/internal/db"
 	handler "storefront/backend/internal/handler"
@@ -51,18 +50,13 @@ func main() {
 	txRepo := repository.NewTransactionRepository(pool)
 	productRepo := repository.NewProductRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
-	shipmentRepo := repository.NewShipmentRepository(pool)
 	auditLogRepo := repository.NewAuditLogRepository(pool)
 
 	// External adapter clients
 	paystackClient := paystack.New(cfg.PaystackSecretKey)
-	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
 	shipbubbleClient := shipbubble.New(cfg.ShipbubbleAPIKey)
 
 	// Warn if non-core adapter API keys are missing
-	if cfg.TerminalAfricaAPIKey == "" {
-		log.Warn("TERMINAL_AFRICA_API_KEY is empty — shipping features will fail")
-	}
 	if cfg.ShipbubbleAPIKey == "" {
 		log.Warn("SHIPBUBBLE_API_KEY is empty — delivery quote features will fail")
 	}
@@ -86,7 +80,6 @@ func main() {
 	orderSvc.SetTierRepo(tierRepo)
 	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, productRepo, walletSvc)
 	paymentSvc.SetPool(pool)
-	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
 	deliveryQuoteSvc := service.NewDeliveryQuoteService(storefrontSvc, productRepo, shipbubbleClient)
 
 	// Handlers
@@ -97,12 +90,12 @@ func main() {
 	userSvc := service.NewUserService(userRepo)
 	userH := handler.NewUserHandler(userSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
-	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, shipmentSvc, cfg.PublicAppURL, log)
+	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, cfg.PublicAppURL, log)
 	orderH.SetDeliveryQuoteService(deliveryQuoteSvc)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 	analyticsRepo := repository.NewAnalyticsRepository(pool)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, log)
-	webhookH := handler.NewWebhookHandler(paystackClient, terminalClient, paymentSvc, shipmentSvc, log)
+	webhookH := handler.NewWebhookHandler(paystackClient, paymentSvc, log)
 	mediaH := handler.NewMediaHandler(cfg.CloudflareAccountID, cfg.CloudflareAPIToken, log)
 
 	// Ensure audit log partitions exist on startup (fresh deploy safety).
