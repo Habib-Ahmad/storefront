@@ -21,12 +21,18 @@ import (
 // paymentInitiator is satisfied by *service.PaymentService.
 type paymentInitiator interface {
 	InitiatePayment(ctx context.Context, order *models.Order, customerEmail, subaccountCode, callbackURL string) (string, error)
+	HandleChargeSuccess(ctx context.Context, reference string) error
 	HandleChargeFailed(ctx context.Context, reference string) error
 }
 
 // dispatcher is satisfied by *service.ShipmentService.
 type dispatcher interface {
 	Dispatch(ctx context.Context, orderID, tenantID uuid.UUID, req terminalaf.BookRequest) (*models.Shipment, error)
+}
+
+type publicDeliveryQuoter interface {
+	QuotePublic(ctx context.Context, slug string, req models.PublicStorefrontDeliveryQuoteRequest) (*models.PublicStorefrontDeliveryQuoteResponse, error)
+	ResolvePublicSelection(ctx context.Context, slug string, req models.PublicStorefrontDeliveryQuoteRequest, selection models.PublicStorefrontDeliveryQuoteSelection) (decimal.Decimal, error)
 }
 
 type orderCreateItemRequest struct {
@@ -48,14 +54,15 @@ type orderCreateRequest struct {
 }
 
 type publicOrderCreateRequest struct {
-	IsDelivery      bool                     `json:"is_delivery"`
-	CustomerName    *string                  `json:"customer_name"`
-	CustomerPhone   string                   `json:"customer_phone" validate:"required"`
-	CustomerEmail   *string                  `json:"customer_email" validate:"omitempty,email"`
-	CheckoutID      string                   `json:"checkout_id" validate:"required,uuid"`
-	ShippingAddress *string                  `json:"shipping_address"`
-	Note            *string                  `json:"note"`
-	Items           []orderCreateItemRequest `json:"items" validate:"required,min=1,dive"`
+	IsDelivery      bool                                           `json:"is_delivery"`
+	CustomerName    *string                                        `json:"customer_name"`
+	CustomerPhone   string                                         `json:"customer_phone" validate:"required"`
+	CustomerEmail   *string                                        `json:"customer_email" validate:"omitempty,email"`
+	CheckoutID      string                                         `json:"checkout_id" validate:"required,uuid"`
+	ShippingAddress *string                                        `json:"shipping_address"`
+	DeliveryOption  *models.PublicStorefrontDeliveryQuoteSelection `json:"delivery_option"`
+	Note            *string                                        `json:"note"`
+	Items           []orderCreateItemRequest                       `json:"items" validate:"required,min=1,dive"`
 }
 
 type orderCreateResp struct {
@@ -67,16 +74,28 @@ type paymentResumeResp struct {
 	AuthorizationURL string `json:"authorization_url"`
 }
 
+type trackingResp struct {
+	TrackingSlug      string                   `json:"tracking_slug"`
+	CustomerName      *string                  `json:"customer_name,omitempty"`
+	PaymentStatus     models.PaymentStatus     `json:"payment_status"`
+	FulfillmentStatus models.FulfillmentStatus `json:"fulfillment_status"`
+}
+
 type OrderHandler struct {
-	svc          *service.OrderService
-	paymentSvc   paymentInitiator
-	shipmentSvc  dispatcher
-	publicAppURL string
-	log          *slog.Logger
+	svc            *service.OrderService
+	paymentSvc     paymentInitiator
+	shipmentSvc    dispatcher
+	deliveryQuotes publicDeliveryQuoter
+	publicAppURL   string
+	log            *slog.Logger
 }
 
 func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, shipmentSvc dispatcher, publicAppURL string, log *slog.Logger) *OrderHandler {
 	return &OrderHandler{svc: svc, paymentSvc: paymentSvc, shipmentSvc: shipmentSvc, publicAppURL: publicAppURL, log: log}
+}
+
+func (h *OrderHandler) SetDeliveryQuoteService(svc publicDeliveryQuoter) {
+	h.deliveryQuotes = svc
 }
 
 func buildOrderItems(w http.ResponseWriter, itemsReq []orderCreateItemRequest) ([]models.OrderItem, bool) {
@@ -170,8 +189,54 @@ func buildMerchantOrder(req orderCreateRequest, tenantID uuid.UUID) *models.Orde
 	}
 }
 
-func buildPublicOrder(req publicOrderCreateRequest, checkoutID uuid.UUID) *models.Order {
+func buildPublicDeliveryQuoteRequest(req publicOrderCreateRequest) models.PublicStorefrontDeliveryQuoteRequest {
+	return models.PublicStorefrontDeliveryQuoteRequest{
+		CustomerName:         fallbackPublicCustomerName(req.CustomerName),
+		CustomerPhone:        strings.TrimSpace(req.CustomerPhone),
+		CustomerEmail:        normalizeOptionalString(req.CustomerEmail),
+		ShippingAddress:      strings.TrimSpace(derefOptionalString(req.ShippingAddress)),
+		DeliveryInstructions: normalizeOptionalString(req.Note),
+		Items:                buildPublicDeliveryQuoteItems(req.Items),
+	}
+}
+
+func buildPublicDeliveryQuoteItems(items []orderCreateItemRequest) []models.PublicStorefrontDeliveryQuoteRequestItem {
+	quoteItems := make([]models.PublicStorefrontDeliveryQuoteRequestItem, 0, len(items))
+	for _, item := range items {
+		variantID, err := uuid.Parse(item.VariantID)
+		if err != nil {
+			continue
+		}
+		quoteItems = append(quoteItems, models.PublicStorefrontDeliveryQuoteRequestItem{
+			VariantID: variantID,
+			Quantity:  item.Quantity,
+		})
+	}
+	return quoteItems
+}
+
+func derefOptionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func fallbackPublicCustomerName(value *string) string {
+	name := strings.TrimSpace(derefOptionalString(value))
+	if name == "" {
+		return "Guest customer"
+	}
+	return name
+}
+
+func buildPublicOrder(req publicOrderCreateRequest, checkoutID uuid.UUID, shippingFee decimal.Decimal) *models.Order {
 	customerPhone := strings.TrimSpace(req.CustomerPhone)
+	shippingAddress := normalizeOptionalString(req.ShippingAddress)
+	if !req.IsDelivery {
+		shippingAddress = nil
+		shippingFee = decimal.Zero
+	}
 
 	return &models.Order{
 		IsDelivery:       req.IsDelivery,
@@ -180,9 +245,9 @@ func buildPublicOrder(req publicOrderCreateRequest, checkoutID uuid.UUID) *model
 		CustomerName:     normalizeOptionalString(req.CustomerName),
 		CustomerPhone:    &customerPhone,
 		CustomerEmail:    normalizeOptionalString(req.CustomerEmail),
-		ShippingAddress:  normalizeOptionalString(req.ShippingAddress),
+		ShippingAddress:  shippingAddress,
 		Note:             normalizeOptionalString(req.Note),
-		ShippingFee:      decimal.Zero,
+		ShippingFee:      shippingFee,
 	}
 }
 
@@ -209,6 +274,15 @@ func publicCheckoutOrderFromOrder(order *models.Order) models.PublicStorefrontCh
 		TotalAmount:       order.TotalAmount,
 		ShippingFee:       order.ShippingFee,
 		PaymentMethod:     order.PaymentMethod,
+		PaymentStatus:     order.PaymentStatus,
+		FulfillmentStatus: order.FulfillmentStatus,
+	}
+}
+
+func trackingResponseFromOrder(order *models.Order) trackingResp {
+	return trackingResp{
+		TrackingSlug:      order.TrackingSlug,
+		CustomerName:      order.CustomerName,
 		PaymentStatus:     order.PaymentStatus,
 		FulfillmentStatus: order.FulfillmentStatus,
 	}
@@ -265,6 +339,32 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusCreated, orderCreateResp{Order: out, AuthorizationURL: authURL})
 }
 
+// POST /storefronts/{slug}/delivery-quotes
+func (h *OrderHandler) QuotePublicDelivery(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		respondErr(w, http.StatusBadRequest, "invalid storefront slug")
+		return
+	}
+	if h.deliveryQuotes == nil {
+		serverErr(w, h.log, r, errors.New("delivery quote service not configured"))
+		return
+	}
+
+	var req models.PublicStorefrontDeliveryQuoteRequest
+	if !decodeValid(w, r, &req) {
+		return
+	}
+
+	quotes, err := h.deliveryQuotes.QuotePublic(r.Context(), slug, req)
+	if err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+
+	respond(w, http.StatusOK, quotes)
+}
+
 // POST /storefronts/{slug}/orders
 func (h *OrderHandler) CreatePublic(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
@@ -281,6 +381,10 @@ func (h *OrderHandler) CreatePublic(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnprocessableEntity, "customer_phone is required")
 		return
 	}
+	if req.IsDelivery && strings.TrimSpace(derefOptionalString(req.ShippingAddress)) == "" {
+		respondErr(w, http.StatusUnprocessableEntity, "shipping_address is required for delivery orders")
+		return
+	}
 	checkoutID, err := uuid.Parse(req.CheckoutID)
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid checkout_id")
@@ -292,7 +396,24 @@ func (h *OrderHandler) CreatePublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenant, order, reusedExisting, err := h.svc.CreatePublic(r.Context(), slug, buildPublicOrder(req, checkoutID), items)
+	shippingFee := decimal.Zero
+	if req.IsDelivery {
+		if h.deliveryQuotes == nil {
+			serverErr(w, h.log, r, errors.New("delivery quote service not configured"))
+			return
+		}
+		if req.DeliveryOption == nil {
+			respondErr(w, http.StatusUnprocessableEntity, "delivery_option is required for delivery orders")
+			return
+		}
+		shippingFee, err = h.deliveryQuotes.ResolvePublicSelection(r.Context(), slug, buildPublicDeliveryQuoteRequest(req), *req.DeliveryOption)
+		if err != nil {
+			handleErr(w, h.log, r, err)
+			return
+		}
+	}
+
+	tenant, order, reusedExisting, err := h.svc.CreatePublic(r.Context(), slug, buildPublicOrder(req, checkoutID, shippingFee), items)
 	if err != nil {
 		handleErr(w, h.log, r, err)
 		return
@@ -485,19 +606,66 @@ func (h *OrderHandler) Track(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusNotFound, "order not found")
 		return
 	}
-	// Return only the fields a customer needs — no internal IDs or financial data.
-	type trackingResp struct {
-		TrackingSlug      string                   `json:"tracking_slug"`
-		CustomerName      *string                  `json:"customer_name,omitempty"`
-		PaymentStatus     models.PaymentStatus     `json:"payment_status"`
-		FulfillmentStatus models.FulfillmentStatus `json:"fulfillment_status"`
+	respond(w, http.StatusOK, trackingResponseFromOrder(order))
+}
+
+// POST /track/{slug}/confirm-payment — public, no auth
+func (h *OrderHandler) ConfirmPaymentPublic(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		respondErr(w, http.StatusBadRequest, "tracking slug required")
+		return
 	}
-	respond(w, http.StatusOK, trackingResp{
-		TrackingSlug:      order.TrackingSlug,
-		CustomerName:      order.CustomerName,
-		PaymentStatus:     order.PaymentStatus,
-		FulfillmentStatus: order.FulfillmentStatus,
-	})
+	if h.paymentSvc == nil {
+		serverErr(w, h.log, r, errors.New("payment service not configured"))
+		return
+	}
+
+	var req struct {
+		Reference string `json:"reference"`
+		Trxref    string `json:"trxref"`
+	}
+	if !decodeValid(w, r, &req) {
+		return
+	}
+	reference := strings.TrimSpace(req.Reference)
+	if reference == "" {
+		reference = strings.TrimSpace(req.Trxref)
+	}
+	if reference == "" {
+		respondErr(w, http.StatusBadRequest, "payment reference required")
+		return
+	}
+
+	order, err := h.svc.GetByTrackingSlug(r.Context(), slug)
+	if err != nil {
+		respondErr(w, http.StatusNotFound, "order not found")
+		return
+	}
+	if reference != order.ID.String() {
+		respondErr(w, http.StatusBadRequest, "invalid payment reference")
+		return
+	}
+
+	statusCode := http.StatusOK
+	if order.PaymentStatus == models.PaymentStatusPending {
+		if err := h.paymentSvc.HandleChargeSuccess(r.Context(), reference); err != nil {
+			if errors.Is(err, service.ErrPaymentVerificationFailed) {
+				statusCode = http.StatusAccepted
+			} else {
+				handleErr(w, h.log, r, err)
+				return
+			}
+		}
+	}
+
+	refreshed, err := h.svc.GetByTrackingSlug(r.Context(), slug)
+	if err != nil {
+		serverErr(w, h.log, r, err)
+		return
+	}
+
+	respond(w, statusCode, trackingResponseFromOrder(refreshed))
 }
 
 // POST /track/{slug}/resume-payment — public, no auth

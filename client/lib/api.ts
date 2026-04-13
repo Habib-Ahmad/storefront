@@ -44,6 +44,7 @@ import {
   TierSchema,
   TrackingResponseSchema,
   TransactionSchema,
+  UpdateTenantRequestSchema,
   UpdateStorefrontRequestSchema,
   UpdateUserRequestSchema,
   UserSchema,
@@ -167,6 +168,18 @@ class ApiClient {
       await this.request<unknown>("GET", `/track/${encodeURIComponent(slug)}`),
     );
 
+  confirmTrackedOrderPayment = async (
+    slug: string,
+    data: { reference?: string; trxref?: string },
+  ): Promise<TrackingResponse> =>
+    TrackingResponseSchema.parse(
+      await this.request<unknown>(
+        "POST",
+        `/track/${encodeURIComponent(slug)}/confirm-payment`,
+        data,
+      ),
+    );
+
   resumeTrackedOrderPayment = async (slug: string): Promise<ResumePaymentResponse> =>
     ResumePaymentResponseSchema.parse(
       await this.request<unknown>("POST", `/track/${encodeURIComponent(slug)}/resume-payment`),
@@ -178,7 +191,10 @@ class ApiClient {
       withStorefrontPublishedDefault(await this.request<unknown>("POST", "/tenants/onboard", data)),
     );
 
-  updateTenant = (data: UpdateTenantRequest) => this.request<void>("PUT", "/tenants/me", data);
+  updateTenant = async (data: UpdateTenantRequest): Promise<void> => {
+    UpdateTenantRequestSchema.parse(data);
+    await this.request<void>("PUT", "/tenants/me", data);
+  };
 
   updateStorefront = async (data: UpdateStorefrontRequest): Promise<void> => {
     UpdateStorefrontRequestSchema.parse(data);

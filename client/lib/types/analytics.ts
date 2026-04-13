@@ -1,12 +1,5 @@
-import { z } from "zod";
-import { FulfillmentStatusSchema, PaymentMethodSchema, PaymentStatusSchema } from "./orders";
-
-export const TrackingResponseSchema = z.object({
-  tracking_slug: z.string(),
-  customer_name: z.string().nullable(),
-  payment_status: PaymentStatusSchema,
-  fulfillment_status: FulfillmentStatusSchema,
-});
+import * as z from "zod";
+import { PaymentMethodSchema, TrackingResponseSchema } from "./orders";
 
 export const AnalyticsPaymentMethodBreakdownSchema = z.object({
   method: PaymentMethodSchema,

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { TierSchema, TenantSchema, UserSchema } from "./domain";
 
 // ── Account / settings request schemas ─────────────────

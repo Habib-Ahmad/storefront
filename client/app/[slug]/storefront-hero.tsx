@@ -1,4 +1,3 @@
-import { Mail, MapPin, Phone } from "lucide-react";
 import type { PublicStorefront } from "@/lib/types/public-storefront";
 import { getInitials } from "./storefront-formatters";
 
@@ -8,10 +7,6 @@ interface StorefrontHeroProps {
 }
 
 export function StorefrontHero({ storefront, productCount }: StorefrontHeroProps) {
-  const hasContactDetails = Boolean(
-    storefront.contact_phone || storefront.contact_email || storefront.address,
-  );
-
   return (
     <>
       <header className="flex items-center justify-between border-b border-border/60 pb-4">
@@ -52,8 +47,7 @@ export function StorefrontHero({ storefront, productCount }: StorefrontHeroProps
               {storefront.name}
             </h1>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Browse what is available now, then get in touch with the store for delivery, pickup,
-              or payment details.
+              Browse what is available now, then head straight to checkout for pickup or delivery.
             </p>
           </div>
 
@@ -68,37 +62,6 @@ export function StorefrontHero({ storefront, productCount }: StorefrontHeroProps
             </div>
             <p className="text-sm leading-6 text-muted-foreground">/{storefront.slug}</p>
           </div>
-
-          {hasContactDetails ? (
-            <div className="flex flex-col gap-3 border-b border-border/60 pb-5 sm:flex-row sm:flex-wrap sm:gap-4">
-              {storefront.contact_phone ? (
-                <a
-                  href={`tel:${storefront.contact_phone}`}
-                  className="inline-flex items-center gap-2 text-sm text-foreground transition-opacity hover:opacity-70"
-                >
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{storefront.contact_phone}</span>
-                </a>
-              ) : null}
-
-              {storefront.contact_email ? (
-                <a
-                  href={`mailto:${storefront.contact_email}`}
-                  className="inline-flex items-center gap-2 text-sm text-foreground transition-opacity hover:opacity-70"
-                >
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{storefront.contact_email}</span>
-                </a>
-              ) : null}
-
-              {storefront.address ? (
-                <div className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{storefront.address}</span>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </section>
     </>

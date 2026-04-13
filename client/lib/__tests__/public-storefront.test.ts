@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPublicStorefrontOrder,
+  getPublicStorefrontDeliveryQuotes,
   PublicStorefrontError,
   getPublicStorefront,
   getPublicStorefrontProduct,
@@ -154,6 +155,11 @@ describe("createPublicStorefrontOrder", () => {
         customer_phone: "08012345678",
         customer_email: "chidi@example.com",
         shipping_address: "23 Abuja",
+        delivery_option: {
+          courier_id: "123",
+          service_code: "bike",
+          service_type: "dropoff",
+        },
         note: "Please call on arrival",
         items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 2 }],
       }),
@@ -161,6 +167,69 @@ describe("createPublicStorefrontOrder", () => {
       storefront: { slug: "funke-fabrics" },
       order: { tracking_slug: "abc123def456", payment_status: "pending" },
       authorization_url: "https://paystack.test/authorize",
+    });
+  });
+
+  it("rejects delivery orders without a selected quote", async () => {
+    await expect(
+      createPublicStorefrontOrder("funke-fabrics", {
+        is_delivery: true,
+        checkout_id: "550e8400-e29b-41d4-a716-446655440099",
+        customer_phone: "08012345678",
+        shipping_address: "23 Abuja",
+        items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 2 }],
+      }),
+    ).rejects.toThrow("delivery_option is required for delivery orders");
+  });
+});
+
+describe("getPublicStorefrontDeliveryQuotes", () => {
+  it("parses delivery quote options", async () => {
+    vi.mocked(fetch).mockReturnValue(
+      ok({
+        storefront: {
+          name: "Funke Fabrics",
+          slug: "funke-fabrics",
+          logo_url: null,
+          contact_email: "hello@funkefabrics.com",
+          contact_phone: "+2348012345678",
+          address: "12 Allen Avenue, Ikeja",
+        },
+        options: [
+          {
+            id: "123:bike:dropoff",
+            courier_id: "123",
+            courier_name: "Kwik",
+            service_code: "bike",
+            service_type: "dropoff",
+            amount: "3500",
+            currency: "NGN",
+            delivery_eta: "same day",
+            tracking_level: 4,
+            is_fastest: true,
+            is_cheapest: false,
+          },
+        ],
+        debug: {
+          sender_address_code: 1,
+          receiver_address_code: 2,
+          category_id: 3,
+          category_name: "Fashion wears",
+          package_box: "small box",
+          estimated_weight_kg: "0.35",
+        },
+      }),
+    );
+
+    await expect(
+      getPublicStorefrontDeliveryQuotes("funke-fabrics", {
+        customer_name: "Chidi",
+        customer_phone: "08012345678",
+        shipping_address: "23 Abuja",
+        items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 1 }],
+      }),
+    ).resolves.toMatchObject({
+      options: [expect.objectContaining({ courier_name: "Kwik", amount: "3500" })],
     });
   });
 });

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { UUIDSchema } from "./domain";
 import { FulfillmentStatusSchema, PaymentMethodSchema, PaymentStatusSchema } from "./orders";
 
@@ -68,16 +68,88 @@ export const CreatePublicStorefrontOrderItemSchema = z.object({
   quantity: z.number().int().positive(),
 });
 
-export const CreatePublicStorefrontOrderRequestSchema = z.object({
-  is_delivery: z.boolean(),
-  checkout_id: UUIDSchema,
-  customer_name: z.string().min(1).nullable().optional(),
+export const PublicStorefrontDeliveryQuoteSelectionSchema = z.object({
+  courier_id: z.string().min(1),
+  service_code: z.string().min(1),
+  service_type: z.string().nullable().optional(),
+});
+
+export const CreatePublicStorefrontDeliveryQuoteRequestSchema = z.object({
+  customer_name: z.string().min(1),
   customer_phone: z.string().min(1),
   customer_email: z.string().email().nullable().optional(),
-  shipping_address: z.string().nullable().optional(),
-  note: z.string().nullable().optional(),
+  shipping_address: z.string().min(1),
+  delivery_instructions: z.string().nullable().optional(),
   items: z.array(CreatePublicStorefrontOrderItemSchema).min(1),
 });
+
+export const PublicStorefrontDeliveryQuoteOptionSchema = z.object({
+  id: z.string(),
+  courier_id: z.string(),
+  courier_name: z.string(),
+  service_code: z.string(),
+  service_type: z.string(),
+  amount: z.string(),
+  currency: z.string(),
+  pickup_eta: z.string().optional(),
+  delivery_eta: z.string().optional(),
+  tracking_label: z.string().optional(),
+  tracking_level: z.number().int(),
+  is_fastest: z.boolean(),
+  is_cheapest: z.boolean(),
+  provider_fields: z.unknown().optional(),
+});
+
+export const PublicStorefrontDeliveryQuoteDebugSchema = z.object({
+  sender_address_code: z.number().int(),
+  receiver_address_code: z.number().int(),
+  category_id: z.number().int(),
+  category_name: z.string(),
+  package_box: z.string(),
+  estimated_weight_kg: z.string(),
+  assumptions: z.array(z.string()).optional(),
+  raw_response: z.unknown().optional(),
+});
+
+export const PublicStorefrontDeliveryQuoteResponseSchema = z.object({
+  storefront: PublicStorefrontSchema,
+  options: z.array(PublicStorefrontDeliveryQuoteOptionSchema),
+  debug: PublicStorefrontDeliveryQuoteDebugSchema.optional(),
+});
+
+export const CreatePublicStorefrontOrderRequestSchema = z
+  .object({
+    is_delivery: z.boolean(),
+    checkout_id: UUIDSchema,
+    customer_name: z.string().min(1).nullable().optional(),
+    customer_phone: z.string().min(1),
+    customer_email: z.string().email().nullable().optional(),
+    shipping_address: z.string().nullable().optional(),
+    delivery_option: PublicStorefrontDeliveryQuoteSelectionSchema.nullable().optional(),
+    note: z.string().nullable().optional(),
+    items: z.array(CreatePublicStorefrontOrderItemSchema).min(1),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.is_delivery) {
+      return;
+    }
+
+    if (!value.shipping_address?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "shipping_address is required for delivery orders",
+        path: ["shipping_address"],
+      });
+    }
+
+    if (!value.delivery_option) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "delivery_option is required for delivery orders",
+        path: ["delivery_option"],
+      });
+    }
+  });
 
 export const PublicStorefrontCheckoutResponseSchema = z.object({
   storefront: PublicStorefrontSchema,
@@ -95,6 +167,18 @@ export type PublicStorefrontProductDetailResponse = z.infer<
 >;
 export type PublicStorefrontCheckoutOrder = z.infer<typeof PublicStorefrontCheckoutOrderSchema>;
 export type CreatePublicStorefrontOrderItem = z.infer<typeof CreatePublicStorefrontOrderItemSchema>;
+export type CreatePublicStorefrontDeliveryQuoteRequest = z.infer<
+  typeof CreatePublicStorefrontDeliveryQuoteRequestSchema
+>;
+export type PublicStorefrontDeliveryQuoteSelection = z.infer<
+  typeof PublicStorefrontDeliveryQuoteSelectionSchema
+>;
+export type PublicStorefrontDeliveryQuoteOption = z.infer<
+  typeof PublicStorefrontDeliveryQuoteOptionSchema
+>;
+export type PublicStorefrontDeliveryQuoteResponse = z.infer<
+  typeof PublicStorefrontDeliveryQuoteResponseSchema
+>;
 export type CreatePublicStorefrontOrderRequest = z.infer<
   typeof CreatePublicStorefrontOrderRequestSchema
 >;

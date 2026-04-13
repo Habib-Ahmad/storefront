@@ -3,17 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Clock3,
-  Mail,
-  MapPin,
-  MessageCircle,
-  Phone,
-  ShoppingCart,
-  Zap,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, ShoppingCart, Zap } from "lucide-react";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
 import { PublicPendingOrderBanner } from "@/components/public-pending-order-banner";
 import { addStorefrontCartItem } from "@/lib/storefront-cart";
@@ -30,11 +20,6 @@ function formatVariantLabel(attributes: Record<string, unknown>) {
     .filter(Boolean);
 
   return values.length > 0 ? values.join(" / ") : "Default option";
-}
-
-function toWhatsAppHref(phone: string) {
-  const normalized = phone.replace(/\D/g, "");
-  return normalized ? `https://wa.me/${normalized}` : null;
 }
 
 export function PublicProductDetail({ detail }: PublicProductDetailProps) {
@@ -60,7 +45,6 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
       })),
     [variants],
   );
-  const whatsappHref = storefront.contact_phone ? toWhatsAppHref(storefront.contact_phone) : null;
   const [showCartNotice, setShowCartNotice] = useState(false);
   const canCheckout = selectedVariant?.in_stock ?? product.in_stock;
 
@@ -288,46 +272,7 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
                     </div>
                   </div>
                 ) : null}
-
-                {storefront.contact_phone ? (
-                  <a
-                    href={`tel:${storefront.contact_phone}`}
-                    className="flex items-center justify-center gap-2 rounded-full border border-border/70 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground/20"
-                  >
-                    <Phone className="h-4 w-4" />
-                    Call the store
-                  </a>
-                ) : null}
-
-                {whatsappHref ? (
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-full border border-border/70 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground/20"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Message on WhatsApp
-                  </a>
-                ) : null}
-
-                {storefront.contact_email ? (
-                  <a
-                    href={`mailto:${storefront.contact_email}`}
-                    className="flex items-center justify-center gap-2 rounded-full border border-border/70 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-foreground/20"
-                  >
-                    <Mail className="h-4 w-4" />
-                    Email the store
-                  </a>
-                ) : null}
               </div>
-
-              {storefront.address ? (
-                <div className="mt-5 flex items-start gap-2 border-t border-border/60 pt-5 text-sm text-muted-foreground">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{storefront.address}</span>
-                </div>
-              ) : null}
             </div>
           </section>
         </div>

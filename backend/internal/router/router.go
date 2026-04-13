@@ -60,8 +60,10 @@ func New(
 	r.Get("/tiers", tier.List)
 	r.Get("/storefronts/{slug}", storefront.GetPublic)
 	r.Get("/storefronts/{slug}/products/{id}", storefront.GetPublicProduct)
+	r.Post("/storefronts/{slug}/delivery-quotes", order.QuotePublicDelivery)
 	r.Post("/storefronts/{slug}/orders", order.CreatePublic)
 	r.Get("/track/{slug}", order.Track)
+	r.Post("/track/{slug}/confirm-payment", order.ConfirmPaymentPublic)
 	r.Post("/track/{slug}/resume-payment", order.ResumePaymentPublic)
 
 	// Authenticated but pre-tenant routes (user has no tenant yet)

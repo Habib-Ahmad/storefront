@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { UUIDSchema, TimestampSchema } from "./domain";
 import { PaginationParamsSchema, createPaginatedResponseSchema } from "./common";
 

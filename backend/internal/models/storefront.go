@@ -53,6 +53,60 @@ type PublicStorefrontProductDetail struct {
 	Images     []PublicStorefrontProductImage   `json:"images"`
 }
 
+type PublicStorefrontDeliveryQuoteRequestItem struct {
+	VariantID uuid.UUID `json:"variant_id"`
+	Quantity  int       `json:"quantity"`
+}
+
+type PublicStorefrontDeliveryQuoteRequest struct {
+	CustomerName         string                                     `json:"customer_name"`
+	CustomerPhone        string                                     `json:"customer_phone"`
+	CustomerEmail        *string                                    `json:"customer_email,omitempty"`
+	ShippingAddress      string                                     `json:"shipping_address"`
+	DeliveryInstructions *string                                    `json:"delivery_instructions,omitempty"`
+	Items                []PublicStorefrontDeliveryQuoteRequestItem `json:"items"`
+}
+
+type PublicStorefrontDeliveryQuoteSelection struct {
+	CourierID   string `json:"courier_id"`
+	ServiceCode string `json:"service_code"`
+	ServiceType string `json:"service_type,omitempty"`
+}
+
+type PublicStorefrontDeliveryQuoteOption struct {
+	ID             string          `json:"id"`
+	CourierID      string          `json:"courier_id"`
+	CourierName    string          `json:"courier_name"`
+	ServiceCode    string          `json:"service_code"`
+	ServiceType    string          `json:"service_type"`
+	Amount         decimal.Decimal `json:"amount"`
+	Currency       string          `json:"currency"`
+	PickupETA      string          `json:"pickup_eta,omitempty"`
+	DeliveryETA    string          `json:"delivery_eta,omitempty"`
+	TrackingLabel  string          `json:"tracking_label,omitempty"`
+	TrackingLevel  int             `json:"tracking_level"`
+	IsFastest      bool            `json:"is_fastest"`
+	IsCheapest     bool            `json:"is_cheapest"`
+	ProviderFields json.RawMessage `json:"provider_fields,omitempty"`
+}
+
+type PublicStorefrontDeliveryQuoteDebug struct {
+	SenderAddressCode   int64           `json:"sender_address_code"`
+	ReceiverAddressCode int64           `json:"receiver_address_code"`
+	CategoryID          int64           `json:"category_id"`
+	CategoryName        string          `json:"category_name"`
+	PackageBox          string          `json:"package_box"`
+	EstimatedWeightKG   decimal.Decimal `json:"estimated_weight_kg"`
+	Assumptions         []string        `json:"assumptions,omitempty"`
+	RawResponse         json.RawMessage `json:"raw_response,omitempty"`
+}
+
+type PublicStorefrontDeliveryQuoteResponse struct {
+	Storefront PublicStorefront                      `json:"storefront"`
+	Options    []PublicStorefrontDeliveryQuoteOption `json:"options"`
+	Debug      *PublicStorefrontDeliveryQuoteDebug   `json:"debug,omitempty"`
+}
+
 type PublicStorefrontCheckoutOrder struct {
 	TrackingSlug      string            `json:"tracking_slug"`
 	IsDelivery        bool              `json:"is_delivery"`

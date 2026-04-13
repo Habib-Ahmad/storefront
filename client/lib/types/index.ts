@@ -67,12 +67,16 @@ export {
   PublicStorefrontSchema,
   PublicStorefrontProductSchema,
   PublicStorefrontResponseSchema,
+  CreatePublicStorefrontDeliveryQuoteRequestSchema,
+  PublicStorefrontDeliveryQuoteResponseSchema,
 } from "./public-storefront";
 
 export type {
   PublicStorefront,
   PublicStorefrontProduct,
   PublicStorefrontResponse,
+  CreatePublicStorefrontDeliveryQuoteRequest,
+  PublicStorefrontDeliveryQuoteResponse,
 } from "./public-storefront";
 
 export {
@@ -82,6 +86,7 @@ export {
   OrderSchema,
   OrderItemSchema,
   ShipmentSchema,
+  TrackingResponseSchema,
   ResumePaymentResponseSchema,
   CreateOrderItemRequestSchema,
   CreateOrderRequestSchema,
@@ -96,6 +101,7 @@ export type {
   Order,
   OrderItem,
   Shipment,
+  TrackingResponse,
   ResumePaymentResponse,
   CreateOrderItemRequest,
   CreateOrderRequest,
@@ -113,7 +119,6 @@ export {
 export type { TransactionType, Wallet, Transaction, PaginatedTransactionsResponse } from "./wallet";
 
 export {
-  TrackingResponseSchema,
   AnalyticsPaymentMethodBreakdownSchema,
   AnalyticsTopProductSchema,
   AnalyticsPeriodSchema,
@@ -121,7 +126,6 @@ export {
 } from "./analytics";
 
 export type {
-  TrackingResponse,
   AnalyticsPaymentMethodBreakdown,
   AnalyticsTopProduct,
   AnalyticsPeriod,

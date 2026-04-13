@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { ActiveModulesSchema, TenantSchema, UserRoleSchema } from "./domain";
 
 export {

@@ -1,9 +1,13 @@
 import {
+  CreatePublicStorefrontDeliveryQuoteRequestSchema,
   CreatePublicStorefrontOrderRequestSchema,
+  PublicStorefrontDeliveryQuoteResponseSchema,
   PublicStorefrontCheckoutResponseSchema,
   PublicStorefrontProductDetailResponseSchema,
   PublicStorefrontResponseSchema,
+  type CreatePublicStorefrontDeliveryQuoteRequest,
   type CreatePublicStorefrontOrderRequest,
+  type PublicStorefrontDeliveryQuoteResponse,
   type PublicStorefrontCheckoutResponse,
   type PublicStorefrontProductDetailResponse,
   type PublicStorefrontResponse,
@@ -78,4 +82,31 @@ export async function createPublicStorefrontOrder(
   }
 
   return PublicStorefrontCheckoutResponseSchema.parse(payload);
+}
+
+export async function getPublicStorefrontDeliveryQuotes(
+  slug: string,
+  data: CreatePublicStorefrontDeliveryQuoteRequest,
+): Promise<PublicStorefrontDeliveryQuoteResponse> {
+  const response = await fetch(
+    `${API_BASE}/storefronts/${encodeURIComponent(slug)}/delivery-quotes`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(CreatePublicStorefrontDeliveryQuoteRequestSchema.parse(data)),
+    },
+  );
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new PublicStorefrontError(
+      response.status,
+      payload.error ?? "Unable to load delivery options",
+    );
+  }
+
+  return PublicStorefrontDeliveryQuoteResponseSchema.parse(payload);
 }

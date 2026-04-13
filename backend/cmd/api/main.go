@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"storefront/backend/internal/adapter/paystack"
+	"storefront/backend/internal/adapter/shipbubble"
 	"storefront/backend/internal/adapter/terminalaf"
 	"storefront/backend/internal/config"
 	"storefront/backend/internal/db"
@@ -56,10 +57,14 @@ func main() {
 	// External adapter clients
 	paystackClient := paystack.New(cfg.PaystackSecretKey)
 	terminalClient := terminalaf.New(cfg.TerminalAfricaAPIKey)
+	shipbubbleClient := shipbubble.New(cfg.ShipbubbleAPIKey)
 
 	// Warn if non-core adapter API keys are missing
 	if cfg.TerminalAfricaAPIKey == "" {
 		log.Warn("TERMINAL_AFRICA_API_KEY is empty — shipping features will fail")
+	}
+	if cfg.ShipbubbleAPIKey == "" {
+		log.Warn("SHIPBUBBLE_API_KEY is empty — delivery quote features will fail")
 	}
 	if cfg.PendingOrderTTL <= 0 {
 		log.Warn("PENDING_ORDER_TTL disables stale pending-order cleanup")
@@ -82,6 +87,7 @@ func main() {
 	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, productRepo, walletSvc)
 	paymentSvc.SetPool(pool)
 	shipmentSvc := service.NewShipmentService(terminalClient, shipmentRepo, orderRepo, walletSvc)
+	deliveryQuoteSvc := service.NewDeliveryQuoteService(storefrontSvc, productRepo, shipbubbleClient)
 
 	// Handlers
 	authH := handler.NewAuthHandler(userRepo, tenantRepo, log)
@@ -92,6 +98,7 @@ func main() {
 	userH := handler.NewUserHandler(userSvc, log)
 	productH := handler.NewProductHandler(productSvc, log)
 	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, shipmentSvc, cfg.PublicAppURL, log)
+	orderH.SetDeliveryQuoteService(deliveryQuoteSvc)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 	analyticsRepo := repository.NewAnalyticsRepository(pool)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, log)

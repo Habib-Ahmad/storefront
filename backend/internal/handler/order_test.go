@@ -124,6 +124,8 @@ type stubPaymentInitiator struct {
 	subaccountCode   string
 	callbackURL      string
 	initErr          error
+	successErr       error
+	successReference string
 	failedReference  string
 }
 
@@ -140,6 +142,11 @@ func (s *stubPaymentInitiator) InitiatePayment(_ context.Context, _ *models.Orde
 	return "https://paystack.com/pay/stub", nil
 }
 
+func (s *stubPaymentInitiator) HandleChargeSuccess(_ context.Context, reference string) error {
+	s.successReference = reference
+	return s.successErr
+}
+
 func (s *stubPaymentInitiator) HandleChargeFailed(_ context.Context, reference string) error {
 	s.failedReference = reference
 	return nil
@@ -149,6 +156,44 @@ type stubDispatcher struct{}
 
 func (s *stubDispatcher) Dispatch(_ context.Context, _, _ uuid.UUID, _ terminalaf.BookRequest) (*models.Shipment, error) {
 	return &models.Shipment{ID: uuid.New()}, nil
+}
+
+type stubDeliveryQuoter struct {
+	shippingFee          decimal.Decimal
+	err                  error
+	quoteResponse        *models.PublicStorefrontDeliveryQuoteResponse
+	quoteCalls           int
+	resolveCalls         int
+	lastQuoteSlug        string
+	lastQuoteRequest     models.PublicStorefrontDeliveryQuoteRequest
+	lastResolveSlug      string
+	lastResolveRequest   models.PublicStorefrontDeliveryQuoteRequest
+	lastResolveSelection models.PublicStorefrontDeliveryQuoteSelection
+}
+
+func (s *stubDeliveryQuoter) QuotePublic(_ context.Context, _ string, _ models.PublicStorefrontDeliveryQuoteRequest) (*models.PublicStorefrontDeliveryQuoteResponse, error) {
+	s.quoteCalls++
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.quoteResponse != nil {
+		return s.quoteResponse, nil
+	}
+	return &models.PublicStorefrontDeliveryQuoteResponse{}, nil
+}
+
+func (s *stubDeliveryQuoter) ResolvePublicSelection(_ context.Context, slug string, req models.PublicStorefrontDeliveryQuoteRequest, selection models.PublicStorefrontDeliveryQuoteSelection) (decimal.Decimal, error) {
+	s.resolveCalls++
+	s.lastResolveSlug = slug
+	s.lastResolveRequest = req
+	s.lastResolveSelection = selection
+	if s.err != nil {
+		return decimal.Zero, s.err
+	}
+	if s.shippingFee.IsZero() {
+		return decimal.NewFromInt(1500), nil
+	}
+	return s.shippingFee, nil
 }
 
 type stubTenantRepoForOrder struct{ tenant *models.Tenant }
@@ -183,7 +228,17 @@ func newPublicOrderHandler(tenant *models.Tenant, variant *models.ProductVariant
 func newPublicOrderHandlerWithPayment(tenant *models.Tenant, variant *models.ProductVariant, payment *stubPaymentInitiator) *handler.OrderHandler {
 	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
 	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: tenant})
-	return handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h.SetDeliveryQuoteService(&stubDeliveryQuoter{shippingFee: decimal.NewFromInt(1500)})
+	return h
+}
+
+func newPublicOrderHandlerWithServices(tenant *models.Tenant, variant *models.ProductVariant, payment *stubPaymentInitiator, quoter *stubDeliveryQuoter) *handler.OrderHandler {
+	svc := service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{variant: variant})
+	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: tenant})
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	h.SetDeliveryQuoteService(quoter)
+	return h
 }
 
 func withURLParam(r *http.Request, key, value string) *http.Request {
@@ -362,19 +417,21 @@ func TestCreateOrder_EmptyBody(t *testing.T) {
 func TestCreatePublicOrder_Valid(t *testing.T) {
 	variantID := uuid.New()
 	payment := &stubPaymentInitiator{}
-	h := newPublicOrderHandlerWithPayment(&models.Tenant{
+	quoter := &stubDeliveryQuoter{shippingFee: decimal.NewFromInt(1500)}
+	h := newPublicOrderHandlerWithServices(&models.Tenant{
 		ID:                  uuid.New(),
 		Name:                "Funke Fabrics",
 		Slug:                "funke-fabrics",
 		StorefrontPublished: true,
 		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
+		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment, quoter)
 	body, _ := json.Marshal(map[string]any{
 		"checkout_id":      uuid.New().String(),
 		"customer_phone":   "08012345678",
 		"is_delivery":      true,
 		"shipping_address": "23 Abuja",
+		"delivery_option":  map[string]any{"courier_id": "123", "service_code": "bike"},
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/orders", bytes.NewReader(body))
@@ -392,6 +449,7 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 		Order struct {
 			TrackingSlug  string `json:"tracking_slug"`
 			PaymentStatus string `json:"payment_status"`
+			ShippingFee   string `json:"shipping_fee"`
 		} `json:"order"`
 		AuthorizationURL string `json:"authorization_url"`
 	}
@@ -404,6 +462,12 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 	if resp.Order.PaymentStatus != "pending" {
 		t.Fatalf("payment status: want pending, got %s", resp.Order.PaymentStatus)
 	}
+	if resp.Order.ShippingFee != "1500" {
+		t.Fatalf("shipping fee: want 1500, got %s", resp.Order.ShippingFee)
+	}
+	if quoter.lastResolveRequest.CustomerName != "Guest customer" {
+		t.Fatalf("expected fallback customer name, got %q", quoter.lastResolveRequest.CustomerName)
+	}
 	if resp.Order.TrackingSlug == "" {
 		t.Fatal("expected tracking slug in response")
 	}
@@ -415,6 +479,82 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 	}
 	if payment.callbackURL != "https://storefront.test/order/"+resp.Order.TrackingSlug {
 		t.Fatalf("unexpected callback URL: %s", payment.callbackURL)
+	}
+}
+
+func TestCreatePublicOrder_DeliveryRequiresSelectedQuote(t *testing.T) {
+	variantID := uuid.New()
+	h := newPublicOrderHandler(&models.Tenant{
+		ID:                  uuid.New(),
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
+	body, _ := json.Marshal(map[string]any{
+		"checkout_id":      uuid.New().String(),
+		"customer_phone":   "08012345678",
+		"is_delivery":      true,
+		"shipping_address": "23 Abuja",
+		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/orders", bytes.NewReader(body))
+	req = withURLParam(req, "slug", "funke-fabrics")
+	rec := httptest.NewRecorder()
+
+	h.CreatePublic(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestQuotePublicDelivery_Valid(t *testing.T) {
+	variantID := uuid.New()
+	quoter := &stubDeliveryQuoter{
+		quoteResponse: &models.PublicStorefrontDeliveryQuoteResponse{
+			Storefront: models.PublicStorefront{Slug: "funke-fabrics", Name: "Funke Fabrics"},
+			Options: []models.PublicStorefrontDeliveryQuoteOption{{
+				ID:          "123:bike:dropoff",
+				CourierID:   "123",
+				CourierName: "Kwik",
+				ServiceCode: "bike",
+				ServiceType: "dropoff",
+				Amount:      decimal.NewFromInt(3500),
+				Currency:    "NGN",
+			}},
+		},
+	}
+	h := newPublicOrderHandlerWithServices(&models.Tenant{
+		ID:                  uuid.New(),
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, &stubPaymentInitiator{}, quoter)
+	body, _ := json.Marshal(models.PublicStorefrontDeliveryQuoteRequest{
+		CustomerName:    "Chidi",
+		CustomerPhone:   "08012345678",
+		ShippingAddress: "23 Abuja",
+		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 2}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/delivery-quotes", bytes.NewReader(body))
+	req = withURLParam(req, "slug", "funke-fabrics")
+	rec := httptest.NewRecorder()
+
+	h.QuotePublicDelivery(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp models.PublicStorefrontDeliveryQuoteResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Options) != 1 || resp.Options[0].CourierName != "Kwik" {
+		t.Fatalf("unexpected quote response: %+v", resp.Options)
 	}
 }
 
@@ -517,6 +657,60 @@ func TestResumePaymentPublic_Valid(t *testing.T) {
 	}
 }
 
+func TestConfirmPaymentPublic_Valid(t *testing.T) {
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	trackingSlug := "abc123def456"
+	payment := &stubPaymentInitiator{}
+	svc := service.NewOrderService(&stubOrderRepo{order: &models.Order{
+		ID:                orderID,
+		TenantID:          tenantID,
+		TrackingSlug:      trackingSlug,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+	}}, &stubProductRepoForOrder{})
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	body, _ := json.Marshal(map[string]any{"reference": orderID.String()})
+	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/confirm-payment", bytes.NewReader(body))
+	req = withURLParam(req, "slug", trackingSlug)
+	rec := httptest.NewRecorder()
+
+	h.ConfirmPaymentPublic(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if payment.successReference != orderID.String() {
+		t.Fatalf("expected payment confirmation for %s, got %s", orderID, payment.successReference)
+	}
+}
+
+func TestConfirmPaymentPublic_RejectsMismatchedReference(t *testing.T) {
+	tenantID := uuid.New()
+	trackingSlug := "abc123def456"
+	payment := &stubPaymentInitiator{}
+	svc := service.NewOrderService(&stubOrderRepo{order: &models.Order{
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		TrackingSlug:      trackingSlug,
+		PaymentMethod:     models.PaymentMethodOnline,
+		PaymentStatus:     models.PaymentStatusPending,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+	}}, &stubProductRepoForOrder{})
+	h := handler.NewOrderHandler(svc, payment, &stubDispatcher{}, "https://storefront.test", slog.Default())
+	body, _ := json.Marshal(map[string]any{"reference": uuid.New().String()})
+	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/confirm-payment", bytes.NewReader(body))
+	req = withURLParam(req, "slug", trackingSlug)
+	rec := httptest.NewRecorder()
+
+	h.ConfirmPaymentPublic(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestResumePayment_RejectsCancelledOrder(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
@@ -550,13 +744,14 @@ func TestCreatePublicOrder_InitPaymentFailureReturnsError(t *testing.T) {
 		Slug:                "funke-fabrics",
 		StorefrontPublished: true,
 		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true},
+		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
 	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
 	body, _ := json.Marshal(map[string]any{
 		"checkout_id":      uuid.New().String(),
 		"customer_phone":   "08012345678",
 		"is_delivery":      true,
 		"shipping_address": "23 Abuja",
+		"delivery_option":  map[string]any{"courier_id": "123", "service_code": "bike"},
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/orders", bytes.NewReader(body))

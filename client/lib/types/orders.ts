@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { UUIDSchema, TimestampSchema } from "./domain";
 
 // ── Enums ──────────────────────────────────────────────
@@ -63,7 +63,7 @@ export const ShipmentSchema = z.object({
 
 export const TrackingResponseSchema = z.object({
   tracking_slug: z.string(),
-  customer_name: z.string().nullable(),
+  customer_name: z.string().nullable().optional(),
   payment_status: PaymentStatusSchema,
   fulfillment_status: FulfillmentStatusSchema,
 });

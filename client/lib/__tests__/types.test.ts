@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   AnalyticsSummarySchema,
+  CreatePublicStorefrontDeliveryQuoteRequestSchema,
   MeResponseSchema,
   OrderItemSchema,
   OrderSchema,
+  PublicStorefrontDeliveryQuoteResponseSchema,
   ProductDetailResponseSchema,
   ProductSchema,
   TenantSchema,
@@ -12,6 +14,7 @@ import {
   TransactionSchema,
   WalletSchema,
 } from "../types";
+import { CreatePublicStorefrontOrderRequestSchema } from "../types/public-storefront";
 
 describe("MeResponseSchema", () => {
   it("accepts the non-onboarded auth response", () => {
@@ -290,6 +293,80 @@ describe("OrderSchema", () => {
   });
 });
 
+describe("Public storefront delivery quote schemas", () => {
+  it("accepts a delivery quote response", () => {
+    const payload = {
+      storefront: {
+        name: "Funke Fabrics",
+        slug: "funke-fabrics",
+        logo_url: null,
+        contact_email: "hello@funkefabrics.com",
+        contact_phone: "+2348012345678",
+        address: "12 Allen Avenue, Ikeja",
+      },
+      options: [
+        {
+          id: "123:bike:dropoff",
+          courier_id: "123",
+          courier_name: "Kwik",
+          service_code: "bike",
+          service_type: "dropoff",
+          amount: "3500",
+          currency: "NGN",
+          delivery_eta: "same day",
+          tracking_level: 4,
+          is_fastest: true,
+          is_cheapest: false,
+        },
+      ],
+      debug: {
+        sender_address_code: 1,
+        receiver_address_code: 2,
+        category_id: 3,
+        category_name: "Fashion wears",
+        package_box: "small box",
+        estimated_weight_kg: "0.35",
+      },
+    };
+
+    expect(PublicStorefrontDeliveryQuoteResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("rejects delivery orders without a selected delivery option", () => {
+    expect(() =>
+      CreatePublicStorefrontOrderRequestSchema.parse({
+        is_delivery: true,
+        checkout_id: "550e8400-e29b-41d4-a716-446655440099",
+        customer_phone: "08012345678",
+        shipping_address: "23 Abuja",
+        items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 1 }],
+      }),
+    ).toThrow("delivery_option is required for delivery orders");
+  });
+
+  it("accepts pickup orders without shipping state", () => {
+    const payload = {
+      is_delivery: false,
+      checkout_id: "550e8400-e29b-41d4-a716-446655440099",
+      customer_phone: "08012345678",
+      items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 1 }],
+    };
+
+    expect(CreatePublicStorefrontOrderRequestSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("accepts delivery quote request payloads", () => {
+    const payload = {
+      customer_name: "Chidi",
+      customer_phone: "08012345678",
+      shipping_address: "23 Abuja",
+      items: [{ variant_id: "550e8400-e29b-41d4-a716-446655440001", quantity: 1 }],
+    };
+
+    expect(CreatePublicStorefrontDeliveryQuoteRequestSchema.parse(payload)).toEqual(payload);
+  });
+});
+
 describe("OrderItemSchema", () => {
   it("accepts an order item response", () => {
     const payload = {
@@ -381,6 +458,16 @@ describe("TrackingResponseSchema", () => {
     const payload = {
       tracking_slug: "abc123def456",
       customer_name: "Amina Bello",
+      payment_status: "paid",
+      fulfillment_status: "completed",
+    };
+
+    expect(TrackingResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("accepts anonymous tracking responses without customer_name", () => {
+    const payload = {
+      tracking_slug: "abc123def456",
       payment_status: "paid",
       fulfillment_status: "completed",
     };
