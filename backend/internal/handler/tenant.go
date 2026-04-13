@@ -84,6 +84,11 @@ func (h *TenantHandler) UpdateStorefront(w http.ResponseWriter, r *http.Request)
 
 // PUT /tenants/me
 func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	if middleware.UserRoleFromCtx(r.Context()) != models.UserRoleAdmin {
+		respondErr(w, http.StatusForbidden, "admin role required")
+		return
+	}
+
 	tenant := middleware.TenantFromCtx(r.Context())
 	var req struct {
 		Name         string  `json:"name"          validate:"required"`

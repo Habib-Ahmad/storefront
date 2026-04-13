@@ -169,3 +169,34 @@ func TestUpdateProfile_UpdatesTenantFields(t *testing.T) {
 		t.Fatal("logo_url not updated")
 	}
 }
+
+func TestUpdateProfile_AutoEnablesLogisticsWhenProfileIsComplete(t *testing.T) {
+	tenantID := uuid.New()
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{
+		ID:     tenantID,
+		Name:   "Old",
+		Status: models.TenantStatusActive,
+		ActiveModules: models.ActiveModules{
+			Inventory: true,
+			Payments:  true,
+		},
+	}}
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
+
+	email := "new@acme.com"
+	phone := "+2348012345678"
+	addr := "123 Main St"
+	err := svc.UpdateProfile(context.Background(), tenantID, "Acme Corp", &email, &phone, &addr, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tenantRepo.updated == nil {
+		t.Fatal("tenant not updated")
+	}
+	if !tenantRepo.updated.ActiveModules.Logistics {
+		t.Fatal("logistics module should auto-enable when profile is complete")
+	}
+	if !tenantRepo.updated.ActiveModules.Inventory || !tenantRepo.updated.ActiveModules.Payments {
+		t.Fatal("existing modules should be preserved")
+	}
+}

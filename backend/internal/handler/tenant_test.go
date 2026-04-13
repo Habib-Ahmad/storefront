@@ -161,7 +161,7 @@ func TestUpdateProfile_Valid(t *testing.T) {
 		"contact_email": email,
 	})
 	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), tenant))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.UpdateProfile(rec, req)
@@ -177,7 +177,7 @@ func TestUpdateProfile_MissingName(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{"contact_email": "a@b.com"})
 	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), tenant))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.UpdateProfile(rec, req)
@@ -196,13 +196,32 @@ func TestUpdateProfile_InvalidEmail(t *testing.T) {
 		"contact_email": "not-an-email",
 	})
 	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), tenant))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.UpdateProfile(rec, req)
 
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateProfile_RejectsNonAdmin(t *testing.T) {
+	tenant := &models.Tenant{ID: uuid.New(), Name: "Acme", Status: models.TenantStatusActive}
+	h := newTenantHandlerWithTenant(tenant)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":          "Acme",
+		"contact_email": "contact@acme.com",
+	})
+	req := httptest.NewRequest(http.MethodPut, "/tenants/me", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithUserRole(injectTenant(req.Context(), tenant), models.UserRoleStaff))
+	rec := httptest.NewRecorder()
+
+	h.UpdateProfile(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -183,12 +183,26 @@ func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, n
 	if err != nil {
 		return ErrTenantNotFound
 	}
-	tenant.Name = name
-	tenant.ContactEmail = contactEmail
-	tenant.ContactPhone = contactPhone
-	tenant.Address = address
-	tenant.LogoURL = logoURL
+	tenant.Name = strings.TrimSpace(name)
+	tenant.ContactEmail = normalizeTenantOptionalString(contactEmail)
+	tenant.ContactPhone = normalizeTenantOptionalString(contactPhone)
+	tenant.Address = normalizeTenantOptionalString(address)
+	tenant.LogoURL = normalizeTenantOptionalString(logoURL)
+	if tenant.ContactEmail != nil && tenant.ContactPhone != nil && tenant.Address != nil {
+		tenant.ActiveModules.Logistics = true
+	}
 	return s.tenants.Update(ctx, tenant)
+}
+
+func normalizeTenantOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func generateTemporaryStorefrontSlug(name string, attempt int) string {

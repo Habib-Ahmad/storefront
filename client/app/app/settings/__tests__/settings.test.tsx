@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import SettingsPage from "@/app/app/settings/page";
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
-
 describe("SettingsPage", () => {
-  it("points the user to the dedicated storefront workspace", async () => {
+  it("links to logistics setup and storefront controls", () => {
     render(<SettingsPage />);
 
-    expect(screen.getByText("Storefront moved")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Storefront" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /open logistics setup/i })).toHaveAttribute(
+      "href",
+      "/app/settings/logistics",
+    );
+    expect(screen.getByRole("link", { name: /open storefront controls/i })).toHaveAttribute(
       "href",
       "/app/storefront",
     );

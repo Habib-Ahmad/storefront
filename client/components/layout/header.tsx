@@ -25,6 +25,7 @@ const labels: Record<string, string> = {
   "/app/deliveries": "Deliveries",
   "/app/wallet": "Wallet",
   "/app/settings": "Settings",
+  "/app/settings/logistics": "Logistics Setup",
   "/app/more": "More",
 };
 
