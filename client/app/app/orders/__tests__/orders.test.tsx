@@ -7,6 +7,7 @@ const refreshMock = vi.fn();
 const mockUseParams = vi.fn();
 const mockCancelOrderMutate = vi.fn();
 const mockResumeOrderPaymentMutate = vi.fn();
+const mockDispatchOrderMutate = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -21,9 +22,11 @@ vi.mock("next/navigation", () => ({
 
 const mockUseOrders = vi.fn();
 const mockUseOrder = vi.fn();
+const mockUseOrderDispatchOptions = vi.fn();
 const mockUseOrderItems = vi.fn();
 const mockUseCreateOrder = vi.fn();
 const mockUseCancelOrder = vi.fn();
+const mockUseDispatchOrder = vi.fn();
 const mockUseResumeOrderPayment = vi.fn();
 const mockUseProducts = vi.fn();
 const mockUseVariants = vi.fn();
@@ -31,12 +34,14 @@ const mockUseVariants = vi.fn();
 vi.mock("@/hooks/use-orders", () => ({
   useOrders: (...args: unknown[]) => mockUseOrders(...args),
   useOrder: (...args: unknown[]) => mockUseOrder(...args),
+  useOrderDispatchOptions: (...args: unknown[]) => mockUseOrderDispatchOptions(...args),
   useOrderItems: (...args: unknown[]) => mockUseOrderItems(...args),
   useCreateOrder: () => ({
     mutateAsync: mockUseCreateOrder,
     isPending: false,
   }),
   useCancelOrder: () => mockUseCancelOrder(),
+  useDispatchOrder: () => mockUseDispatchOrder(),
   useResumeOrderPayment: () => mockUseResumeOrderPayment(),
 }));
 
@@ -64,6 +69,10 @@ beforeEach(() => {
     data: [],
     isLoading: false,
   });
+  mockUseOrderDispatchOptions.mockReturnValue({
+    data: [],
+    isLoading: false,
+  });
   mockUseProducts.mockReturnValue({
     data: { data: [], total: 0, page: 1, per_page: 100 },
     isLoading: false,
@@ -74,6 +83,10 @@ beforeEach(() => {
   });
   mockUseCancelOrder.mockReturnValue({
     mutateAsync: mockCancelOrderMutate,
+    isPending: false,
+  });
+  mockUseDispatchOrder.mockReturnValue({
+    mutateAsync: mockDispatchOrderMutate,
     isPending: false,
   });
   mockUseResumeOrderPayment.mockReturnValue({
@@ -168,9 +181,9 @@ describe("OrdersPage", () => {
     expect(screen.getByText("Amina Bello")).toBeInTheDocument();
     expect(screen.getByText("Walk-in customer")).toBeInTheDocument();
     expect(screen.getByText("Kehinde Musa")).toBeInTheDocument();
-    expect(screen.getByText(/14 Mar 2026, 11:00 AM/i)).toBeInTheDocument();
-    expect(screen.getByText(/12 Mar 2026, 11:00 AM/i)).toBeInTheDocument();
-    expect(screen.getByText(/11 Mar 2026, 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.getByText(/14 Mar 2026 at 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.getByText(/12 Mar 2026 at 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.getByText(/11 Mar 2026 at 11:00 AM/i)).toBeInTheDocument();
     expect(screen.queryByText("abc123def456")).not.toBeInTheDocument();
     expect(screen.queryByText("xyz987uvw654")).not.toBeInTheDocument();
     expect(screen.getAllByText("Ready for delivery").length).toBeGreaterThan(0);
@@ -589,6 +602,26 @@ describe("OrderDetailPage", () => {
   });
 
   it("shows delivery details for delivery orders", () => {
+    mockUseOrderDispatchOptions.mockReturnValue({
+      data: [
+        {
+          id: "123:bike:dropoff",
+          courier_id: "123",
+          courier_name: "Kwik",
+          service_code: "bike",
+          service_type: "dropoff",
+          amount: "1500",
+          currency: "NGN",
+          pickup_eta: "Today",
+          delivery_eta: "Today",
+          tracking_label: "Full tracking",
+          tracking_level: 4,
+          is_fastest: true,
+          is_cheapest: true,
+        },
+      ],
+      isLoading: false,
+    });
     mockUseOrder.mockReturnValue({
       data: {
         ...baseOrder,
@@ -608,7 +641,61 @@ describe("OrderDetailPage", () => {
 
     expect(screen.getByText("Delivery details for this order.")).toBeInTheDocument();
     expect(screen.getByText("12 Allen Avenue, Ikeja")).toBeInTheDocument();
-    expect(screen.getByText(/dispatch setup is not ready in this screen yet/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /dispatch delivery/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /dispatch option/i })).toBeInTheDocument();
+  });
+
+  it("dispatches a paid delivery order with the selected courier option", async () => {
+    mockUseOrderDispatchOptions.mockReturnValue({
+      data: [
+        {
+          id: "123:bike:dropoff",
+          courier_id: "123",
+          courier_name: "Kwik",
+          service_code: "bike",
+          service_type: "dropoff",
+          amount: "1500",
+          currency: "NGN",
+          pickup_eta: "Today",
+          delivery_eta: "Today",
+          tracking_label: "Full tracking",
+          tracking_level: 4,
+          is_fastest: true,
+          is_cheapest: false,
+        },
+      ],
+      isLoading: false,
+    });
+    mockUseOrder.mockReturnValue({
+      data: {
+        ...baseOrder,
+        is_delivery: true,
+        fulfillment_status: "processing",
+        shipping_address: "12 Allen Avenue, Ikeja",
+        shipping_fee: "1500",
+      },
+      isLoading: false,
+    });
+    mockUseOrderItems.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    mockDispatchOrderMutate.mockResolvedValue({ id: "shipment-1" });
+
+    render(<OrderDetailPage />);
+
+    await userEvent.click(screen.getByRole("button", { name: /dispatch delivery/i }));
+
+    await waitFor(() => {
+      expect(mockDispatchOrderMutate).toHaveBeenCalledWith({
+        id: "order-1",
+        data: {
+          courier_id: "123",
+          service_code: "bike",
+          service_type: "dropoff",
+        },
+      });
+    });
   });
 
   it("shows continue payment for pending online orders", async () => {

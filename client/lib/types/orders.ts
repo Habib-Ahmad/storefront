@@ -61,6 +61,23 @@ export const ShipmentSchema = z.object({
   updated_at: TimestampSchema,
 });
 
+export const DispatchShipmentOptionSchema = z.object({
+  id: z.string(),
+  courier_id: z.string(),
+  courier_name: z.string(),
+  service_code: z.string(),
+  service_type: z.string(),
+  amount: z.string(),
+  currency: z.string(),
+  pickup_eta: z.string().optional(),
+  delivery_eta: z.string().optional(),
+  tracking_label: z.string().optional(),
+  tracking_level: z.number().int(),
+  is_fastest: z.boolean(),
+  is_cheapest: z.boolean(),
+  provider_data: z.unknown().optional(),
+});
+
 export const TrackingResponseSchema = z.object({
   tracking_slug: z.string(),
   customer_name: z.string().nullable().optional(),
@@ -110,6 +127,7 @@ export const PaginatedOrdersResponseSchema = z.object({
 export type Order = z.infer<typeof OrderSchema>;
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Shipment = z.infer<typeof ShipmentSchema>;
+export type DispatchShipmentOption = z.infer<typeof DispatchShipmentOptionSchema>;
 export type TrackingResponse = z.infer<typeof TrackingResponseSchema>;
 export type ResumePaymentResponse = z.infer<typeof ResumePaymentResponseSchema>;
 export type CreateOrderItemRequest = z.infer<typeof CreateOrderItemRequestSchema>;

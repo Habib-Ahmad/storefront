@@ -18,11 +18,23 @@ import (
 
 type stubShipmentDispatcher struct {
 	shipment *models.Shipment
+	options  []models.DispatchShipmentOption
 	err      error
 	called   bool
+	quoted   bool
 	orderID  uuid.UUID
 	tenantID uuid.UUID
 	req      service.DispatchShipmentRequest
+}
+
+func (s *stubShipmentDispatcher) QuoteDispatchOptions(_ context.Context, orderID, tenantID uuid.UUID) ([]models.DispatchShipmentOption, error) {
+	s.quoted = true
+	s.orderID = orderID
+	s.tenantID = tenantID
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.options, nil
 }
 
 func (s *stubShipmentDispatcher) Dispatch(_ context.Context, orderID, tenantID uuid.UUID, req service.DispatchShipmentRequest) (*models.Shipment, error) {
@@ -89,5 +101,38 @@ func TestDispatchOrder_RequiresLogisticsModule(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDispatchOptions_ReturnsCourierOptions(t *testing.T) {
+	orderID := uuid.New()
+	tenantID := uuid.New()
+	dispatcher := &stubShipmentDispatcher{options: []models.DispatchShipmentOption{{
+		ID:          "123:bike:dropoff",
+		CourierID:   "123",
+		CourierName: "Kwik",
+		ServiceCode: "bike",
+		ServiceType: "dropoff",
+		Amount:      "1500",
+		Currency:    "NGN",
+	}}}
+	h := handler.NewOrderHandler(service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{}), &stubPaymentInitiator{}, "", slog.Default())
+	h.SetShipmentService(dispatcher)
+
+	req := httptest.NewRequest(http.MethodGet, "/orders/"+orderID.String()+"/dispatch-options", nil)
+	req = withURLParam(req, "id", orderID.String())
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID, ActiveModules: models.ActiveModules{Logistics: true}}))
+	rec := httptest.NewRecorder()
+
+	h.DispatchOptions(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !dispatcher.quoted {
+		t.Fatal("expected dispatch options service to be called")
+	}
+	if dispatcher.orderID != orderID || dispatcher.tenantID != tenantID {
+		t.Fatalf("unexpected dispatch-options args: order=%s tenant=%s", dispatcher.orderID, dispatcher.tenantID)
 	}
 }

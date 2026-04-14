@@ -28,3 +28,20 @@ type Shipment struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 }
+
+type DispatchShipmentOption struct {
+	ID            string          `json:"id"`
+	CourierID     string          `json:"courier_id"`
+	CourierName   string          `json:"courier_name"`
+	ServiceCode   string          `json:"service_code"`
+	ServiceType   string          `json:"service_type"`
+	Amount        string          `json:"amount"`
+	Currency      string          `json:"currency"`
+	PickupETA     string          `json:"pickup_eta,omitempty"`
+	DeliveryETA   string          `json:"delivery_eta,omitempty"`
+	TrackingLabel string          `json:"tracking_label,omitempty"`
+	TrackingLevel int             `json:"tracking_level"`
+	IsFastest     bool            `json:"is_fastest"`
+	IsCheapest    bool            `json:"is_cheapest"`
+	ProviderData  json.RawMessage `json:"provider_data,omitempty"`
+}

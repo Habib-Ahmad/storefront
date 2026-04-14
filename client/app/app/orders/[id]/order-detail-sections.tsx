@@ -18,6 +18,7 @@ import {
   fulfillmentBadgeVariant,
   paymentBadgeVariant,
 } from "./order-detail-formatters";
+import type { DispatchShipmentOption } from "@/lib/types";
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
   return (
@@ -232,17 +233,33 @@ export function ItemsCard({ items, order }: { items: OrderItem[]; order: Order }
 export function ActionCard({
   order,
   onCancel,
+  onDispatch,
+  onDispatchOptionChange,
   onResumePayment,
   actionError,
+  dispatchOptions,
+  selectedDispatchOptionId,
+  isDispatching,
+  isLoadingDispatchOptions,
   isResumingPayment,
 }: {
   order: Order;
   onCancel: () => void;
+  onDispatch: () => void;
+  onDispatchOptionChange: (value: string) => void;
   onResumePayment: () => void;
   actionError: string | null;
+  dispatchOptions: DispatchShipmentOption[];
+  selectedDispatchOptionId: string;
+  isDispatching: boolean;
+  isLoadingDispatchOptions: boolean;
   isResumingPayment: boolean;
 }) {
   const canCancel = order.fulfillment_status === "processing";
+  const canDispatch =
+    order.is_delivery &&
+    order.payment_status === "paid" &&
+    order.fulfillment_status === "processing";
   const canResumePayment =
     order.payment_method === "online" &&
     order.payment_status === "pending" &&
@@ -285,7 +302,15 @@ export function ActionCard({
       return "Delivery was added to this order. Payment must be completed before dispatch.";
     }
 
-    return "Delivery was added to this order. Dispatch setup is not ready in this screen yet.";
+    if (isLoadingDispatchOptions) {
+      return "Loading available courier options for this delivery order.";
+    }
+
+    if (dispatchOptions.length === 0) {
+      return "No courier options are available for this delivery order yet. Try again shortly.";
+    }
+
+    return "Choose one of the available courier options below to dispatch this delivery order.";
   })();
 
   return (
@@ -319,6 +344,59 @@ export function ActionCard({
           <Button type="button" variant="destructive" onClick={onCancel} className="gap-2">
             <XCircleIcon className="size-4" />
             Cancel order
+          </Button>
+        </div>
+      ) : null}
+
+      {canDispatch ? (
+        <div className="space-y-3 rounded-xl border border-border/60 bg-background/50 p-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Dispatch with Shipbubble</p>
+            <p className="text-xs text-muted-foreground">
+              Pick one of the live courier options below, then dispatch the order.
+            </p>
+          </div>
+
+          {isLoadingDispatchOptions ? (
+            <p className="text-sm text-muted-foreground">Loading courier options...</p>
+          ) : dispatchOptions.length > 0 ? (
+            <select
+              aria-label="Dispatch option"
+              className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm transition outline-none focus:border-primary"
+              value={selectedDispatchOptionId}
+              onChange={(event) => onDispatchOptionChange(event.target.value)}
+            >
+              {dispatchOptions.map((option) => {
+                const highlights = [
+                  option.isFastest ? "Fastest" : null,
+                  option.isCheapest ? "Cheapest" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" • ");
+
+                return (
+                  <option key={option.id} value={option.id}>
+                    {option.courier_name} · {option.service_type || option.service_code} ·{" "}
+                    {formatCurrency(option.amount)}
+                    {highlights ? ` · ${highlights}` : ""}
+                  </option>
+                );
+              })}
+            </select>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No dispatchable courier options are available right now.
+            </p>
+          )}
+
+          <Button
+            type="button"
+            onClick={onDispatch}
+            className="gap-2"
+            disabled={isLoadingDispatchOptions || isDispatching || dispatchOptions.length === 0}
+          >
+            <ArrowSquareOutIcon className="size-4" />
+            {isDispatching ? "Dispatching..." : "Dispatch delivery"}
           </Button>
         </div>
       ) : null}

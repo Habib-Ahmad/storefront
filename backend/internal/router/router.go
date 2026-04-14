@@ -103,6 +103,7 @@ func New(
 		r.Get("/orders", order.List)
 		r.Get("/orders/{id}", order.Get)
 		r.Get("/orders/{id}/items", order.ListItems)
+		r.Get("/orders/{id}/dispatch-options", order.DispatchOptions)
 		r.Post("/orders/{id}/dispatch", order.Dispatch)
 		r.Post("/orders/{id}/cancel", order.Cancel)
 		r.Post("/orders/{id}/resume-payment", order.ResumePayment)

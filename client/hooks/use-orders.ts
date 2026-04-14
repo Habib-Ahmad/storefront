@@ -15,6 +15,10 @@ export const useOrderItems = createQueryHook("order-items", (orderId: string) =>
   api.getOrderItems(orderId),
 );
 
+export const useOrderDispatchOptions = createQueryHook("order-dispatch-options", (id: string) =>
+  api.getOrderDispatchOptions(id),
+);
+
 export const useCreateOrder = createMutationHook(
   (data: CreateOrderRequest) => api.createOrder(data),
   ["orders"],
@@ -47,11 +51,23 @@ export function useResumeTrackedOrderPayment() {
 export function useDispatchOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: unknown }) => api.dispatchOrder(id, data),
-    onSuccess: (_shipment: Shipment, { id }: { id: string; data: unknown }) => {
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: { courier_id: string; service_code: string; service_type?: string };
+    }) => api.dispatchOrder(id, data),
+    onSuccess: (
+      _shipment: Shipment,
+      {
+        id,
+      }: { id: string; data: { courier_id: string; service_code: string; service_type?: string } },
+    ) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["order", id] });
       qc.invalidateQueries({ queryKey: ["order-items", id] });
+      qc.invalidateQueries({ queryKey: ["order-dispatch-options", id] });
     },
   });
 }

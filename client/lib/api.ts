@@ -2,6 +2,7 @@ import type {
   AddImageRequest,
   CreateOrderRequest,
   CreateOrderResponse,
+  DispatchShipmentOption,
   CreateProductRequest,
   CreateVariantRequest,
   MeResponse,
@@ -30,6 +31,7 @@ import type {
 } from "./types";
 import {
   MeResponseSchema,
+  DispatchShipmentOptionSchema,
   OrderItemSchema,
   OrderSchema,
   PaginatedOrdersResponseSchema,
@@ -274,6 +276,11 @@ class ApiClient {
 
   getOrderItems = async (orderId: string): Promise<OrderItem[]> =>
     OrderItemSchema.array().parse(await this.request<unknown>("GET", `/orders/${orderId}/items`));
+
+  getOrderDispatchOptions = async (orderId: string): Promise<DispatchShipmentOption[]> =>
+    DispatchShipmentOptionSchema.array().parse(
+      await this.request<unknown>("GET", `/orders/${orderId}/dispatch-options`),
+    );
 
   createOrder = (data: CreateOrderRequest) =>
     this.request<CreateOrderResponse>("POST", "/orders", data);

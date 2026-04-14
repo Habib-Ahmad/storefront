@@ -26,6 +26,7 @@ type paymentInitiator interface {
 
 type dispatcher interface {
 	Dispatch(ctx context.Context, orderID, tenantID uuid.UUID, req service.DispatchShipmentRequest) (*models.Shipment, error)
+	QuoteDispatchOptions(ctx context.Context, orderID, tenantID uuid.UUID) ([]models.DispatchShipmentOption, error)
 }
 
 type publicDeliveryQuoter interface {
@@ -493,6 +494,33 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondPage(w, orders, total, limit, offset)
+}
+
+// GET /orders/{id}/dispatch-options
+func (h *OrderHandler) DispatchOptions(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, false, true); err != nil {
+		respondErr(w, http.StatusForbidden, "logistics module not enabled")
+		return
+	}
+	if h.shipmentSvc == nil {
+		serverErr(w, h.log, r, errors.New("shipment service not configured"))
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	options, err := h.shipmentSvc.QuoteDispatchOptions(r.Context(), id, tenant.ID)
+	if err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+
+	respond(w, http.StatusOK, options)
 }
 
 // POST /orders/{id}/dispatch

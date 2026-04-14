@@ -102,6 +102,41 @@ func (s *ShipmentService) Dispatch(ctx context.Context, orderID, tenantID uuid.U
 	return shipment, nil
 }
 
+func (s *ShipmentService) QuoteDispatchOptions(ctx context.Context, orderID, tenantID uuid.UUID) ([]models.DispatchShipmentOption, error) {
+	if s.provider == nil {
+		return nil, apperr.Conflict("delivery is not available right now")
+	}
+
+	order, err := s.orders.GetByID(ctx, tenantID, orderID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrOrderNotFound
+		}
+		return nil, fmt.Errorf("get order: %w", err)
+	}
+	if !order.IsDelivery {
+		return nil, apperr.Unprocessable("pickup orders cannot be dispatched")
+	}
+	if order.PaymentStatus != models.PaymentStatusPaid {
+		return nil, apperr.Conflict("only paid delivery orders can be dispatched")
+	}
+	if order.FulfillmentStatus != models.FulfillmentStatusProcessing {
+		return nil, apperr.Unprocessable("order is not in a dispatchable state")
+	}
+
+	tenant, err := s.tenants.GetByID(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get tenant: %w", err)
+	}
+
+	rates, err := s.quoteRates(ctx, tenant, order, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return dispatchOptionsFromRates(rates), nil
+}
+
 func (s *ShipmentService) HandleStatusUpdate(ctx context.Context, carrierRef, status string, payload []byte) error {
 	carrierRef = strings.TrimSpace(carrierRef)
 	if carrierRef == "" {
@@ -140,6 +175,47 @@ func (s *ShipmentService) HandleStatusUpdate(ctx context.Context, carrierRef, st
 }
 
 func (s *ShipmentService) bookShipment(ctx context.Context, tenant *models.Tenant, order *models.Order, req DispatchShipmentRequest) (*models.Shipment, error) {
+	rates, err := s.quoteRates(ctx, tenant, order, req.ServiceType)
+	if err != nil {
+		return nil, err
+	}
+
+	selection := pickRateOption(rates.Options, req)
+	if selection == nil {
+		return nil, ErrDeliveryOptionUnavailable
+	}
+
+	created, err := s.provider.CreateShipment(ctx, shipbubble.CreateShipmentRequest{
+		RequestToken: rates.RequestToken,
+		ServiceCode:  selection.ServiceCode,
+		CourierID:    selection.CourierID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create shipment: %w", err)
+	}
+
+	history, err := marshalCarrierHistory(created.Raw)
+	if err != nil {
+		return nil, fmt.Errorf("marshal shipment history: %w", err)
+	}
+	carrierRef := strings.TrimSpace(created.OrderID)
+	trackingNumber := nullableTrimmedString(created.Courier.TrackingCode)
+	shipment := &models.Shipment{
+		OrderID:        order.ID,
+		TenantID:       tenant.ID,
+		Status:         normalizeShipbubbleStatus(created.Status),
+		CarrierRef:     &carrierRef,
+		TrackingNumber: trackingNumber,
+		CarrierHistory: history,
+	}
+	if err := s.shipments.UpsertDispatch(ctx, shipment); err != nil {
+		return nil, fmt.Errorf("save shipment: %w", err)
+	}
+
+	return shipment, nil
+}
+
+func (s *ShipmentService) quoteRates(ctx context.Context, tenant *models.Tenant, order *models.Order, serviceType string) (*shipbubble.RateResponse, error) {
 	senderPhone := strings.TrimSpace(derefString(tenant.ContactPhone))
 	if senderPhone == "" {
 		return nil, apperr.Unprocessable("store pickup phone is required before dispatching orders")
@@ -203,7 +279,7 @@ func (s *ShipmentService) bookShipment(ctx context.Context, tenant *models.Tenan
 		PickupDate:          pickupDate(order.CreatedAt),
 		CategoryID:          category.ID,
 		PackageItems:        packageItems,
-		ServiceType:         strings.TrimSpace(req.ServiceType),
+		ServiceType:         strings.TrimSpace(serviceType),
 		PackageDimension: shipbubble.PackageDimension{
 			Length: box.Length,
 			Width:  box.Width,
@@ -214,40 +290,45 @@ func (s *ShipmentService) bookShipment(ctx context.Context, tenant *models.Tenan
 	if err != nil {
 		return nil, fmt.Errorf("fetch dispatch rates: %w", err)
 	}
-
-	selection := pickRateOption(rates.Options, req)
-	if selection == nil {
-		return nil, ErrDeliveryOptionUnavailable
+	if len(rates.Options) == 0 {
+		return nil, apperr.Conflict("no courier options are available for this delivery order yet")
 	}
 
-	created, err := s.provider.CreateShipment(ctx, shipbubble.CreateShipmentRequest{
-		RequestToken: rates.RequestToken,
-		ServiceCode:  selection.ServiceCode,
-		CourierID:    selection.CourierID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create shipment: %w", err)
+	return rates, nil
+}
+
+func dispatchOptionsFromRates(rates *shipbubble.RateResponse) []models.DispatchShipmentOption {
+	fastestID := ""
+	if rates.Fastest != nil {
+		fastestID = quoteOptionID(rates.Fastest.CourierID, rates.Fastest.ServiceCode, rates.Fastest.ServiceType)
+	}
+	cheapestID := ""
+	if rates.Cheapest != nil {
+		cheapestID = quoteOptionID(rates.Cheapest.CourierID, rates.Cheapest.ServiceCode, rates.Cheapest.ServiceType)
 	}
 
-	history, err := marshalCarrierHistory(created.Raw)
-	if err != nil {
-		return nil, fmt.Errorf("marshal shipment history: %w", err)
-	}
-	carrierRef := strings.TrimSpace(created.OrderID)
-	trackingNumber := nullableTrimmedString(created.Courier.TrackingCode)
-	shipment := &models.Shipment{
-		OrderID:        order.ID,
-		TenantID:       tenant.ID,
-		Status:         normalizeShipbubbleStatus(created.Status),
-		CarrierRef:     &carrierRef,
-		TrackingNumber: trackingNumber,
-		CarrierHistory: history,
-	}
-	if err := s.shipments.UpsertDispatch(ctx, shipment); err != nil {
-		return nil, fmt.Errorf("save shipment: %w", err)
+	options := make([]models.DispatchShipmentOption, 0, len(rates.Options))
+	for _, option := range rates.Options {
+		id := quoteOptionID(option.CourierID, option.ServiceCode, option.ServiceType)
+		options = append(options, models.DispatchShipmentOption{
+			ID:            id,
+			CourierID:     option.CourierID,
+			CourierName:   option.CourierName,
+			ServiceCode:   option.ServiceCode,
+			ServiceType:   option.ServiceType,
+			Amount:        option.Total.String(),
+			Currency:      option.Currency,
+			PickupETA:     option.PickupETA,
+			DeliveryETA:   option.DeliveryETA,
+			TrackingLabel: option.Tracking.Label,
+			TrackingLevel: option.TrackingLevel,
+			IsFastest:     fastestID != "" && fastestID == id,
+			IsCheapest:    cheapestID != "" && cheapestID == id,
+			ProviderData:  option.Raw,
+		})
 	}
 
-	return shipment, nil
+	return options
 }
 
 func (s *ShipmentService) buildPackageItems(ctx context.Context, tenantID uuid.UUID, order *models.Order) ([]shipbubble.PackageItem, []string, decimal.Decimal, error) {
