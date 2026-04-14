@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 // chargeHandler is satisfied by *service.PaymentService.
@@ -14,14 +16,20 @@ type chargeHandler interface {
 	HandleChargeFailed(ctx context.Context, reference string) error
 }
 
+type shipmentStatusHandler interface {
+	HandleStatusUpdate(ctx context.Context, carrierRef, status string, payload []byte) error
+}
+
 type webhookVerifier interface {
 	VerifyWebhookSignature(payload []byte, signature string) bool
 }
 
 type WebhookHandler struct {
-	paystackClient webhookVerifier
-	paymentSvc     chargeHandler
-	log            *slog.Logger
+	paystackClient   webhookVerifier
+	shipbubbleClient webhookVerifier
+	paymentSvc       chargeHandler
+	shipmentSvc      shipmentStatusHandler
+	log              *slog.Logger
 }
 
 func NewWebhookHandler(
@@ -34,6 +42,11 @@ func NewWebhookHandler(
 		paymentSvc:     paymentSvc,
 		log:            log,
 	}
+}
+
+func (h *WebhookHandler) SetShipmentService(verifier webhookVerifier, svc shipmentStatusHandler) {
+	h.shipbubbleClient = verifier
+	h.shipmentSvc = svc
 }
 
 type incomingWebhookEvent struct {
@@ -89,6 +102,52 @@ func (h *WebhookHandler) Paystack(w http.ResponseWriter, r *http.Request) {
 			respondErr(w, http.StatusInternalServerError, "webhook processing failed")
 			return
 		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// POST /webhooks/shipbubble
+func (h *WebhookHandler) Shipbubble(w http.ResponseWriter, r *http.Request) {
+	if h.shipbubbleClient == nil || h.shipmentSvc == nil {
+		serverErr(w, h.log, r, errors.New("shipment webhook service not configured"))
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "cannot read body")
+		return
+	}
+
+	if !h.shipbubbleClient.VerifyWebhookSignature(body, r.Header.Get("X-Ship-Signature")) {
+		respondErr(w, http.StatusUnauthorized, "invalid signature")
+		return
+	}
+
+	var payload struct {
+		Event   string `json:"event"`
+		OrderID string `json:"order_id"`
+		Status  string `json:"status"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid event payload")
+		return
+	}
+	if !strings.HasPrefix(strings.TrimSpace(payload.Event), "shipment.") {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if strings.TrimSpace(payload.OrderID) == "" || strings.TrimSpace(payload.Status) == "" {
+		respondErr(w, http.StatusBadRequest, "invalid shipment event payload")
+		return
+	}
+
+	if err := h.shipmentSvc.HandleStatusUpdate(r.Context(), payload.OrderID, payload.Status, body); err != nil {
+		h.log.Error("shipbubble webhook", "event", payload.Event, "carrier_ref", payload.OrderID, "error", err)
+		respondErr(w, http.StatusInternalServerError, "webhook processing failed")
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)

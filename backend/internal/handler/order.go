@@ -24,6 +24,10 @@ type paymentInitiator interface {
 	HandleChargeFailed(ctx context.Context, reference string) error
 }
 
+type dispatcher interface {
+	Dispatch(ctx context.Context, orderID, tenantID uuid.UUID, req service.DispatchShipmentRequest) (*models.Shipment, error)
+}
+
 type publicDeliveryQuoter interface {
 	QuotePublic(ctx context.Context, slug string, req models.PublicStorefrontDeliveryQuoteRequest) (*models.PublicStorefrontDeliveryQuoteResponse, error)
 	ResolvePublicSelection(ctx context.Context, slug string, req models.PublicStorefrontDeliveryQuoteRequest, selection models.PublicStorefrontDeliveryQuoteSelection) (decimal.Decimal, error)
@@ -78,6 +82,7 @@ type trackingResp struct {
 type OrderHandler struct {
 	svc            *service.OrderService
 	paymentSvc     paymentInitiator
+	shipmentSvc    dispatcher
 	deliveryQuotes publicDeliveryQuoter
 	publicAppURL   string
 	log            *slog.Logger
@@ -89,6 +94,10 @@ func NewOrderHandler(svc *service.OrderService, paymentSvc paymentInitiator, pub
 
 func (h *OrderHandler) SetDeliveryQuoteService(svc publicDeliveryQuoter) {
 	h.deliveryQuotes = svc
+}
+
+func (h *OrderHandler) SetShipmentService(svc dispatcher) {
+	h.shipmentSvc = svc
 }
 
 func buildOrderItems(w http.ResponseWriter, itemsReq []orderCreateItemRequest) ([]models.OrderItem, bool) {
@@ -484,6 +493,46 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondPage(w, orders, total, limit, offset)
+}
+
+// POST /orders/{id}/dispatch
+func (h *OrderHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
+	tenant := middleware.TenantFromCtx(r.Context())
+	if err := service.RequireModule(tenant, false, false, true); err != nil {
+		respondErr(w, http.StatusForbidden, "logistics module not enabled")
+		return
+	}
+	if h.shipmentSvc == nil {
+		serverErr(w, h.log, r, errors.New("shipment service not configured"))
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondErr(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	var req struct {
+		CourierID   string `json:"courier_id" validate:"required"`
+		ServiceCode string `json:"service_code" validate:"required"`
+		ServiceType string `json:"service_type"`
+	}
+	if !decodeValid(w, r, &req) {
+		return
+	}
+
+	shipment, err := h.shipmentSvc.Dispatch(r.Context(), id, tenant.ID, service.DispatchShipmentRequest{
+		CourierID:   req.CourierID,
+		ServiceCode: req.ServiceCode,
+		ServiceType: req.ServiceType,
+	})
+	if err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+
+	respond(w, http.StatusCreated, shipment)
 }
 
 // POST /orders/{id}/cancel

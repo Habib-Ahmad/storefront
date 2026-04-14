@@ -151,6 +151,75 @@ type RateResponse struct {
 	RawResponse  json.RawMessage `json:"-"`
 }
 
+type CreateShipmentRequest struct {
+	RequestToken  string `json:"request_token"`
+	ServiceCode   string `json:"service_code"`
+	CourierID     string `json:"courier_id"`
+	InsuranceCode string `json:"insurance_code,omitempty"`
+	IsCODLabel    bool   `json:"is_cod_label,omitempty"`
+}
+
+type ShipmentCourier struct {
+	Name            string          `json:"name"`
+	Email           string          `json:"email"`
+	Phone           string          `json:"phone"`
+	TrackingCode    string          `json:"tracking_code"`
+	TrackingMessage string          `json:"tracking_message"`
+	RiderInfo       json.RawMessage `json:"rider_info"`
+}
+
+type ShipmentParty struct {
+	Name      string  `json:"name"`
+	Phone     string  `json:"phone"`
+	Email     string  `json:"email"`
+	Address   string  `json:"address"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type ShipmentPayment struct {
+	ShippingFee decimal.Decimal `json:"shipping_fee"`
+	Type        string          `json:"type"`
+	Status      string          `json:"status"`
+	Currency    string          `json:"currency"`
+}
+
+type ShipmentItem struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Weight      decimal.Decimal `json:"weight"`
+	Amount      string          `json:"amount"`
+	Quantity    string          `json:"quantity"`
+	Total       decimal.Decimal `json:"total"`
+}
+
+type ShipmentPackageStatus struct {
+	Status   string `json:"status"`
+	DateTime string `json:"datetime"`
+}
+
+type ShipmentEvent struct {
+	Location string `json:"location"`
+	Message  string `json:"message"`
+	Captured string `json:"captured"`
+}
+
+type ShipmentRecord struct {
+	OrderID         string                  `json:"order_id"`
+	Status          string                  `json:"status"`
+	Courier         ShipmentCourier         `json:"courier"`
+	ShipFrom        ShipmentParty           `json:"ship_from"`
+	ShipTo          ShipmentParty           `json:"ship_to"`
+	Payment         ShipmentPayment         `json:"payment"`
+	Items           []ShipmentItem          `json:"items"`
+	PackageStatus   []ShipmentPackageStatus `json:"package_status"`
+	Events          []ShipmentEvent         `json:"events"`
+	TrackingURL     string                  `json:"tracking_url"`
+	WaybillDocument *string                 `json:"waybill_document"`
+	Date            string                  `json:"date"`
+	Raw             json.RawMessage         `json:"-"`
+}
+
 func (c *Client) ValidateAddress(ctx context.Context, req ValidateAddressRequest) (*ValidatedAddress, error) {
 	var out struct {
 		Status  string           `json:"status"`
@@ -276,6 +345,27 @@ func (c *Client) FetchRates(ctx context.Context, req RateRequest) (*RateResponse
 		response.Cheapest = &option
 	}
 	return response, nil
+}
+
+func (c *Client) CreateShipment(ctx context.Context, req CreateShipmentRequest) (*ShipmentRecord, error) {
+	var out struct {
+		Status  string         `json:"status"`
+		Message string         `json:"message"`
+		Data    ShipmentRecord `json:"data"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, "/shipping/labels", req, &out); err != nil {
+		return nil, err
+	}
+	if out.Status != "success" {
+		return nil, fmt.Errorf("shipbubble: create shipment: %s", out.Message)
+	}
+
+	rawResponse, err := json.Marshal(out.Data)
+	if err != nil {
+		return nil, fmt.Errorf("shipbubble: marshal shipment response: %w", err)
+	}
+	out.Data.Raw = rawResponse
+	return &out.Data, nil
 }
 
 func normalizeRateOption(raw any) (RateOption, error) {

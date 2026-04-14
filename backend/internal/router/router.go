@@ -54,6 +54,7 @@ func New(
 
 	// Webhook endpoints — no auth, signature-verified inside each handler
 	r.Post("/webhooks/paystack", webhook.Paystack)
+	r.Post("/webhooks/shipbubble", webhook.Shipbubble)
 
 	// Public endpoints
 	r.Get("/tiers", tier.List)
@@ -102,6 +103,7 @@ func New(
 		r.Get("/orders", order.List)
 		r.Get("/orders/{id}", order.Get)
 		r.Get("/orders/{id}/items", order.ListItems)
+		r.Post("/orders/{id}/dispatch", order.Dispatch)
 		r.Post("/orders/{id}/cancel", order.Cancel)
 		r.Post("/orders/{id}/resume-payment", order.ResumePayment)
 

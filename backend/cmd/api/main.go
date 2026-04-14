@@ -50,6 +50,7 @@ func main() {
 	txRepo := repository.NewTransactionRepository(pool)
 	productRepo := repository.NewProductRepository(pool)
 	orderRepo := repository.NewOrderRepository(pool)
+	shipmentRepo := repository.NewShipmentRepository(pool)
 	auditLogRepo := repository.NewAuditLogRepository(pool)
 
 	// External adapter clients
@@ -81,6 +82,7 @@ func main() {
 	paymentSvc := service.NewPaymentService(paystackClient, orderRepo, productRepo, walletSvc)
 	paymentSvc.SetPool(pool)
 	deliveryQuoteSvc := service.NewDeliveryQuoteService(storefrontSvc, productRepo, shipbubbleClient)
+	shipmentSvc := service.NewShipmentService(shipbubbleClient, shipmentRepo, orderRepo, productRepo, tenantRepo, walletSvc)
 
 	// Handlers
 	authH := handler.NewAuthHandler(userRepo, tenantRepo, log)
@@ -92,10 +94,12 @@ func main() {
 	productH := handler.NewProductHandler(productSvc, log)
 	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, cfg.PublicAppURL, log)
 	orderH.SetDeliveryQuoteService(deliveryQuoteSvc)
+	orderH.SetShipmentService(shipmentSvc)
 	walletH := handler.NewWalletHandler(walletRepo, txRepo, log)
 	analyticsRepo := repository.NewAnalyticsRepository(pool)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, log)
 	webhookH := handler.NewWebhookHandler(paystackClient, paymentSvc, log)
+	webhookH.SetShipmentService(shipbubbleClient, shipmentSvc)
 	mediaH := handler.NewMediaHandler(cfg.CloudflareAccountID, cfg.CloudflareAPIToken, log)
 
 	// Ensure audit log partitions exist on startup (fresh deploy safety).
