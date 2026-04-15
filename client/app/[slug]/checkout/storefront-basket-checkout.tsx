@@ -36,6 +36,7 @@ import {
   useStorefrontCart,
 } from "@/lib/storefront-cart";
 import type {
+  PublicStorefront,
   PublicStorefrontCheckoutResponse,
   PublicStorefrontDeliveryQuoteOption,
   PublicStorefrontDeliveryQuoteResponse,
@@ -45,7 +46,7 @@ import { PublicPendingOrderBanner } from "@/components/public-pending-order-bann
 import { formatCurrency } from "../storefront-formatters";
 
 interface StorefrontBasketCheckoutProps {
-  slug: string;
+  storefront: PublicStorefront;
 }
 
 type FulfillmentMode = "pickup" | "delivery";
@@ -60,7 +61,8 @@ function quoteBadge(option: PublicStorefrontDeliveryQuoteOption) {
   return null;
 }
 
-export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps) {
+export function StorefrontBasketCheckout({ storefront }: StorefrontBasketCheckoutProps) {
+  const { slug } = storefront;
   const recoveryKey = basketRecoveryKey(slug);
   const { items, isEmpty, subtotal } = useStorefrontCart(slug);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>("pickup");
@@ -71,6 +73,7 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<PublicStorefrontDeliveryQuoteResponse | null>(null);
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [result, setResult] = useState<PublicStorefrontCheckoutResponse | null>(null);
@@ -91,12 +94,21 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
   const selectedQuote = quotes?.options.find((option) => option.id === selectedQuoteId) ?? null;
   const shippingAmount = Number(selectedQuote?.amount ?? 0);
   const orderTotal = subtotal + shippingAmount;
+  const deliveryReady = storefront.delivery.ready;
+  const deliveryUnavailableReason =
+    storefront.delivery.unavailable_reason ?? "Delivery is not available right now.";
 
   useEffect(() => {
     setQuotes(null);
     setSelectedQuoteId("");
     setQuoteError(null);
   }, [fulfillmentMode, customerPhone, formattedShippingAddress, note, itemsSignature]);
+
+  useEffect(() => {
+    if (!deliveryReady && fulfillmentMode === "delivery") {
+      setFulfillmentMode("pickup");
+    }
+  }, [deliveryReady, fulfillmentMode]);
 
   useEffect(() => {
     if (fulfillmentMode !== "delivery") {
@@ -158,6 +170,18 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
     slug,
   ]);
 
+  useEffect(() => {
+    if (!redirectTarget) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      window.location.href = redirectTarget;
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [redirectTarget]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -170,6 +194,10 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
       return;
     }
     if (fulfillmentMode === "delivery") {
+      if (!deliveryReady) {
+        setSubmitError(deliveryUnavailableReason);
+        return;
+      }
       if (!deliveryAddressReady) {
         setSubmitError("Enter a complete delivery address with street, city, state, and country.");
         return;
@@ -203,16 +231,18 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
           quantity: item.quantity,
         })),
       });
-      clearStorefrontCart(slug);
       rememberPendingOrder(recoveryKey, slug, response.order.tracking_slug);
       if (response.authorization_url) {
-        window.location.href = response.authorization_url;
+        clearStorefrontCart(slug);
+        setRedirectTarget(response.authorization_url);
         return;
       }
       if (response.order.payment_status === "pending") {
-        window.location.href = `/order/${response.order.tracking_slug}`;
+        clearStorefrontCart(slug);
+        setRedirectTarget(`/order/${response.order.tracking_slug}`);
         return;
       }
+      clearStorefrontCart(slug);
       setResult(response);
     } catch (error) {
       if (error instanceof PublicStorefrontError) {
@@ -286,6 +316,28 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
                 Continue shopping
               </Link>
             </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (redirectTarget) {
+    return (
+      <main className="min-h-screen bg-background text-foreground">
+        <section className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+          <div className="w-full rounded-[2rem] border border-border/60 bg-card p-8 text-center sm:p-10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-foreground">
+              <LoaderCircle className="h-6 w-6 animate-spin" />
+            </div>
+            <h1 className="mt-5 text-3xl font-semibold tracking-tight text-foreground">
+              Redirecting you now
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
+              {redirectTarget.startsWith("http")
+                ? "We are sending you to payment now."
+                : "We are opening your order summary now."}
+            </p>
           </div>
         </section>
       </main>
@@ -466,11 +518,12 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
                   <button
                     type="button"
                     onClick={() => setFulfillmentMode("delivery")}
+                    disabled={!deliveryReady}
                     className={`rounded-[1.5rem] border p-4 text-left transition-colors ${
                       fulfillmentMode === "delivery"
                         ? "border-foreground bg-foreground text-background"
                         : "border-border/60 bg-background text-foreground"
-                    }`}
+                    } ${!deliveryReady ? "cursor-not-allowed opacity-60" : ""}`}
                   >
                     <Truck className="h-5 w-5" />
                     <p className="mt-3 text-sm font-semibold">Delivery</p>
@@ -479,6 +532,12 @@ export function StorefrontBasketCheckout({ slug }: StorefrontBasketCheckoutProps
                     </p>
                   </button>
                 </div>
+
+                {!deliveryReady ? (
+                  <div className="rounded-[1.25rem] border border-border/60 bg-background px-4 py-3 text-sm text-muted-foreground">
+                    {deliveryUnavailableReason}
+                  </div>
+                ) : null}
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-foreground">Phone number</span>

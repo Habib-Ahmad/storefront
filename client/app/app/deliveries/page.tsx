@@ -9,18 +9,29 @@ import {
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
+import { useSession } from "@/components/auth-provider";
 import { DeliveryTruckSvg } from "@/components/illustrations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMe } from "@/hooks/use-auth";
 import { useOrders } from "@/hooks/use-orders";
 import { missingLogisticsAddressFields, parseLogisticsAddress } from "@/lib/logistics-address";
-import { cardBadges, formatCurrency, formatDateTime } from "../orders/order-formatters";
+import {
+  cardBadges,
+  displayCustomer,
+  formatCurrency,
+  formatDateTime,
+} from "../orders/order-formatters";
 
 export default function DeliveriesPage() {
   const router = useRouter();
-  const { data: me, isLoading } = useMe();
-  const { data: ordersResponse, isLoading: ordersLoading } = useOrders({ page: 1, per_page: 50 });
+  const { loading: authLoading } = useSession();
+  const { data: me, isLoading, error: meError } = useMe();
+  const {
+    data: ordersResponse,
+    isLoading: ordersLoading,
+    error: ordersError,
+  } = useOrders({ page: 1, per_page: 50, view: "all" }, { enabled: me?.onboarded === true });
   const tenant = me?.onboarded ? me.tenant : undefined;
   const isAdmin = me?.onboarded && me.role === "admin";
   const address = parseLogisticsAddress(tenant?.address);
@@ -70,11 +81,32 @@ export default function DeliveriesPage() {
     return () => window.clearTimeout(timer);
   }, [isAdmin, needsSetup, router]);
 
-  if (isLoading || ordersLoading) {
+  if (authLoading || isLoading || (me?.onboarded === true && ordersLoading)) {
     return (
       <div className="card-3d flex min-h-80 flex-col items-center justify-center gap-3 rounded-2xl p-8 text-center">
         <SpinnerGapIcon className="size-5 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Loading deliveries</p>
+      </div>
+    );
+  }
+
+  if (meError || ordersError) {
+    const loadError = meError ?? ordersError;
+
+    return (
+      <div className="card-3d rounded-2xl p-8">
+        <div className="flex items-start gap-3">
+          <WarningCircleIcon className="mt-1 size-6 text-primary" weight="fill" />
+          <div>
+            <h1 className="text-2xl font-bold">Deliveries</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Unable to load delivery activity right now.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {loadError instanceof Error ? loadError.message : "Unexpected deliveries error"}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -159,7 +191,7 @@ export default function DeliveriesPage() {
       ) : (
         <div className="space-y-3">
           {deliveryOrders.map((order) => {
-            const customerName = order.customer_name?.trim() || "Walk-in customer";
+            const customerName = displayCustomer(order);
             const badges = cardBadges(order);
 
             return (

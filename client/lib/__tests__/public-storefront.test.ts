@@ -31,6 +31,7 @@ describe("getPublicStorefront", () => {
           contact_email: "hello@funkefabrics.com",
           contact_phone: "+2348012345678",
           address: "12 Allen Avenue, Ikeja",
+          delivery: { enabled: true, ready: true, unavailable_reason: null },
         },
         products: [
           {
@@ -76,6 +77,7 @@ describe("getPublicStorefrontProduct", () => {
           contact_email: "hello@funkefabrics.com",
           contact_phone: "+2348012345678",
           address: "12 Allen Avenue, Ikeja",
+          delivery: { enabled: true, ready: true, unavailable_reason: null },
         },
         product: {
           id: "550e8400-e29b-41d4-a716-446655440000",
@@ -127,6 +129,7 @@ describe("createPublicStorefrontOrder", () => {
             contact_email: "hello@funkefabrics.com",
             contact_phone: "+2348012345678",
             address: "12 Allen Avenue, Ikeja",
+            delivery: { enabled: true, ready: true, unavailable_reason: null },
           },
           order: {
             tracking_slug: "abc123def456",
@@ -194,6 +197,7 @@ describe("getPublicStorefrontDeliveryQuotes", () => {
           contact_email: "hello@funkefabrics.com",
           contact_phone: "+2348012345678",
           address: "12 Allen Avenue, Ikeja",
+          delivery: { enabled: true, ready: true, unavailable_reason: null },
         },
         options: [
           {

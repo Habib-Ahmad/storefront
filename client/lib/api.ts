@@ -75,6 +75,9 @@ function qs(params: PaginationParams): string {
   const perPage = params.per_page ?? 20;
   s.set("limit", String(perPage));
   s.set("offset", String((page - 1) * perPage));
+  if (params.view) {
+    s.set("view", params.view);
+  }
   return s.toString();
 }
 

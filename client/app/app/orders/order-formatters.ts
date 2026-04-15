@@ -1,5 +1,16 @@
 import type { Order } from "@/lib/types";
 
+function firstNonEmpty(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return "";
+}
+
 export function formatCurrency(amount: string) {
   return new Intl.NumberFormat("en-NG", {
     style: "currency",
@@ -18,6 +29,19 @@ export function formatDateTime(value: string) {
     hour12: true,
     timeZone: "Africa/Lagos",
   }).format(new Date(value));
+}
+
+export function displayCustomer(order: Order) {
+  const label = firstNonEmpty(order.customer_name, order.customer_phone, order.customer_email);
+  if (label) {
+    return label;
+  }
+
+  if (order.is_delivery || order.payment_method === "online") {
+    return "Guest customer";
+  }
+
+  return "Walk-in customer";
 }
 
 type CardBadge = {

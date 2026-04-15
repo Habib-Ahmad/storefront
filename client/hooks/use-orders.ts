@@ -1,23 +1,61 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+import { useSession } from "@/components/auth-provider";
 import { api } from "@/lib/api";
-import { createMutationHook, createQueryHook } from "@/lib/query-factory";
-import type { CreateOrderRequest, PaginationParams, Shipment } from "@/lib/types";
+import { createMutationHook } from "@/lib/query-factory";
+import type {
+  CreateOrderRequest,
+  DispatchShipmentOption,
+  Order,
+  OrderItem,
+  PaginatedResponse,
+  PaginationParams,
+  Shipment,
+} from "@/lib/types";
 
-export const useOrders = createQueryHook("orders", (params: PaginationParams) =>
-  api.getOrders(params),
-);
+type AuthenticatedQueryOptions<TData> = Omit<UseQueryOptions<TData>, "queryKey" | "queryFn">;
 
-export const useOrder = createQueryHook("order", (id: string) => api.getOrder(id));
+function useAuthenticatedQuery<TData>(
+  queryKey: ReadonlyArray<unknown>,
+  queryFn: () => Promise<TData>,
+  options?: AuthenticatedQueryOptions<TData>,
+) {
+  const { session, loading } = useSession();
 
-export const useOrderItems = createQueryHook("order-items", (orderId: string) =>
-  api.getOrderItems(orderId),
-);
+  return useQuery<TData>({
+    queryKey,
+    queryFn,
+    enabled: !loading && !!session && (options?.enabled ?? true),
+    ...options,
+  });
+}
 
-export const useOrderDispatchOptions = createQueryHook("order-dispatch-options", (id: string) =>
-  api.getOrderDispatchOptions(id),
-);
+export function useOrders(
+  params: PaginationParams,
+  options?: AuthenticatedQueryOptions<PaginatedResponse<Order>>,
+) {
+  return useAuthenticatedQuery(["orders", params], () => api.getOrders(params), options);
+}
+
+export function useOrder(id: string, options?: AuthenticatedQueryOptions<Order>) {
+  return useAuthenticatedQuery(["order", id], () => api.getOrder(id), options);
+}
+
+export function useOrderItems(orderId: string, options?: AuthenticatedQueryOptions<OrderItem[]>) {
+  return useAuthenticatedQuery(["order-items", orderId], () => api.getOrderItems(orderId), options);
+}
+
+export function useOrderDispatchOptions(
+  id: string,
+  options?: AuthenticatedQueryOptions<DispatchShipmentOption[]>,
+) {
+  return useAuthenticatedQuery(
+    ["order-dispatch-options", id],
+    () => api.getOrderDispatchOptions(id),
+    options,
+  );
+}
 
 export const useCreateOrder = createMutationHook(
   (data: CreateOrderRequest) => api.createOrder(data),

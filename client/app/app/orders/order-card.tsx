@@ -2,14 +2,14 @@ import Link from "next/link";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import type { Order } from "@/lib/types";
-import { cardBadges, formatCurrency, formatDateTime } from "./order-formatters";
+import { cardBadges, displayCustomer, formatCurrency, formatDateTime } from "./order-formatters";
 
 interface OrderCardProps {
   order: Order;
 }
 
 export function OrderCard({ order }: OrderCardProps) {
-  const customerName = order.customer_name?.trim() || "Walk-in customer";
+  const customerName = displayCustomer(order);
   const badges = cardBadges(order);
 
   return (

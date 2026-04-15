@@ -9,6 +9,11 @@ export const PublicStorefrontSchema = z.object({
   contact_email: z.string().nullable().optional(),
   contact_phone: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
+  delivery: z.object({
+    enabled: z.boolean(),
+    ready: z.boolean(),
+    unavailable_reason: z.string().nullable().optional(),
+  }),
 });
 
 export const PublicStorefrontProductSchema = z.object({

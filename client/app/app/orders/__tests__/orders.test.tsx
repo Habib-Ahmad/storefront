@@ -103,7 +103,9 @@ describe("OrdersPage", () => {
   it("shows empty state when there are no orders", () => {
     render(<OrdersPage />);
 
-    expect(screen.getByText("Your orders will appear here")).toBeInTheDocument();
+    expect(
+      screen.getByText("Your paid orders that still need action will appear here"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /create your first order/i })).toHaveAttribute(
       "href",
       "/app/orders/new",
@@ -138,7 +140,7 @@ describe("OrdersPage", () => {
             tracking_slug: "xyz987uvw654",
             is_delivery: false,
             customer_name: null,
-            customer_phone: null,
+            customer_phone: "08130801296",
             customer_email: null,
             shipping_address: null,
             note: null,
@@ -179,11 +181,11 @@ describe("OrdersPage", () => {
     render(<OrdersPage />);
 
     expect(screen.getByText("Amina Bello")).toBeInTheDocument();
-    expect(screen.getByText("Walk-in customer")).toBeInTheDocument();
+    expect(screen.getByText("08130801296")).toBeInTheDocument();
     expect(screen.getByText("Kehinde Musa")).toBeInTheDocument();
-    expect(screen.getByText(/14 Mar 2026 at 11:00 AM/i)).toBeInTheDocument();
-    expect(screen.getByText(/12 Mar 2026 at 11:00 AM/i)).toBeInTheDocument();
-    expect(screen.getByText(/11 Mar 2026 at 11:00 AM/i)).toBeInTheDocument();
+    expect(screen.getByText(/14 Mar 2026, 11:00 am/i)).toBeInTheDocument();
+    expect(screen.getByText(/12 Mar 2026, 11:00 am/i)).toBeInTheDocument();
+    expect(screen.getByText(/11 Mar 2026, 11:00 am/i)).toBeInTheDocument();
     expect(screen.queryByText("abc123def456")).not.toBeInTheDocument();
     expect(screen.queryByText("xyz987uvw654")).not.toBeInTheDocument();
     expect(screen.getAllByText("Ready for delivery").length).toBeGreaterThan(0);
@@ -195,7 +197,7 @@ describe("OrdersPage", () => {
     expect(screen.queryByText("Paid")).not.toBeInTheDocument();
 
     const firstLink = screen.getByText("Amina Bello").closest("a");
-    const secondLink = screen.getByText("Walk-in customer").closest("a");
+    const secondLink = screen.getByText("08130801296").closest("a");
     const thirdLink = screen.getByText("Kehinde Musa").closest("a");
 
     expect(firstLink).toHaveAttribute("href", "/app/orders/order-1");
@@ -238,15 +240,32 @@ describe("OrdersPage", () => {
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
 
     const buttons = screen.getAllByRole("button");
-    const prevButton = buttons[1];
-    const nextButton = buttons[2];
+    const prevButton = buttons[buttons.length - 2];
+    const nextButton = buttons[buttons.length - 1];
 
     expect(prevButton).toBeDisabled();
     expect(nextButton).not.toBeDisabled();
 
     await userEvent.click(nextButton);
 
-    expect(mockUseOrders).toHaveBeenLastCalledWith({ page: 2, per_page: 12 });
+    expect(mockUseOrders).toHaveBeenLastCalledWith({
+      page: 2,
+      per_page: 12,
+      view: "actionable",
+    });
+  });
+
+  it("switches between active, cancelled, and all order views", async () => {
+    render(<OrdersPage />);
+
+    await userEvent.click(screen.getByRole("button", { name: /open orders/i }));
+    expect(mockUseOrders).toHaveBeenLastCalledWith({ page: 1, per_page: 12, view: "active" });
+
+    await userEvent.click(screen.getByRole("button", { name: /cancelled/i }));
+    expect(mockUseOrders).toHaveBeenLastCalledWith({ page: 1, per_page: 12, view: "cancelled" });
+
+    await userEvent.click(screen.getByRole("button", { name: /all orders/i }));
+    expect(mockUseOrders).toHaveBeenLastCalledWith({ page: 1, per_page: 12, view: "all" });
   });
 });
 

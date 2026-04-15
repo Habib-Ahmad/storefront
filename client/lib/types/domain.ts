@@ -26,6 +26,7 @@ export const TierSchema = z.object({
   name: z.string(),
   debt_ceiling: z.string(),
   commission_rate: z.string(),
+  commission_cap: z.string().optional(),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
 });

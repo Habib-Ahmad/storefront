@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRightIcon, SpinnerGapIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, SpinnerGapIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { useSession } from "@/components/auth-provider";
 import { WalletCoinsSvg } from "@/components/illustrations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ function formatDateTime(value: string) {
 }
 
 function transactionBadgeVariant(type: string): "default" | "secondary" | "destructive" {
-  if (type === "debit" || type === "refund" || type === "commission") {
+  if (type === "debit" || type === "refund") {
     return "destructive";
   }
   if (type === "release" || type === "credit") {
@@ -38,13 +39,19 @@ function transactionBadgeVariant(type: string): "default" | "secondary" | "destr
 }
 
 export default function WalletPage() {
+  const { loading: authLoading } = useSession();
   const [page, setPage] = useState(1);
   const perPage = 10;
-  const { data: wallet, isLoading: walletLoading } = useWallet();
-  const { data: transactionsResponse, isLoading: transactionsLoading } = useTransactions({
+  const { data: wallet, isLoading: walletLoading, error: walletError } = useWallet();
+  const {
+    data: transactionsResponse,
+    isLoading: transactionsLoading,
+    error: transactionsError,
+  } = useTransactions({
     page,
     per_page: perPage,
   });
+  const loadError = walletError ?? transactionsError;
 
   const transactions = transactionsResponse?.data ?? [];
   const totalPages = Math.max(1, Math.ceil((transactionsResponse?.total ?? 0) / perPage));
@@ -54,11 +61,30 @@ export default function WalletPage() {
     return (available + pending).toString();
   }, [wallet?.available_balance, wallet?.pending_balance]);
 
-  if (walletLoading || transactionsLoading) {
+  if (authLoading || walletLoading || transactionsLoading) {
     return (
       <div className="card-3d flex min-h-80 flex-col items-center justify-center gap-3 rounded-2xl p-8 text-center">
         <SpinnerGapIcon className="size-5 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Loading wallet</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="card-3d rounded-2xl p-8">
+        <div className="flex items-start gap-3">
+          <WarningCircleIcon className="mt-1 size-6 text-primary" weight="fill" />
+          <div>
+            <h1 className="text-2xl font-bold">Wallet</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Unable to load wallet data right now.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {loadError instanceof Error ? loadError.message : "Unexpected wallet error"}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -97,7 +123,7 @@ export default function WalletPage() {
             <div>
               <h2 className="text-base font-semibold">Recent transactions</h2>
               <p className="text-sm text-muted-foreground">
-                Ledger activity for credits, releases, commissions, and refunds.
+                Ledger activity for sales, releases, payouts, and refunds.
               </p>
             </div>
             <Badge variant="secondary" className="text-xs">

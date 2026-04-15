@@ -16,6 +16,7 @@ export const FulfillmentStatusSchema = z.enum([
 export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 export type FulfillmentStatus = z.infer<typeof FulfillmentStatusSchema>;
+export type OrderListView = "actionable" | "active" | "cancelled" | "all";
 
 // ── Domain schemas ─────────────────────────────────────
 

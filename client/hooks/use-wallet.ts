@@ -1,17 +1,38 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
+import { useSession } from "@/components/auth-provider";
 import { api } from "@/lib/api";
-import { createQueryHook } from "@/lib/query-factory";
-import type { PaginationParams } from "@/lib/types";
+import type { PaginatedResponse, PaginationParams, Transaction, Wallet } from "@/lib/types";
 
-export function useWallet() {
-  return useQuery({
-    queryKey: ["wallet"],
-    queryFn: () => api.getWallet(),
+type AuthenticatedQueryOptions<TData> = Omit<UseQueryOptions<TData>, "queryKey" | "queryFn">;
+
+function useAuthenticatedQuery<TData>(
+  queryKey: ReadonlyArray<unknown>,
+  queryFn: () => Promise<TData>,
+  options?: AuthenticatedQueryOptions<TData>,
+) {
+  const { session, loading } = useSession();
+
+  return useQuery<TData>({
+    queryKey,
+    queryFn,
+    enabled: !loading && !!session && (options?.enabled ?? true),
+    ...options,
   });
 }
 
-export const useTransactions = createQueryHook("wallet-transactions", (params: PaginationParams) =>
-  api.getTransactions(params),
-);
+export function useWallet(options?: AuthenticatedQueryOptions<Wallet>) {
+  return useAuthenticatedQuery(["wallet"], () => api.getWallet(), options);
+}
+
+export function useTransactions(
+  params: PaginationParams,
+  options?: AuthenticatedQueryOptions<PaginatedResponse<Transaction>>,
+) {
+  return useAuthenticatedQuery(
+    ["wallet-transactions", params],
+    () => api.getTransactions(params),
+    options,
+  );
+}

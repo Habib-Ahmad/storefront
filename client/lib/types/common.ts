@@ -3,6 +3,7 @@ import * as z from "zod";
 export const PaginationParamsSchema = z.object({
   page: z.number().int().positive().optional(),
   per_page: z.number().int().positive().optional(),
+  view: z.enum(["actionable", "active", "cancelled", "all"]).optional(),
 });
 
 export const PaginationMetaSchema = z.object({

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FulfillmentStatus, Order, OrderItem, PaymentStatus } from "@/lib/types";
+import { displayCustomer } from "../order-formatters";
 import {
   formatCurrency,
   formatDate,
@@ -57,7 +58,7 @@ function DetailRow({
 }
 
 export function OrderSummaryCard({ order }: { order: Order }) {
-  const customerName = order.customer_name?.trim() || "Walk-in customer";
+  const customerName = displayCustomer(order);
 
   return (
     <div className="card-3d space-y-4 rounded-2xl p-5">
@@ -238,6 +239,7 @@ export function ActionCard({
   onResumePayment,
   actionError,
   dispatchOptions,
+  dispatchOptionsError,
   selectedDispatchOptionId,
   isDispatching,
   isLoadingDispatchOptions,
@@ -250,6 +252,7 @@ export function ActionCard({
   onResumePayment: () => void;
   actionError: string | null;
   dispatchOptions: DispatchShipmentOption[];
+  dispatchOptionsError: string | null;
   selectedDispatchOptionId: string;
   isDispatching: boolean;
   isLoadingDispatchOptions: boolean;
@@ -306,11 +309,15 @@ export function ActionCard({
       return "Loading available courier options for this delivery order.";
     }
 
+    if (dispatchOptionsError) {
+      return dispatchOptionsError;
+    }
+
     if (dispatchOptions.length === 0) {
       return "No courier options are available for this delivery order yet. Try again shortly.";
     }
 
-    return "Choose one of the available courier options below to dispatch this delivery order.";
+    return "The customer chose delivery at checkout. Dispatch books the live Shipbubble shipment for this order.";
   })();
 
   return (
@@ -353,12 +360,14 @@ export function ActionCard({
           <div className="space-y-1">
             <p className="text-sm font-medium">Dispatch with Shipbubble</p>
             <p className="text-xs text-muted-foreground">
-              Pick one of the live courier options below, then dispatch the order.
+              Pick one of the live courier options below to book the shipment with the courier.
             </p>
           </div>
 
           {isLoadingDispatchOptions ? (
             <p className="text-sm text-muted-foreground">Loading courier options...</p>
+          ) : dispatchOptionsError ? (
+            <p className="text-sm text-muted-foreground">{dispatchOptionsError}</p>
           ) : dispatchOptions.length > 0 ? (
             <select
               aria-label="Dispatch option"
@@ -393,7 +402,12 @@ export function ActionCard({
             type="button"
             onClick={onDispatch}
             className="gap-2"
-            disabled={isLoadingDispatchOptions || isDispatching || dispatchOptions.length === 0}
+            disabled={
+              isLoadingDispatchOptions ||
+              isDispatching ||
+              dispatchOptions.length === 0 ||
+              Boolean(dispatchOptionsError)
+            }
           >
             <ArrowSquareOutIcon className="size-4" />
             {isDispatching ? "Dispatching..." : "Dispatch delivery"}

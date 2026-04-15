@@ -303,6 +303,11 @@ describe("Public storefront delivery quote schemas", () => {
         contact_email: "hello@funkefabrics.com",
         contact_phone: "+2348012345678",
         address: "12 Allen Avenue, Ikeja",
+        delivery: {
+          enabled: true,
+          ready: true,
+          unavailable_reason: null,
+        },
       },
       options: [
         {

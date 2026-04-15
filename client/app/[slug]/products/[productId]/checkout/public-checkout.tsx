@@ -104,6 +104,9 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
   const selectedQuote = quotes?.options.find((option) => option.id === selectedQuoteId) ?? null;
   const shippingAmount = Number(selectedQuote?.amount ?? 0);
   const orderTotal = subtotal + shippingAmount;
+  const deliveryReady = storefront.delivery.ready;
+  const deliveryUnavailableReason =
+    storefront.delivery.unavailable_reason ?? "Delivery is not available right now.";
   const canSubmit =
     !!selectedVariant &&
     selectedVariant.in_stock &&
@@ -121,6 +124,12 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
     formattedShippingAddress,
     note,
   ]);
+
+  useEffect(() => {
+    if (!deliveryReady && fulfillmentMode === "delivery") {
+      setFulfillmentMode("pickup");
+    }
+  }, [deliveryReady, fulfillmentMode]);
 
   useEffect(() => {
     if (fulfillmentMode !== "delivery") {
@@ -201,6 +210,10 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
       return;
     }
     if (fulfillmentMode === "delivery") {
+      if (!deliveryReady) {
+        setSubmitError(deliveryUnavailableReason);
+        return;
+      }
       if (!deliveryAddressReady) {
         setSubmitError("Enter a complete delivery address with street, city, state, and country.");
         return;
@@ -465,11 +478,12 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                 <button
                   type="button"
                   onClick={() => setFulfillmentMode("delivery")}
+                  disabled={!deliveryReady}
                   className={`rounded-[1.5rem] border p-4 text-left transition-colors ${
                     fulfillmentMode === "delivery"
                       ? "border-foreground bg-foreground text-background"
                       : "border-border/60 bg-background text-foreground"
-                  }`}
+                  } ${!deliveryReady ? "cursor-not-allowed opacity-60" : ""}`}
                 >
                   <Truck className="h-5 w-5" />
                   <p className="mt-3 text-sm font-semibold">Delivery</p>
@@ -478,6 +492,12 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                   </p>
                 </button>
               </div>
+
+              {!deliveryReady ? (
+                <div className="rounded-[1.25rem] border border-border/60 bg-background px-4 py-3 text-sm text-muted-foreground">
+                  {deliveryUnavailableReason}
+                </div>
+              ) : null}
 
               <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_10rem]">
                 <label className="space-y-2">

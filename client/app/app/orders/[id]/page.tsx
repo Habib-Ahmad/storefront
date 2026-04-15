@@ -42,10 +42,11 @@ export default function OrderDetailPage() {
     order.payment_status === "paid" &&
     order.fulfillment_status === "processing",
   );
-  const { data: dispatchOptions = [], isLoading: dispatchOptionsLoading } = useOrderDispatchOptions(
-    id,
-    { enabled: canDispatch },
-  );
+  const {
+    data: dispatchOptions = [],
+    isLoading: dispatchOptionsLoading,
+    error: dispatchOptionsError,
+  } = useOrderDispatchOptions(id, { enabled: canDispatch });
 
   const loading = orderLoading || itemsLoading;
   const orderItems = useMemo(() => items ?? [], [items]);
@@ -109,6 +110,9 @@ export default function OrderDetailPage() {
         order={order}
         actionError={actionError}
         dispatchOptions={dispatchOptions}
+        dispatchOptionsError={
+          dispatchOptionsError instanceof Error ? dispatchOptionsError.message : null
+        }
         selectedDispatchOptionId={selectedDispatchOptionId}
         isLoadingDispatchOptions={dispatchOptionsLoading}
         isDispatching={dispatchOrder.isPending}
