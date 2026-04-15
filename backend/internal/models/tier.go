@@ -12,6 +12,7 @@ type Tier struct {
 	Name           string          `json:"name"`
 	DebtCeiling    decimal.Decimal `json:"debt_ceiling"`
 	CommissionRate decimal.Decimal `json:"commission_rate"`
+	CommissionCap  decimal.Decimal `json:"commission_cap"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 }

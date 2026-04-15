@@ -46,10 +46,10 @@ func (s *stubOrderRepo) GetByPublicCheckoutID(_ context.Context, _ uuid.UUID, ch
 	}
 	return nil, pgx.ErrNoRows
 }
-func (s *stubOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
+func (s *stubOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _ models.OrderListView, _, _ int) ([]models.Order, error) {
 	return nil, nil
 }
-func (s *stubOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+func (s *stubOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID, _ models.OrderListView) (int, error) {
 	return 0, nil
 }
 func (s *stubOrderRepo) UpdatePaymentStatus(_ context.Context, _, _ uuid.UUID, _ models.PaymentStatus) error {

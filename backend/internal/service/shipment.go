@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -234,7 +235,7 @@ func (s *ShipmentService) quoteRates(ctx context.Context, tenant *models.Tenant,
 	}
 
 	senderAddress, err := s.provider.ValidateAddress(ctx, shipbubble.ValidateAddressRequest{
-		Name:    tenant.Name,
+		Name:    shipbubbleSenderName(tenant.Name, tenant.Slug),
 		Email:   fallbackEmail(tenant.ContactEmail, tenant.Slug),
 		Phone:   senderPhone,
 		Address: senderAddressText,
@@ -243,7 +244,7 @@ func (s *ShipmentService) quoteRates(ctx context.Context, tenant *models.Tenant,
 		return nil, mapShipmentAddressValidationError("sender", err)
 	}
 	receiverAddress, err := s.provider.ValidateAddress(ctx, shipbubble.ValidateAddressRequest{
-		Name:    strings.TrimSpace(derefString(order.CustomerName)),
+		Name:    shipbubbleReceiverName(derefString(order.CustomerName)),
 		Email:   fallbackEmail(order.CustomerEmail, "customer"),
 		Phone:   receiverPhone,
 		Address: receiverAddressText,
@@ -276,7 +277,7 @@ func (s *ShipmentService) quoteRates(ctx context.Context, tenant *models.Tenant,
 	rates, err := s.provider.FetchRates(ctx, shipbubble.RateRequest{
 		SenderAddressCode:   senderAddress.AddressCode,
 		ReceiverAddressCode: receiverAddress.AddressCode,
-		PickupDate:          pickupDate(order.CreatedAt),
+		PickupDate:          pickupDate(time.Now()),
 		CategoryID:          category.ID,
 		PackageItems:        packageItems,
 		ServiceType:         strings.TrimSpace(serviceType),
@@ -466,15 +467,12 @@ func normalizeShipbubbleStatus(status string) models.ShipmentStatus {
 }
 
 func mapShipmentAddressValidationError(role string, err error) error {
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	if strings.Contains(message, "address/validate") || strings.Contains(message, "validate address") || strings.Contains(message, "couldn't validate the provided address") {
-		if role == "sender" {
-			return apperr.Unprocessable("the store pickup address is incomplete. Update the logistics setup with a clear street, city, state, and country before dispatching orders")
-		}
-		return apperr.Unprocessable("the customer delivery address is incomplete. Update the order with a clear street, city, state, and country before dispatching it")
-	}
-
-	return fmt.Errorf("validate %s address: %w", role, err)
+	return mapShipbubbleValidationError(
+		role,
+		"the store pickup address is incomplete. Update the logistics setup with a clear street, city, state, and country before dispatching orders",
+		"the customer delivery address is incomplete. Update the order with a clear street, city, state, and country before dispatching it",
+		err,
+	)
 }
 
 func marshalCarrierHistory(raw json.RawMessage) (json.RawMessage, error) {

@@ -254,15 +254,23 @@ func buildPublicOrder(req publicOrderCreateRequest, checkoutID uuid.UUID, shippi
 	}
 }
 
-func publicStorefrontFromTenant(tenant *models.Tenant) models.PublicStorefront {
-	return models.PublicStorefront{
-		Name:         tenant.Name,
-		Slug:         tenant.Slug,
-		LogoURL:      tenant.LogoURL,
-		ContactEmail: tenant.ContactEmail,
-		ContactPhone: tenant.ContactPhone,
-		Address:      tenant.Address,
+func parseOrderListView(raw string) models.OrderListView {
+	switch models.OrderListView(strings.TrimSpace(raw)) {
+	case models.OrderListViewAll:
+		return models.OrderListViewAll
+	case models.OrderListViewCancelled:
+		return models.OrderListViewCancelled
+	case models.OrderListViewActive:
+		return models.OrderListViewActive
+	case models.OrderListViewActionable:
+		return models.OrderListViewActionable
+	default:
+		return models.OrderListViewActionable
 	}
+}
+
+func publicStorefrontFromTenant(tenant *models.Tenant) models.PublicStorefront {
+	return service.PublicStorefrontFromTenant(tenant)
 }
 
 func publicCheckoutOrderFromOrder(order *models.Order) models.PublicStorefrontCheckoutOrder {
@@ -475,12 +483,13 @@ func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, order)
 }
 
-// GET /orders?limit=20&offset=0
+// GET /orders?limit=20&offset=0&view=actionable
 func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
 	limit := queryInt(r, "limit", 20)
 	offset := queryInt(r, "offset", 0)
-	orders, err := h.svc.List(r.Context(), tenant.ID, limit, offset)
+	view := parseOrderListView(r.URL.Query().Get("view"))
+	orders, err := h.svc.List(r.Context(), tenant.ID, view, limit, offset)
 	if err != nil {
 		serverErr(w, h.log, r, err)
 		return
@@ -488,7 +497,7 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	if orders == nil {
 		orders = []models.Order{}
 	}
-	total, err := h.svc.CountByTenant(r.Context(), tenant.ID)
+	total, err := h.svc.CountByTenant(r.Context(), tenant.ID, view)
 	if err != nil {
 		serverErr(w, h.log, r, err)
 		return

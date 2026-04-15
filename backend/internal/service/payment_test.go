@@ -93,6 +93,7 @@ func TestInitiatePayment_AdapterError(t *testing.T) {
 func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
+	tierID := uuid.New()
 	order := &models.Order{
 		ID:                orderID,
 		TenantID:          tenantID,
@@ -112,12 +113,14 @@ func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 		},
 	}
 	txRepo := &mockTxRepo{}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}}
 	walletSvc := service.NewWalletService(
 		&mockWalletRepo{wallet: wallet},
 		txRepo,
-		&mockTenantRepo{},
+		tenantRepo,
 		testHMACSecret,
 	)
+	walletSvc.SetTierRepo(&mockTierRepo{tier: &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0.05), CommissionCap: decimal.NewFromInt(2000)}})
 	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, &mockProductRepo{}, walletSvc)
 
 	err := paymentSvc.HandleChargeSuccess(context.Background(), orderID.String())
@@ -127,11 +130,21 @@ func TestHandleChargeSuccess_CreditsWallet(t *testing.T) {
 	if txRepo.created == nil {
 		t.Fatal("expected wallet credit transaction to be created")
 	}
+	if !txRepo.created.Amount.Equal(decimal.NewFromInt(4750)) {
+		t.Fatalf("expected net pending credit of 4750, got %s", txRepo.created.Amount)
+	}
+	if !txRepo.created.PlatformFeeAmount.Equal(decimal.NewFromInt(250)) {
+		t.Fatalf("expected platform fee amount 250, got %s", txRepo.created.PlatformFeeAmount)
+	}
+	if wallet.PendingBalance.String() != "4750" {
+		t.Fatalf("expected pending balance 4750, got %s", wallet.PendingBalance)
+	}
 }
 
 func TestHandleChargeSuccess_PickupOrder_CompletesAndCreditsAvailable(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
+	tierID := uuid.New()
 	order := &models.Order{
 		ID:                orderID,
 		TenantID:          tenantID,
@@ -150,7 +163,9 @@ func TestHandleChargeSuccess_PickupOrder_CompletesAndCreditsAvailable(t *testing
 	}
 	walletRepo := &mockWalletRepo{wallet: wallet}
 	txRepo := &mockTxRepo{}
-	walletSvc := service.NewWalletService(walletRepo, txRepo, &mockTenantRepo{}, testHMACSecret)
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}}
+	walletSvc := service.NewWalletService(walletRepo, txRepo, tenantRepo, testHMACSecret)
+	walletSvc.SetTierRepo(&mockTierRepo{tier: &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0.10), CommissionCap: decimal.NewFromInt(2000)}})
 	paymentSvc := service.NewPaymentService(ps, &mockOrderRepo{order: order}, &mockProductRepo{}, walletSvc)
 
 	err := paymentSvc.HandleChargeSuccess(context.Background(), orderID.String())
@@ -160,8 +175,11 @@ func TestHandleChargeSuccess_PickupOrder_CompletesAndCreditsAvailable(t *testing
 	if order.FulfillmentStatus != models.FulfillmentStatusCompleted {
 		t.Fatalf("pickup order should complete after payment, got %s", order.FulfillmentStatus)
 	}
-	if wallet.AvailableBalance.String() != "5000" {
-		t.Fatalf("pickup payment should credit available balance, got %s", wallet.AvailableBalance)
+	if wallet.AvailableBalance.String() != "4500" {
+		t.Fatalf("pickup payment should credit net available balance, got %s", wallet.AvailableBalance)
+	}
+	if !txRepo.created.PlatformFeeAmount.Equal(decimal.NewFromInt(500)) {
+		t.Fatalf("pickup payment should record a 500 platform fee snapshot, got %s", txRepo.created.PlatformFeeAmount)
 	}
 	if wallet.PendingBalance.String() != "0" {
 		t.Fatalf("pickup payment should not leave pending balance, got %s", wallet.PendingBalance)

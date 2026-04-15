@@ -100,6 +100,13 @@ func (s *stubShipmentProvider) CreateShipment(_ context.Context, req shipbubble.
 	return s.shipmentRecord, nil
 }
 
+func expectedPickupDate(now time.Time) string {
+	if now.Hour() >= 18 {
+		now = now.Add(24 * time.Hour)
+	}
+	return now.Format("2006-01-02")
+}
+
 func TestDispatch_BooksAndStoresShipbubbleShipment(t *testing.T) {
 	tenantID := uuid.New()
 	orderID := uuid.New()
@@ -192,6 +199,9 @@ func TestDispatch_BooksAndStoresShipbubbleShipment(t *testing.T) {
 	}
 	if shipments.upserted.Status != models.ShipmentStatusQueued {
 		t.Fatalf("shipment status: want queued, got %s", shipments.upserted.Status)
+	}
+	if provider.lastRate.PickupDate != expectedPickupDate(time.Now()) {
+		t.Fatalf("pickup_date: want %s, got %s", expectedPickupDate(time.Now()), provider.lastRate.PickupDate)
 	}
 }
 

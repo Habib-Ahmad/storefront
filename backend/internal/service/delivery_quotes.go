@@ -88,31 +88,30 @@ func (s *DeliveryQuoteService) fetchPublicQuotes(ctx context.Context, slug strin
 	if !tenant.ActiveModules.Logistics {
 		return models.PublicStorefront{}, nil, nil, apperr.Forbidden("delivery is not enabled for this storefront")
 	}
+	if !storefront.Delivery.Ready {
+		message := "delivery is not available right now"
+		if storefront.Delivery.UnavailableReason != nil {
+			message = *storefront.Delivery.UnavailableReason
+		}
+		return models.PublicStorefront{}, nil, nil, apperr.Conflict(message)
+	}
 
-	senderPhone, senderPhoneFallback := quoteSenderPhone(tenant, req)
-	senderAddressText, senderAddressFallback := quoteSenderAddress(tenant, req)
 	assumptions := []string{}
-	if senderPhoneFallback {
-		assumptions = append(assumptions, "using customer phone as temporary sender contact until storefront logistics profile is completed")
-	}
-	if senderAddressFallback {
-		assumptions = append(assumptions, "using customer delivery address as temporary sender address until storefront logistics profile is completed")
-	}
 
 	senderEmail := fallbackEmail(tenant.ContactEmail, tenant.Slug)
 	receiverEmail := fallbackEmail(req.CustomerEmail, "customer")
 
 	senderAddress, err := s.provider.ValidateAddress(ctx, shipbubble.ValidateAddressRequest{
-		Name:    tenant.Name,
+		Name:    shipbubbleSenderName(tenant.Name, tenant.Slug),
 		Email:   senderEmail,
-		Phone:   senderPhone,
-		Address: senderAddressText,
+		Phone:   trimmedTenantValue(tenant.ContactPhone),
+		Address: trimmedTenantValue(tenant.Address),
 	})
 	if err != nil {
 		return models.PublicStorefront{}, nil, nil, mapQuoteAddressValidationError("sender", err)
 	}
 	receiverAddress, err := s.provider.ValidateAddress(ctx, shipbubble.ValidateAddressRequest{
-		Name:    strings.TrimSpace(req.CustomerName),
+		Name:    shipbubbleReceiverName(req.CustomerName),
 		Email:   receiverEmail,
 		Phone:   strings.TrimSpace(req.CustomerPhone),
 		Address: strings.TrimSpace(req.ShippingAddress),
@@ -270,30 +269,13 @@ func fallbackEmail(email *string, label string) string {
 	return fmt.Sprintf("%s@storefront.local", sanitizeEmailLabel(label))
 }
 
-func quoteSenderPhone(tenant *models.Tenant, req models.PublicStorefrontDeliveryQuoteRequest) (string, bool) {
-	if tenant.ContactPhone != nil && strings.TrimSpace(*tenant.ContactPhone) != "" {
-		return strings.TrimSpace(*tenant.ContactPhone), false
-	}
-	return strings.TrimSpace(req.CustomerPhone), true
-}
-
-func quoteSenderAddress(tenant *models.Tenant, req models.PublicStorefrontDeliveryQuoteRequest) (string, bool) {
-	if tenant.Address != nil && strings.TrimSpace(*tenant.Address) != "" {
-		return strings.TrimSpace(*tenant.Address), false
-	}
-	return strings.TrimSpace(req.ShippingAddress), true
-}
-
 func mapQuoteAddressValidationError(role string, err error) error {
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	if strings.Contains(message, "address/validate") || strings.Contains(message, "validate address") || strings.Contains(message, "couldn't validate the provided address") {
-		if role == "sender" {
-			return apperr.Unprocessable("the store pickup address is incomplete. Ask the store admin to add a clear street, city, state, and country in logistics setup")
-		}
-		return apperr.Unprocessable("we couldn't validate this delivery address. Enter a clear street, city, state, and country")
-	}
-
-	return fmt.Errorf("validate %s address: %w", role, err)
+	return mapShipbubbleValidationError(
+		role,
+		"the store pickup address could not be validated. Ask the store admin to review logistics setup",
+		"we couldn't validate this delivery address. Enter a clear street, city, state, and country",
+		err,
+	)
 }
 
 func sanitizeEmailLabel(value string) string {

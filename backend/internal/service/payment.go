@@ -127,14 +127,16 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 			}
 		}
 
-		if order.IsDelivery {
-			if _, err := s.walletSvc.CreditWithTx(ctx, dbTx, order.TenantID, resp.Amount, &orderID); err != nil {
-				return fmt.Errorf("credit wallet: %w", err)
-			}
-		} else {
-			if _, err := s.walletSvc.CreditAvailableWithTx(ctx, dbTx, order.TenantID, resp.Amount, &orderID); err != nil {
-				return fmt.Errorf("credit wallet: %w", err)
-			}
+		if _, err := s.walletSvc.CreditSaleWithTx(
+			ctx,
+			dbTx,
+			order.TenantID,
+			order.TotalAmount.Add(order.ShippingFee),
+			order.TotalAmount,
+			order.IsDelivery,
+			&orderID,
+		); err != nil {
+			return fmt.Errorf("credit wallet: %w", err)
 		}
 
 		return dbTx.Commit(ctx)
@@ -168,14 +170,15 @@ func (s *PaymentService) HandleChargeSuccess(ctx context.Context, reference stri
 		}
 	}
 
-	if order.IsDelivery {
-		if _, err := s.walletSvc.Credit(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
-			return fmt.Errorf("credit wallet: %w", err)
-		}
-	} else {
-		if _, err := s.walletSvc.CreditAvailable(ctx, order.TenantID, resp.Amount, &orderID); err != nil {
-			return fmt.Errorf("credit wallet: %w", err)
-		}
+	if _, err := s.walletSvc.CreditSale(
+		ctx,
+		order.TenantID,
+		order.TotalAmount.Add(order.ShippingFee),
+		order.TotalAmount,
+		order.IsDelivery,
+		&orderID,
+	); err != nil {
+		return fmt.Errorf("credit wallet: %w", err)
 	}
 
 	return nil

@@ -220,6 +220,37 @@ func TestReleasePending_MovesBalance(t *testing.T) {
 	}
 }
 
+func TestCreditSale_CapsCommissionPerOrder(t *testing.T) {
+	tenantID := uuid.New()
+	tierID := uuid.New()
+	w := &models.Wallet{ID: uuid.New(), TenantID: tenantID}
+	txRepo := &mockTxRepo{}
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, TierID: tierID}}
+	svc := newWalletSvc(w, txRepo, tenantRepo)
+	svc.SetTierRepo(&mockTierRepo{tier: &models.Tier{ID: tierID, CommissionRate: decimal.NewFromFloat(0.10), CommissionCap: decimal.NewFromInt(2000)}})
+
+	tx, err := svc.CreditSale(
+		context.Background(),
+		tenantID,
+		decimal.NewFromInt(50000),
+		decimal.NewFromInt(50000),
+		false,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !tx.Amount.Equal(decimal.NewFromInt(48000)) {
+		t.Fatalf("net credit: want 48000 after 2000 cap, got %s", tx.Amount)
+	}
+	if !tx.PlatformFeeAmount.Equal(decimal.NewFromInt(2000)) {
+		t.Fatalf("platform fee amount: want 2000, got %s", tx.PlatformFeeAmount)
+	}
+	if !tx.PlatformFeeCap.Equal(decimal.NewFromInt(2000)) {
+		t.Fatalf("platform fee cap: want 2000, got %s", tx.PlatformFeeCap)
+	}
+}
+
 func TestDebit_WithinDebtCeiling_Succeeds(t *testing.T) {
 	tenantID := uuid.New()
 	tierID := uuid.New()

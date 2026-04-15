@@ -343,20 +343,16 @@ func TestCreateOrder_CashSale_CreditsWallet(t *testing.T) {
 	if txRepo.created == nil {
 		t.Fatal("expected wallet transaction to be created")
 	}
-	// 2000 * 0.05 = 100 commission; net credit = 1900
-	// But commission is recorded as a separate entry, so the credit is 1900
-	// and then a commission debit of -100.
-	// allCreated should have 2 entries.
-	if len(txRepo.allCreated) != 2 {
-		t.Fatalf("expected 2 transactions (credit + commission), got %d", len(txRepo.allCreated))
+	// 2000 * 0.05 = 100 commission; vendor should only see the net 1900 credit.
+	if len(txRepo.allCreated) != 1 {
+		t.Fatalf("expected 1 net credit transaction, got %d", len(txRepo.allCreated))
 	}
 	credit := txRepo.allCreated[0]
 	if !credit.Amount.Equal(decimal.NewFromInt(1900)) {
 		t.Fatalf("net credit: want 1900, got %s", credit.Amount)
 	}
-	comm := txRepo.allCreated[1]
-	if !comm.Amount.Equal(decimal.NewFromInt(-100)) {
-		t.Fatalf("commission: want -100, got %s", comm.Amount)
+	if !credit.PlatformFeeAmount.Equal(decimal.NewFromInt(100)) {
+		t.Fatalf("platform fee amount: want 100, got %s", credit.PlatformFeeAmount)
 	}
 }
 
@@ -510,17 +506,16 @@ func TestCreateOrder_TransferSale_CreditsWallet(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(txRepo.allCreated) != 2 {
-		t.Fatalf("expected 2 transactions (credit + commission), got %d", len(txRepo.allCreated))
+	if len(txRepo.allCreated) != 1 {
+		t.Fatalf("expected 1 net credit transaction, got %d", len(txRepo.allCreated))
 	}
-	// 1500 * 2 = 3000; commission = 300 (10%); net credit = 2700
+	// 1500 * 2 = 3000; commission = 300 (10%); vendor should only see the net 2700 credit.
 	credit := txRepo.allCreated[0]
 	if !credit.Amount.Equal(decimal.NewFromInt(2700)) {
 		t.Fatalf("net credit: want 2700, got %s", credit.Amount)
 	}
-	comm := txRepo.allCreated[1]
-	if !comm.Amount.Equal(decimal.NewFromInt(-300)) {
-		t.Fatalf("commission: want -300, got %s", comm.Amount)
+	if !credit.PlatformFeeAmount.Equal(decimal.NewFromInt(300)) {
+		t.Fatalf("platform fee amount: want 300, got %s", credit.PlatformFeeAmount)
 	}
 }
 

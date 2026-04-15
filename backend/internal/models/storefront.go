@@ -8,12 +8,19 @@ import (
 )
 
 type PublicStorefront struct {
-	Name         string  `json:"name"`
-	Slug         string  `json:"slug"`
-	LogoURL      *string `json:"logo_url,omitempty"`
-	ContactEmail *string `json:"contact_email,omitempty"`
-	ContactPhone *string `json:"contact_phone,omitempty"`
-	Address      *string `json:"address,omitempty"`
+	Name         string                         `json:"name"`
+	Slug         string                         `json:"slug"`
+	LogoURL      *string                        `json:"logo_url,omitempty"`
+	ContactEmail *string                        `json:"contact_email,omitempty"`
+	ContactPhone *string                        `json:"contact_phone,omitempty"`
+	Address      *string                        `json:"address,omitempty"`
+	Delivery     PublicStorefrontDeliveryStatus `json:"delivery"`
+}
+
+type PublicStorefrontDeliveryStatus struct {
+	Enabled           bool    `json:"enabled"`
+	Ready             bool    `json:"ready"`
+	UnavailableReason *string `json:"unavailable_reason,omitempty"`
 }
 
 type PublicStorefrontProduct struct {

@@ -134,12 +134,5 @@ func (s *StorefrontService) getPublishedStorefront(ctx context.Context, slug str
 		return nil, models.PublicStorefront{}, ErrStorefrontNotFound
 	}
 
-	return tenant, models.PublicStorefront{
-		Name:         tenant.Name,
-		Slug:         tenant.Slug,
-		LogoURL:      tenant.LogoURL,
-		ContactEmail: tenant.ContactEmail,
-		ContactPhone: tenant.ContactPhone,
-		Address:      tenant.Address,
-	}, nil
+	return tenant, PublicStorefrontFromTenant(tenant), nil
 }

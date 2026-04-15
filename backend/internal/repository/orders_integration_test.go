@@ -148,7 +148,7 @@ func TestOrderRepositoryStatusUpdatesRespectTenantScope(t *testing.T) {
 		t.Fatalf("expected pgx.ErrNoRows for wrong-tenant fulfillment update, got %v", err)
 	}
 
-	count, err := repo.CountByTenant(ctx, tenantID)
+	count, err := repo.CountByTenant(ctx, tenantID, models.OrderListViewAll)
 	if err != nil {
 		t.Fatalf("count orders by tenant: %v", err)
 	}

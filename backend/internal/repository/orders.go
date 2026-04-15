@@ -18,8 +18,8 @@ type OrderRepository interface {
 	GetByIDInternal(ctx context.Context, id uuid.UUID) (*models.Order, error)
 	GetByTrackingSlug(ctx context.Context, slug string) (*models.Order, error)
 	GetByPublicCheckoutID(ctx context.Context, tenantID, checkoutID uuid.UUID) (*models.Order, error)
-	ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error)
-	CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
+	ListByTenant(ctx context.Context, tenantID uuid.UUID, view models.OrderListView, limit, offset int) ([]models.Order, error)
+	CountByTenant(ctx context.Context, tenantID uuid.UUID, view models.OrderListView) (int, error)
 	UpdatePaymentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.PaymentStatus) error
 	UpdateFulfillmentStatus(ctx context.Context, tenantID, id uuid.UUID, status models.FulfillmentStatus) error
 	ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error)
@@ -131,9 +131,24 @@ func (r *orderRepo) GetByPublicCheckoutID(ctx context.Context, tenantID, checkou
 	))
 }
 
-func (r *orderRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error) {
+func orderListFilterClause(view models.OrderListView) string {
+	switch view {
+	case models.OrderListViewActionable:
+		return " AND payment_status = 'paid' AND fulfillment_status = 'processing'"
+	case models.OrderListViewCancelled:
+		return " AND (fulfillment_status = 'cancelled' OR payment_status IN ('failed', 'refunded'))"
+	case models.OrderListViewAll:
+		return ""
+	case models.OrderListViewActive:
+		fallthrough
+	default:
+		return " AND fulfillment_status <> 'cancelled' AND payment_status NOT IN ('failed', 'refunded')"
+	}
+}
+
+func (r *orderRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, view models.OrderListView, limit, offset int) ([]models.Order, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT `+orderCols+` FROM orders WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		`SELECT `+orderCols+` FROM orders WHERE tenant_id = $1`+orderListFilterClause(view)+` ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
 		tenantID, limit, offset)
 	if err != nil {
 		return nil, err
@@ -151,9 +166,9 @@ func (r *orderRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit,
 	return orders, rows.Err()
 }
 
-func (r *orderRepo) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+func (r *orderRepo) CountByTenant(ctx context.Context, tenantID uuid.UUID, view models.OrderListView) (int, error) {
 	var count int
-	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE tenant_id = $1`, tenantID).Scan(&count)
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE tenant_id = $1`+orderListFilterClause(view), tenantID).Scan(&count)
 	return count, err
 }
 

@@ -34,6 +34,15 @@ const (
 	FulfillmentStatusCancelled  FulfillmentStatus = "cancelled"
 )
 
+type OrderListView string
+
+const (
+	OrderListViewActionable OrderListView = "actionable"
+	OrderListViewActive     OrderListView = "active"
+	OrderListViewCancelled  OrderListView = "cancelled"
+	OrderListViewAll        OrderListView = "all"
+)
+
 type Order struct {
 	ID                uuid.UUID         `json:"id"`
 	TenantID          uuid.UUID         `json:"tenant_id"`

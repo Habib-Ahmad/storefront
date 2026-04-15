@@ -188,7 +188,7 @@ func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, n
 	tenant.ContactPhone = normalizeTenantOptionalString(contactPhone)
 	tenant.Address = normalizeTenantOptionalString(address)
 	tenant.LogoURL = normalizeTenantOptionalString(logoURL)
-	if tenant.ContactEmail != nil && tenant.ContactPhone != nil && tenant.Address != nil {
+	if StorefrontDeliveryReady(tenant) {
 		tenant.ActiveModules.Logistics = true
 	}
 	return s.tenants.Update(ctx, tenant)

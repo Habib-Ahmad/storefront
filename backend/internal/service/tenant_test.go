@@ -185,7 +185,7 @@ func TestUpdateProfile_AutoEnablesLogisticsWhenProfileIsComplete(t *testing.T) {
 
 	email := "new@acme.com"
 	phone := "+2348012345678"
-	addr := "123 Main St"
+	addr := "123 Main St, Ikeja, Lagos, Nigeria"
 	err := svc.UpdateProfile(context.Background(), tenantID, "Acme Corp", &email, &phone, &addr, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -198,5 +198,33 @@ func TestUpdateProfile_AutoEnablesLogisticsWhenProfileIsComplete(t *testing.T) {
 	}
 	if !tenantRepo.updated.ActiveModules.Inventory || !tenantRepo.updated.ActiveModules.Payments {
 		t.Fatal("existing modules should be preserved")
+	}
+}
+
+func TestUpdateProfile_DoesNotAutoEnableLogisticsWhenAddressIsIncomplete(t *testing.T) {
+	tenantID := uuid.New()
+	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{
+		ID:     tenantID,
+		Name:   "Old",
+		Status: models.TenantStatusActive,
+		ActiveModules: models.ActiveModules{
+			Inventory: true,
+			Payments:  true,
+		},
+	}}
+	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
+
+	email := "new@acme.com"
+	phone := "+2348012345678"
+	addr := "123 Main St"
+	err := svc.UpdateProfile(context.Background(), tenantID, "Acme Corp", &email, &phone, &addr, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tenantRepo.updated == nil {
+		t.Fatal("tenant not updated")
+	}
+	if tenantRepo.updated.ActiveModules.Logistics {
+		t.Fatal("logistics module should stay disabled until the pickup profile is complete")
 	}
 }

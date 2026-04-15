@@ -215,10 +215,10 @@ func (m *mockOrderRepo) GetByPublicCheckoutID(_ context.Context, _ uuid.UUID, ch
 	}
 	return nil, pgx.ErrNoRows
 }
-func (m *mockOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _, _ int) ([]models.Order, error) {
+func (m *mockOrderRepo) ListByTenant(_ context.Context, _ uuid.UUID, _ models.OrderListView, _, _ int) ([]models.Order, error) {
 	return nil, m.err
 }
-func (m *mockOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
+func (m *mockOrderRepo) CountByTenant(_ context.Context, _ uuid.UUID, _ models.OrderListView) (int, error) {
 	return 0, m.err
 }
 func (m *mockOrderRepo) UpdatePaymentStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, s models.PaymentStatus) error {

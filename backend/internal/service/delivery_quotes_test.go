@@ -102,11 +102,13 @@ type stubQuoteProvider struct {
 	boxes            []shipbubble.PackageBox
 	rateResponse     *shipbubble.RateResponse
 	lastRateRequest  shipbubble.RateRequest
+	validateRequests []shipbubble.ValidateAddressRequest
 	validateCalls    int
 	rateCalls        int
 }
 
-func (s *stubQuoteProvider) ValidateAddress(_ context.Context, _ shipbubble.ValidateAddressRequest) (*shipbubble.ValidatedAddress, error) {
+func (s *stubQuoteProvider) ValidateAddress(_ context.Context, req shipbubble.ValidateAddressRequest) (*shipbubble.ValidatedAddress, error) {
+	s.validateRequests = append(s.validateRequests, req)
 	s.validateCalls++
 	if s.validateErr != nil {
 		return nil, s.validateErr
@@ -139,7 +141,7 @@ func (s *stubQuoteProvider) FetchRates(_ context.Context, req shipbubble.RateReq
 func TestDeliveryQuoteService_QuotePublic_NormalizesRates(t *testing.T) {
 	tenantID := uuid.New()
 	variantID := uuid.New()
-	tenantAddress := "12 Allen Avenue, Ikeja"
+	tenantAddress := "12 Allen Avenue, Ikeja, Lagos, Nigeria"
 	tenantPhone := "+2348012345678"
 	tenantEmail := "hello@funkefabrics.com"
 	providerRaw := json.RawMessage(`{"request_token":"quote-token"}`)
@@ -243,8 +245,9 @@ func TestDeliveryQuoteService_QuotePublic_NormalizesRates(t *testing.T) {
 func TestDeliveryQuoteService_ResolvePublicSelection_RejectsUnavailableOption(t *testing.T) {
 	tenantID := uuid.New()
 	variantID := uuid.New()
-	tenantAddress := "12 Allen Avenue, Ikeja"
+	tenantAddress := "12 Allen Avenue, Ikeja, Lagos, Nigeria"
 	tenantPhone := "+2348012345678"
+	tenantEmail := "hello@funkefabrics.com"
 	products := &stubQuoteProductRepo{
 		product: &models.Product{
 			ID:          uuid.New(),
@@ -281,6 +284,7 @@ func TestDeliveryQuoteService_ResolvePublicSelection_RejectsUnavailableOption(t 
 			Name:                "Funke Fabrics",
 			Slug:                "funke-fabrics",
 			StorefrontPublished: true,
+			ContactEmail:        &tenantEmail,
 			ContactPhone:        &tenantPhone,
 			Address:             &tenantAddress,
 			ActiveModules:       models.ActiveModules{Logistics: true},
@@ -301,7 +305,134 @@ func TestDeliveryQuoteService_ResolvePublicSelection_RejectsUnavailableOption(t 
 	}
 }
 
-func TestDeliveryQuoteService_QuotePublic_FallsBackWhenStorefrontLogisticsProfileIsIncomplete(t *testing.T) {
+func TestDeliveryQuoteService_QuotePublic_NormalizesProviderNames(t *testing.T) {
+	tenantID := uuid.New()
+	variantID := uuid.New()
+	tenantAddress := "Plot 72 Ahmadu Bello Way, Abuja, Abuja, FCT, Nigeria"
+	tenantPhone := "+2348011223344"
+	tenantEmail := "user1@gmail.com"
+
+	storefronts := NewStorefrontService(&stubQuoteTenantRepo{tenant: &models.Tenant{
+		ID:                  tenantID,
+		Name:                "User1 Store Updated",
+		Slug:                "user1-store",
+		StorefrontPublished: true,
+		ContactEmail:        &tenantEmail,
+		ContactPhone:        &tenantPhone,
+		Address:             &tenantAddress,
+		ActiveModules:       models.ActiveModules{Logistics: true},
+		Status:              models.TenantStatusActive,
+	}}, &stubQuoteProductRepo{})
+	products := &stubQuoteProductRepo{
+		product: &models.Product{
+			ID:          uuid.New(),
+			TenantID:    tenantID,
+			Name:        "Ankara Set",
+			Category:    ptrString("Fashion"),
+			IsAvailable: true,
+		},
+		variant: &models.ProductVariant{
+			ID:        variantID,
+			Price:     decimal.NewFromInt(24500),
+			IsDefault: true,
+		},
+	}
+	products.variant.ProductID = products.product.ID
+	provider := &stubQuoteProvider{
+		validatedAddress: &shipbubble.ValidatedAddress{AddressCode: 1001},
+		categories:       []shipbubble.PackageCategory{{ID: 2, Name: "Fashion wears"}},
+		boxes:            []shipbubble.PackageBox{{Name: "medium box", Length: decimal.NewFromInt(16), Width: decimal.NewFromInt(12), Height: decimal.NewFromInt(10), MaxWeight: decimal.RequireFromString("2.00")}},
+		rateResponse: &shipbubble.RateResponse{
+			RequestToken: "quote-token",
+			Options: []shipbubble.RateOption{{
+				CourierID:   "123",
+				CourierName: "Kwik",
+				ServiceCode: "bike",
+				ServiceType: "dropoff",
+				Currency:    "NGN",
+				Total:       decimal.NewFromInt(3500),
+				Tracking:    shipbubble.TrackingSummary{Label: "Full tracking"},
+			}},
+		},
+	}
+
+	svc := NewDeliveryQuoteService(storefronts, products, provider)
+	_, err := svc.QuotePublic(context.Background(), "user1-store", models.PublicStorefrontDeliveryQuoteRequest{
+		CustomerName:    "Ada1",
+		CustomerPhone:   "08012345678",
+		ShippingAddress: "23 Broad Street, Lagos, Lagos, Nigeria",
+		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 1}},
+	})
+	if err != nil {
+		t.Fatalf("QuotePublic returned error: %v", err)
+	}
+	if len(provider.validateRequests) != 2 {
+		t.Fatalf("expected 2 validation requests, got %d", len(provider.validateRequests))
+	}
+	if provider.validateRequests[0].Name != "User Store Updated" {
+		t.Fatalf("expected normalized sender name, got %q", provider.validateRequests[0].Name)
+	}
+	if provider.validateRequests[1].Name != "Ada Customer" {
+		t.Fatalf("expected normalized receiver name, got %q", provider.validateRequests[1].Name)
+	}
+}
+
+func TestDeliveryQuoteService_QuotePublic_ReturnsProviderWalletFundingError(t *testing.T) {
+	tenantID := uuid.New()
+	variantID := uuid.New()
+	tenantAddress := "12 Allen Avenue, Ikeja, Lagos, Nigeria"
+	tenantPhone := "+2348012345678"
+	tenantEmail := "hello@funkefabrics.com"
+
+	storefronts := NewStorefrontService(&stubQuoteTenantRepo{tenant: &models.Tenant{
+		ID:                  tenantID,
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		ContactEmail:        &tenantEmail,
+		ContactPhone:        &tenantPhone,
+		Address:             &tenantAddress,
+		ActiveModules:       models.ActiveModules{Logistics: true},
+		Status:              models.TenantStatusActive,
+	}}, &stubQuoteProductRepo{})
+	products := &stubQuoteProductRepo{
+		product: &models.Product{
+			ID:          uuid.New(),
+			TenantID:    tenantID,
+			Name:        "Ankara Set",
+			Category:    ptrString("Fashion"),
+			IsAvailable: true,
+		},
+		variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(24500), IsDefault: true},
+	}
+	products.variant.ProductID = products.product.ID
+	provider := &stubQuoteProvider{
+		validateErr: errors.New("shipbubble: validate address: Insufficient wallet balance, Please fund your wallet to validate new addresses"),
+	}
+
+	svc := NewDeliveryQuoteService(storefronts, products, provider)
+	_, err := svc.QuotePublic(context.Background(), "funke-fabrics", models.PublicStorefrontDeliveryQuoteRequest{
+		CustomerName:    "Chidi",
+		CustomerPhone:   "08012345678",
+		ShippingAddress: "23 Broad Street, Lagos, Lagos, Nigeria",
+		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 1}},
+	})
+	if err == nil {
+		t.Fatal("expected wallet funding error")
+	}
+	appErr, ok := err.(*apperr.Error)
+	if !ok {
+		t.Fatalf("expected apperr.Error, got %T", err)
+	}
+	if appErr.Status != 409 {
+		t.Fatalf("expected conflict status, got %d", appErr.Status)
+	}
+	if appErr.Message != "delivery is temporarily unavailable because the shipping provider wallet needs funding" {
+		t.Fatalf("unexpected error message: %q", appErr.Message)
+	}
+}
+
+func TestDeliveryQuoteService_QuotePublic_RejectsIncompleteStorefrontLogisticsProfile(t *testing.T) {
 	tenantID := uuid.New()
 	variantID := uuid.New()
 	products := &stubQuoteProductRepo{
@@ -347,26 +478,24 @@ func TestDeliveryQuoteService_QuotePublic_FallsBackWhenStorefrontLogisticsProfil
 		provider,
 	)
 
-	resp, err := svc.QuotePublic(context.Background(), "funke-fabrics", models.PublicStorefrontDeliveryQuoteRequest{
+	_, err := svc.QuotePublic(context.Background(), "funke-fabrics", models.PublicStorefrontDeliveryQuoteRequest{
 		CustomerName:    "Chidi",
 		CustomerPhone:   "08012345678",
 		ShippingAddress: "23 Abuja",
 		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 1}},
 	})
-	if err != nil {
-		t.Fatalf("QuotePublic returned error: %v", err)
+	if err == nil {
+		t.Fatal("expected delivery readiness error")
 	}
-	if provider.validateCalls != 2 {
-		t.Fatalf("expected 2 address validations, got %d", provider.validateCalls)
+	status, message := apperr.HTTPError(err)
+	if status != 409 {
+		t.Fatalf("expected status 409, got %d", status)
 	}
-	if resp.Debug == nil {
-		t.Fatal("expected debug payload")
+	if message != "Delivery is temporarily unavailable while the store completes its pickup profile." {
+		t.Fatalf("unexpected message: %s", message)
 	}
-	if len(resp.Debug.Assumptions) < 3 {
-		t.Fatalf("expected fallback assumptions to be recorded, got %+v", resp.Debug.Assumptions)
-	}
-	if resp.Options[0].Amount.String() != "3500" {
-		t.Fatalf("expected quoted amount 3500, got %s", resp.Options[0].Amount.String())
+	if provider.validateCalls != 0 {
+		t.Fatalf("expected no address validations, got %d", provider.validateCalls)
 	}
 }
 
@@ -375,6 +504,7 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsValidationErrorForInvalidReceiv
 	variantID := uuid.New()
 	tenantAddress := "16 Owerri Street, Gwarinpa, Abuja, FCT, Nigeria"
 	tenantPhone := "+2348012345678"
+	tenantEmail := "hello@funkefabrics.com"
 	products := &stubQuoteProductRepo{
 		product: &models.Product{
 			ID:          uuid.New(),
@@ -399,6 +529,7 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsValidationErrorForInvalidReceiv
 			Name:                "Funke Fabrics",
 			Slug:                "funke-fabrics",
 			StorefrontPublished: true,
+			ContactEmail:        &tenantEmail,
 			ContactPhone:        &tenantPhone,
 			Address:             &tenantAddress,
 			ActiveModules:       models.ActiveModules{Logistics: true},
@@ -421,7 +552,7 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsValidationErrorForInvalidReceiv
 	if status != 422 {
 		t.Fatalf("expected status 422, got %d", status)
 	}
-	if message != "the store pickup address is incomplete. Ask the store admin to add a clear street, city, state, and country in logistics setup" {
+	if message != "the store pickup address could not be validated. Ask the store admin to review logistics setup" {
 		t.Fatalf("unexpected message: %s", message)
 	}
 }

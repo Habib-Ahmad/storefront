@@ -229,51 +229,21 @@ func (s *OrderService) createWithRepos(ctx context.Context, order *models.Order,
 
 // settleOffline credits the tenant wallet for a cash/transfer sale.
 // Funds go to available_balance (not pending) since payment is already received.
-// Commission is deducted if tiers are configured.
+// Commission is deducted before the vendor credit is recorded.
 func (s *OrderService) settleOffline(ctx context.Context, dbTx db.DBTX, order *models.Order) error {
 	if s.walletSvc == nil {
 		return nil
 	}
 
-	amount := order.TotalAmount
+	amount := order.TotalAmount.Add(order.ShippingFee)
 	orderID := order.ID
-
-	var commission decimal.Decimal
-	if s.tenants != nil && s.tiers != nil {
-		tenantRepo := s.tenants
-		if dbTx != nil {
-			tenantRepo = tenantRepo.WithTx(dbTx)
-		}
-
-		tenant, err := tenantRepo.GetByID(ctx, order.TenantID)
-		if err == nil {
-			tier, err := s.tiers.GetByID(ctx, tenant.TierID)
-			if err == nil && tier.CommissionRate.IsPositive() {
-				commission = amount.Mul(tier.CommissionRate)
-			}
-		}
-	}
-
-	netAmount := amount.Sub(commission)
 	if dbTx != nil {
-		if _, err := s.walletSvc.CreditAvailableWithTx(ctx, dbTx, order.TenantID, netAmount, &orderID); err != nil {
+		if _, err := s.walletSvc.CreditSaleWithTx(ctx, dbTx, order.TenantID, amount, order.TotalAmount, false, &orderID); err != nil {
 			return fmt.Errorf("credit wallet: %w", err)
 		}
 	} else {
-		if _, err := s.walletSvc.CreditAvailable(ctx, order.TenantID, netAmount, &orderID); err != nil {
+		if _, err := s.walletSvc.CreditSale(ctx, order.TenantID, amount, order.TotalAmount, false, &orderID); err != nil {
 			return fmt.Errorf("credit wallet: %w", err)
-		}
-	}
-
-	if commission.IsPositive() {
-		if dbTx != nil {
-			if _, err := s.walletSvc.RecordCommissionWithTx(ctx, dbTx, order.TenantID, commission, &orderID); err != nil {
-				return fmt.Errorf("record commission: %w", err)
-			}
-		} else {
-			if _, err := s.walletSvc.RecordCommission(ctx, order.TenantID, commission, &orderID); err != nil {
-				return fmt.Errorf("record commission: %w", err)
-			}
 		}
 	}
 
@@ -324,12 +294,12 @@ func EnsurePaymentResumable(order *models.Order) error {
 	return nil
 }
 
-func (s *OrderService) List(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Order, error) {
-	return s.orders.ListByTenant(ctx, tenantID, limit, offset)
+func (s *OrderService) List(ctx context.Context, tenantID uuid.UUID, view models.OrderListView, limit, offset int) ([]models.Order, error) {
+	return s.orders.ListByTenant(ctx, tenantID, view, limit, offset)
 }
 
-func (s *OrderService) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
-	return s.orders.CountByTenant(ctx, tenantID)
+func (s *OrderService) CountByTenant(ctx context.Context, tenantID uuid.UUID, view models.OrderListView) (int, error) {
+	return s.orders.CountByTenant(ctx, tenantID, view)
 }
 
 func (s *OrderService) ListItems(ctx context.Context, orderID uuid.UUID) ([]models.OrderItem, error) {
