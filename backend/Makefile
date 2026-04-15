@@ -56,8 +56,8 @@ migrate-create: ## Create a new migration: make migrate-create name=add_somethin
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
-docker-up: ## Start local Postgres via docker-compose
-	docker compose up -d postgres
+docker-up: ## Start local Postgres and Adminer via docker-compose
+	docker compose up -d postgres adminer
 
 docker-down: ## Stop and remove containers
 	docker compose down
