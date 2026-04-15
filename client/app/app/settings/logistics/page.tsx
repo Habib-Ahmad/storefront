@@ -26,6 +26,7 @@ import {
   missingLogisticsAddressFields,
   parseLogisticsAddress,
 } from "@/lib/logistics-address";
+import { nigeriaCityAreaSuggestionsByState, nigeriaStates } from "@/lib/nigeria-states";
 
 const logisticsSchema = Yup.object({
   name: Yup.string().trim().required("Business name is required"),
@@ -151,7 +152,7 @@ export default function LogisticsSettingsPage() {
             }
           }}
         >
-          {({ errors, touched, values, handleChange, isSubmitting }) => {
+          {({ errors, touched, values, handleChange, isSubmitting, setFieldValue }) => {
             const currentAddress = {
               streetAddress: values.street_address,
               city: values.city,
@@ -159,6 +160,13 @@ export default function LogisticsSettingsPage() {
               country: values.country,
             };
             const formReady = isLogisticsAddressComplete(currentAddress);
+            const selectedState = values.state as keyof typeof nigeriaCityAreaSuggestionsByState;
+            const cityOptions = values.state
+              ? [...nigeriaCityAreaSuggestionsByState[selectedState]]
+              : [];
+            const cityListId = values.state
+              ? `city-suggestions-${values.state.toLowerCase().replace(/\s+/g, "-")}`
+              : undefined;
 
             return (
               <Form className="card-3d space-y-5 rounded-2xl p-6">
@@ -261,14 +269,30 @@ export default function LogisticsSettingsPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="city">City</Label>
+                        <Label htmlFor="city">City or area</Label>
                         <Input
                           id="city"
                           name="city"
                           value={values.city}
                           onChange={handleChange}
-                          placeholder="Abuja"
+                          list={cityListId}
+                          placeholder={
+                            values.state
+                              ? "Start typing city or area"
+                              : "Select state, then type city or area"
+                          }
                         />
+                        {cityListId ? (
+                          <datalist id={cityListId}>
+                            {cityOptions.map((city) => (
+                              <option key={city} value={city} />
+                            ))}
+                          </datalist>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          Suggestions include major cities and common areas. If yours is missing,
+                          type it directly.
+                        </p>
                         {errors.city && touched.city ? (
                           <p className="text-xs text-destructive">{errors.city}</p>
                         ) : null}
@@ -276,13 +300,20 @@ export default function LogisticsSettingsPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="state">State</Label>
-                        <Input
+                        <select
                           id="state"
                           name="state"
                           value={values.state}
                           onChange={handleChange}
-                          placeholder="FCT"
-                        />
+                          className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50"
+                        >
+                          <option value="">Select state</option>
+                          {nigeriaStates.map((state) => (
+                            <option key={state} value={state}>
+                              {state}
+                            </option>
+                          ))}
+                        </select>
                         {errors.state && touched.state ? (
                           <p className="text-xs text-destructive">{errors.state}</p>
                         ) : null}
@@ -365,6 +396,18 @@ export default function LogisticsSettingsPage() {
                 <p className="mt-1">{missingFields.join(", ")}</p>
               </div>
             ) : null}
+
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950">
+              <WarningCircleIcon className="mt-0.5 size-4 shrink-0" weight="fill" />
+              <div>
+                <p className="font-medium">Shipbubble wallet funding</p>
+                <p className="mt-1 text-amber-900/90">
+                  Shipbubble can reject new address validation requests when the provider wallet is
+                  empty. If delivery quotes still fail after saving a valid pickup address, fund the
+                  Shipbubble wallet for this account and try again.
+                </p>
+              </div>
+            </div>
 
             {!tenant.storefront_published ? (
               <div className="mt-4 flex items-start gap-2 rounded-xl border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">

@@ -71,6 +71,9 @@ describe("LogisticsSettingsPage", () => {
 
     expect(screen.getByLabelText("Logistics email")).toHaveValue("owner@example.com");
     expect(screen.getByLabelText("Country")).toHaveValue("Nigeria");
+    expect(screen.getByLabelText("State")).toHaveDisplayValue("Select state");
+    expect(screen.getByLabelText("City or area")).toHaveValue("");
+    expect(screen.getByText("Shipbubble wallet funding")).toBeInTheDocument();
   });
 
   it("saves a structured logistics profile for admins", async () => {
@@ -82,11 +85,11 @@ describe("LogisticsSettingsPage", () => {
     fireEvent.change(screen.getByLabelText("Street address"), {
       target: { value: "16 Owerri Street, War College, Gwarinpa" },
     });
-    fireEvent.change(screen.getByLabelText("City"), {
-      target: { value: "Abuja" },
-    });
     fireEvent.change(screen.getByLabelText("State"), {
       target: { value: "FCT" },
+    });
+    fireEvent.change(screen.getByLabelText("City or area"), {
+      target: { value: "Abuja" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save logistics setup" }));
 
