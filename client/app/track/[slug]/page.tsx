@@ -40,7 +40,7 @@ export default async function TrackPage({ params }: Props) {
               <ArrowLeft className="h-4 w-4" />
               Back to order
             </Link>
-            <PublicStorefrontActions />
+            <PublicStorefrontActions slug={tracking.storefront_slug} />
           </div>
 
           <div className="mt-6 rounded-[2rem] border border-border/60 bg-card p-6 sm:p-8">

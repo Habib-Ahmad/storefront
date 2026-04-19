@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginPage from "@/app/(auth)/login/page";
 import SignupPage from "@/app/(auth)/signup/page";
@@ -56,6 +57,10 @@ beforeEach(() => {
   getMeMock.mockResolvedValue({ onboarded: true });
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("auth flows", () => {
   it("tells an existing user to sign in when they try to sign up again", async () => {
     signUpMock.mockResolvedValue({
@@ -97,15 +102,24 @@ describe("auth flows", () => {
   });
 
   it("redirects straight to onboarding after signup when a session is created", async () => {
+    vi.useFakeTimers();
     render(<SignupPage />);
-    const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText("Email"), "owner@example.com");
-    await user.type(screen.getByLabelText("Password"), "password123");
-    await user.type(screen.getByLabelText("Confirm password"), "password123");
-    await user.click(screen.getByRole("button", { name: "Create account" }));
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "owner@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "password123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm password"), {
+      target: { value: "password123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-    await new Promise((resolve) => window.setTimeout(resolve, 2100));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(2000);
+    });
 
     expect(pushMock).toHaveBeenCalledWith("/onboard");
   }, 10000);

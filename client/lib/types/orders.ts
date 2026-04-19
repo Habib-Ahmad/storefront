@@ -81,6 +81,8 @@ export const DispatchShipmentOptionSchema = z.object({
 
 export const TrackingResponseSchema = z.object({
   tracking_slug: z.string(),
+  is_delivery: z.boolean().optional(),
+  storefront_slug: z.string().optional(),
   customer_name: z.string().nullable().optional(),
   payment_status: PaymentStatusSchema,
   fulfillment_status: FulfillmentStatusSchema,

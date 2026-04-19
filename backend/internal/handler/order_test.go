@@ -551,6 +551,46 @@ func TestQuotePublicDelivery_Valid(t *testing.T) {
 	}
 }
 
+func TestQuotePublicDelivery_ReturnsGenericErrorForProviderFailure(t *testing.T) {
+	variantID := uuid.New()
+	quoter := &stubDeliveryQuoter{
+		err: &service.PublicDeliveryQuoteProviderError{
+			Operation: "validate sender address",
+			Err:       errors.New("shipbubble: validate address: Insufficient wallet balance, Please fund your wallet to validate new addresses"),
+		},
+	}
+	h := newPublicOrderHandlerWithServices(&models.Tenant{
+		ID:                  uuid.New(),
+		Name:                "Funke Fabrics",
+		Slug:                "funke-fabrics",
+		StorefrontPublished: true,
+		Status:              models.TenantStatusActive,
+		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
+	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, &stubPaymentInitiator{}, quoter)
+	body, _ := json.Marshal(models.PublicStorefrontDeliveryQuoteRequest{
+		CustomerName:    "Chidi",
+		CustomerPhone:   "08012345678",
+		ShippingAddress: "23 Abuja",
+		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 1}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/storefronts/funke-fabrics/delivery-quotes", bytes.NewReader(body))
+	req = withURLParam(req, "slug", "funke-fabrics")
+	rec := httptest.NewRecorder()
+
+	h.QuotePublicDelivery(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["error"] != "delivery is temporarily unavailable right now. Try again later or choose pickup" {
+		t.Fatalf("unexpected error message: %q", resp["error"])
+	}
+}
+
 func TestCreateOrder_InitPaymentFailureReturnsError(t *testing.T) {
 	variantID := uuid.New()
 	payment := &stubPaymentInitiator{initErr: errors.New("paystack unavailable")}
@@ -659,10 +699,12 @@ func TestConfirmPaymentPublic_Valid(t *testing.T) {
 		ID:                orderID,
 		TenantID:          tenantID,
 		TrackingSlug:      trackingSlug,
+		IsDelivery:        true,
 		PaymentMethod:     models.PaymentMethodOnline,
 		PaymentStatus:     models.PaymentStatusPending,
 		FulfillmentStatus: models.FulfillmentStatusProcessing,
 	}}, &stubProductRepoForOrder{})
+	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: &models.Tenant{ID: tenantID, Slug: "funke-fabrics"}})
 	h := handler.NewOrderHandler(svc, payment, "https://storefront.test", slog.Default())
 	body, _ := json.Marshal(map[string]any{"reference": orderID.String()})
 	req := httptest.NewRequest(http.MethodPost, "/track/"+trackingSlug+"/confirm-payment", bytes.NewReader(body))
@@ -676,6 +718,72 @@ func TestConfirmPaymentPublic_Valid(t *testing.T) {
 	}
 	if payment.successReference != orderID.String() {
 		t.Fatalf("expected payment confirmation for %s, got %s", orderID, payment.successReference)
+	}
+	var resp struct {
+		TrackingSlug   string `json:"tracking_slug"`
+		IsDelivery     bool   `json:"is_delivery"`
+		StorefrontSlug string `json:"storefront_slug"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.TrackingSlug != trackingSlug {
+		t.Fatalf("expected tracking slug %s, got %s", trackingSlug, resp.TrackingSlug)
+	}
+	if !resp.IsDelivery {
+		t.Fatal("expected delivery order in response")
+	}
+	if resp.StorefrontSlug != "funke-fabrics" {
+		t.Fatalf("expected storefront slug funke-fabrics, got %s", resp.StorefrontSlug)
+	}
+}
+
+func TestTrackPublic_IncludesDeliveryAndStorefrontContext(t *testing.T) {
+	tenantID := uuid.New()
+	trackingSlug := "abc123def456"
+	svc := service.NewOrderService(&stubOrderRepo{order: &models.Order{
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		TrackingSlug:      trackingSlug,
+		IsDelivery:        false,
+		PaymentStatus:     models.PaymentStatusPaid,
+		FulfillmentStatus: models.FulfillmentStatusProcessing,
+	}}, &stubProductRepoForOrder{})
+	svc.SetTenantRepo(&stubTenantRepoForOrder{tenant: &models.Tenant{ID: tenantID, Slug: "funke-fabrics"}})
+	h := handler.NewOrderHandler(svc, &stubPaymentInitiator{}, "https://storefront.test", slog.Default())
+	req := httptest.NewRequest(http.MethodGet, "/track/"+trackingSlug, nil)
+	req = withURLParam(req, "slug", trackingSlug)
+	rec := httptest.NewRecorder()
+
+	h.Track(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		TrackingSlug      string `json:"tracking_slug"`
+		IsDelivery        bool   `json:"is_delivery"`
+		StorefrontSlug    string `json:"storefront_slug"`
+		PaymentStatus     string `json:"payment_status"`
+		FulfillmentStatus string `json:"fulfillment_status"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.TrackingSlug != trackingSlug {
+		t.Fatalf("expected tracking slug %s, got %s", trackingSlug, resp.TrackingSlug)
+	}
+	if resp.IsDelivery {
+		t.Fatal("expected pickup order in response")
+	}
+	if resp.StorefrontSlug != "funke-fabrics" {
+		t.Fatalf("expected storefront slug funke-fabrics, got %s", resp.StorefrontSlug)
+	}
+	if resp.PaymentStatus != "paid" {
+		t.Fatalf("expected payment status paid, got %s", resp.PaymentStatus)
+	}
+	if resp.FulfillmentStatus != "processing" {
+		t.Fatalf("expected fulfillment status processing, got %s", resp.FulfillmentStatus)
 	}
 }
 

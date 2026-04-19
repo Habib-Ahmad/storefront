@@ -26,7 +26,7 @@ import {
   missingLogisticsAddressFields,
   parseLogisticsAddress,
 } from "@/lib/logistics-address";
-import { nigeriaCityAreaSuggestionsByState, nigeriaStates } from "@/lib/nigeria-states";
+import { nigeriaCitySuggestionsByState, nigeriaStates } from "@/lib/nigeria-states";
 
 const logisticsSchema = Yup.object({
   name: Yup.string().trim().required("Business name is required"),
@@ -160,9 +160,9 @@ export default function LogisticsSettingsPage() {
               country: values.country,
             };
             const formReady = isLogisticsAddressComplete(currentAddress);
-            const selectedState = values.state as keyof typeof nigeriaCityAreaSuggestionsByState;
+            const selectedState = values.state as keyof typeof nigeriaCitySuggestionsByState;
             const cityOptions = values.state
-              ? [...nigeriaCityAreaSuggestionsByState[selectedState]]
+              ? [...nigeriaCitySuggestionsByState[selectedState]]
               : [];
             const cityListId = values.state
               ? `city-suggestions-${values.state.toLowerCase().replace(/\s+/g, "-")}`
@@ -269,7 +269,7 @@ export default function LogisticsSettingsPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="city">City or area</Label>
+                        <Label htmlFor="city">City</Label>
                         <Input
                           id="city"
                           name="city"
@@ -277,9 +277,7 @@ export default function LogisticsSettingsPage() {
                           onChange={handleChange}
                           list={cityListId}
                           placeholder={
-                            values.state
-                              ? "Start typing city or area"
-                              : "Select state, then type city or area"
+                            values.state ? "Start typing city" : "Select state, then type city"
                           }
                         />
                         {cityListId ? (
@@ -290,8 +288,8 @@ export default function LogisticsSettingsPage() {
                           </datalist>
                         ) : null}
                         <p className="text-xs text-muted-foreground">
-                          Suggestions include major cities and common areas. If yours is missing,
-                          type it directly.
+                          Suggestions include major cities only. If yours is missing, type it
+                          directly.
                         </p>
                         {errors.city && touched.city ? (
                           <p className="text-xs text-destructive">{errors.city}</p>

@@ -72,7 +72,7 @@ describe("LogisticsSettingsPage", () => {
     expect(screen.getByLabelText("Logistics email")).toHaveValue("owner@example.com");
     expect(screen.getByLabelText("Country")).toHaveValue("Nigeria");
     expect(screen.getByLabelText("State")).toHaveDisplayValue("Select state");
-    expect(screen.getByLabelText("City or area")).toHaveValue("");
+    expect(screen.getByLabelText("City")).toHaveValue("");
     expect(screen.getByText("Shipbubble wallet funding")).toBeInTheDocument();
   });
 
@@ -88,7 +88,7 @@ describe("LogisticsSettingsPage", () => {
     fireEvent.change(screen.getByLabelText("State"), {
       target: { value: "FCT" },
     });
-    fireEvent.change(screen.getByLabelText("City or area"), {
+    fireEvent.change(screen.getByLabelText("City"), {
       target: { value: "Abuja" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save logistics setup" }));

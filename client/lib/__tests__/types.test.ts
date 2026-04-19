@@ -462,6 +462,8 @@ describe("TrackingResponseSchema", () => {
   it("accepts a tracking response", () => {
     const payload = {
       tracking_slug: "abc123def456",
+      is_delivery: true,
+      storefront_slug: "funke-fabrics",
       customer_name: "Amina Bello",
       payment_status: "paid",
       fulfillment_status: "completed",

@@ -75,6 +75,8 @@ type paymentResumeResp struct {
 
 type trackingResp struct {
 	TrackingSlug      string                   `json:"tracking_slug"`
+	IsDelivery        bool                     `json:"is_delivery"`
+	StorefrontSlug    string                   `json:"storefront_slug,omitempty"`
 	CustomerName      *string                  `json:"customer_name,omitempty"`
 	PaymentStatus     models.PaymentStatus     `json:"payment_status"`
 	FulfillmentStatus models.FulfillmentStatus `json:"fulfillment_status"`
@@ -293,10 +295,26 @@ func publicCheckoutOrderFromOrder(order *models.Order) models.PublicStorefrontCh
 func trackingResponseFromOrder(order *models.Order) trackingResp {
 	return trackingResp{
 		TrackingSlug:      order.TrackingSlug,
+		IsDelivery:        order.IsDelivery,
 		CustomerName:      order.CustomerName,
 		PaymentStatus:     order.PaymentStatus,
 		FulfillmentStatus: order.FulfillmentStatus,
 	}
+}
+
+func (h *OrderHandler) publicTrackingResponse(ctx context.Context, order *models.Order) trackingResp {
+	resp := trackingResponseFromOrder(order)
+	tenant, err := h.svc.GetTenantByID(ctx, order.TenantID)
+	if err != nil {
+		if h.log != nil {
+			h.log.Warn("load tenant for public tracking", "tenant_id", order.TenantID, "error", err)
+		}
+		return resp
+	}
+	if tenant != nil {
+		resp.StorefrontSlug = tenant.Slug
+	}
+	return resp
 }
 
 // POST /orders
@@ -369,6 +387,16 @@ func (h *OrderHandler) QuotePublicDelivery(w http.ResponseWriter, r *http.Reques
 
 	quotes, err := h.deliveryQuotes.QuotePublic(r.Context(), slug, req)
 	if err != nil {
+		var providerErr *service.PublicDeliveryQuoteProviderError
+		if errors.As(err, &providerErr) {
+			h.log.Warn("public delivery quotes unavailable",
+				"slug", slug,
+				"operation", providerErr.Operation,
+				"error", providerErr.Err.Error(),
+			)
+			respondErr(w, http.StatusConflict, "delivery is temporarily unavailable right now. Try again later or choose pickup")
+			return
+		}
 		handleErr(w, h.log, r, err)
 		return
 	}
@@ -658,7 +686,7 @@ func (h *OrderHandler) Track(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusNotFound, "order not found")
 		return
 	}
-	respond(w, http.StatusOK, trackingResponseFromOrder(order))
+	respond(w, http.StatusOK, h.publicTrackingResponse(r.Context(), order))
 }
 
 // POST /track/{slug}/confirm-payment — public, no auth
@@ -717,7 +745,7 @@ func (h *OrderHandler) ConfirmPaymentPublic(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	respond(w, statusCode, trackingResponseFromOrder(refreshed))
+	respond(w, statusCode, h.publicTrackingResponse(r.Context(), refreshed))
 }
 
 // POST /track/{slug}/resume-payment — public, no auth

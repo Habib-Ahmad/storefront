@@ -20,6 +20,26 @@ import (
 
 var ErrDeliveryOptionUnavailable = apperr.Conflict("selected delivery option is no longer available")
 
+type PublicDeliveryQuoteProviderError struct {
+	Operation string
+	Err       error
+}
+
+func (e *PublicDeliveryQuoteProviderError) Error() string {
+	return fmt.Sprintf("%s: %v", e.Operation, e.Err)
+}
+
+func (e *PublicDeliveryQuoteProviderError) Unwrap() error {
+	return e.Err
+}
+
+func newPublicDeliveryQuoteProviderError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &PublicDeliveryQuoteProviderError{Operation: operation, Err: err}
+}
+
 type DeliveryQuoteProvider interface {
 	ValidateAddress(ctx context.Context, req shipbubble.ValidateAddressRequest) (*shipbubble.ValidatedAddress, error)
 	GetPackageCategories(ctx context.Context) ([]shipbubble.PackageCategory, error)
@@ -108,7 +128,7 @@ func (s *DeliveryQuoteService) fetchPublicQuotes(ctx context.Context, slug strin
 		Address: trimmedTenantValue(tenant.Address),
 	})
 	if err != nil {
-		return models.PublicStorefront{}, nil, nil, mapQuoteAddressValidationError("sender", err)
+		return models.PublicStorefront{}, nil, nil, newPublicDeliveryQuoteProviderError("validate sender address", err)
 	}
 	receiverAddress, err := s.provider.ValidateAddress(ctx, shipbubble.ValidateAddressRequest{
 		Name:    shipbubbleReceiverName(req.CustomerName),
@@ -117,16 +137,16 @@ func (s *DeliveryQuoteService) fetchPublicQuotes(ctx context.Context, slug strin
 		Address: strings.TrimSpace(req.ShippingAddress),
 	})
 	if err != nil {
-		return models.PublicStorefront{}, nil, nil, mapQuoteAddressValidationError("receiver", err)
+		return models.PublicStorefront{}, nil, nil, newPublicDeliveryQuoteProviderError("validate receiver address", err)
 	}
 
 	categories, err := s.provider.GetPackageCategories(ctx)
 	if err != nil {
-		return models.PublicStorefront{}, nil, nil, fmt.Errorf("get package categories: %w", err)
+		return models.PublicStorefront{}, nil, nil, newPublicDeliveryQuoteProviderError("get package categories", err)
 	}
 	boxes, err := s.provider.GetPackageBoxes(ctx)
 	if err != nil {
-		return models.PublicStorefront{}, nil, nil, fmt.Errorf("get package boxes: %w", err)
+		return models.PublicStorefront{}, nil, nil, newPublicDeliveryQuoteProviderError("get package boxes", err)
 	}
 
 	packageItems, productCategories, totalWeight, packageAssumptions, err := s.buildPackageItems(ctx, tenant.ID, req.Items)
@@ -161,7 +181,7 @@ func (s *DeliveryQuoteService) fetchPublicQuotes(ctx context.Context, slug strin
 		IsInvoiceRequired: false,
 	})
 	if err != nil {
-		return models.PublicStorefront{}, nil, nil, fmt.Errorf("fetch delivery quotes: %w", err)
+		return models.PublicStorefront{}, nil, nil, newPublicDeliveryQuoteProviderError("fetch delivery quotes", err)
 	}
 
 	if len(rates.Options) == 0 {
@@ -267,15 +287,6 @@ func fallbackEmail(email *string, label string) string {
 		return strings.TrimSpace(*email)
 	}
 	return fmt.Sprintf("%s@storefront.local", sanitizeEmailLabel(label))
-}
-
-func mapQuoteAddressValidationError(role string, err error) error {
-	return mapShipbubbleValidationError(
-		role,
-		"the store pickup address could not be validated. Ask the store admin to review logistics setup",
-		"we couldn't validate this delivery address. Enter a clear street, city, state, and country",
-		err,
-	)
 }
 
 func sanitizeEmailLabel(value string) string {

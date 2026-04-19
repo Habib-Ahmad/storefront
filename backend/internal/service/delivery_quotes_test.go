@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -377,7 +378,7 @@ func TestDeliveryQuoteService_QuotePublic_NormalizesProviderNames(t *testing.T) 
 	}
 }
 
-func TestDeliveryQuoteService_QuotePublic_ReturnsProviderWalletFundingError(t *testing.T) {
+func TestDeliveryQuoteService_QuotePublic_ReturnsProviderFailure(t *testing.T) {
 	tenantID := uuid.New()
 	variantID := uuid.New()
 	tenantAddress := "12 Allen Avenue, Ikeja, Lagos, Nigeria"
@@ -418,17 +419,17 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsProviderWalletFundingError(t *t
 		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 1}},
 	})
 	if err == nil {
-		t.Fatal("expected wallet funding error")
+		t.Fatal("expected provider failure")
 	}
-	appErr, ok := err.(*apperr.Error)
+	providerErr, ok := err.(*PublicDeliveryQuoteProviderError)
 	if !ok {
-		t.Fatalf("expected apperr.Error, got %T", err)
+		t.Fatalf("expected PublicDeliveryQuoteProviderError, got %T", err)
 	}
-	if appErr.Status != 409 {
-		t.Fatalf("expected conflict status, got %d", appErr.Status)
+	if providerErr.Operation != "validate sender address" {
+		t.Fatalf("unexpected operation: %s", providerErr.Operation)
 	}
-	if appErr.Message != "delivery is temporarily unavailable because the shipping provider wallet needs funding" {
-		t.Fatalf("unexpected error message: %q", appErr.Message)
+	if providerErr.Err == nil || !strings.Contains(providerErr.Err.Error(), "Insufficient wallet balance") {
+		t.Fatalf("unexpected provider error: %v", providerErr.Err)
 	}
 }
 
@@ -499,7 +500,7 @@ func TestDeliveryQuoteService_QuotePublic_RejectsIncompleteStorefrontLogisticsPr
 	}
 }
 
-func TestDeliveryQuoteService_QuotePublic_ReturnsValidationErrorForInvalidReceiverAddress(t *testing.T) {
+func TestDeliveryQuoteService_QuotePublic_ReturnsProviderFailureForInvalidReceiverAddress(t *testing.T) {
 	tenantID := uuid.New()
 	variantID := uuid.New()
 	tenantAddress := "16 Owerri Street, Gwarinpa, Abuja, FCT, Nigeria"
@@ -546,14 +547,17 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsValidationErrorForInvalidReceiv
 		Items:           []models.PublicStorefrontDeliveryQuoteRequestItem{{VariantID: variantID, Quantity: 1}},
 	})
 	if err == nil {
-		t.Fatal("expected validation error")
+		t.Fatal("expected provider failure")
 	}
-	status, message := apperr.HTTPError(err)
-	if status != 422 {
-		t.Fatalf("expected status 422, got %d", status)
+	providerErr, ok := err.(*PublicDeliveryQuoteProviderError)
+	if !ok {
+		t.Fatalf("expected PublicDeliveryQuoteProviderError, got %T", err)
 	}
-	if message != "the store pickup address could not be validated. Ask the store admin to review logistics setup" {
-		t.Fatalf("unexpected message: %s", message)
+	if providerErr.Operation != "validate sender address" {
+		t.Fatalf("unexpected operation: %s", providerErr.Operation)
+	}
+	if providerErr.Err == nil || !strings.Contains(providerErr.Err.Error(), "couldn't validate the provided address") {
+		t.Fatalf("unexpected provider error: %v", providerErr.Err)
 	}
 }
 

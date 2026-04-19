@@ -735,11 +735,7 @@ export function StorefrontBasketCheckout({ storefront }: StorefrontBasketCheckou
                       ) : null}
                     </div>
                   </>
-                ) : (
-                  <div className="rounded-[1.5rem] border border-border/60 bg-background p-4 text-sm text-muted-foreground">
-                    Pickup keeps checkout short. You can head straight to payment after this step.
-                  </div>
-                )}
+                ) : null}
 
                 {submitError ? (
                   <div className="flex items-start gap-2 rounded-[1.5rem] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
