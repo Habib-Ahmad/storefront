@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act } from "@testing-library/react";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -61,7 +62,51 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+async function startGoogleOAuth(page: ReactElement) {
+  render(page);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Google" }));
+}
+
 describe("auth flows", () => {
+  it("preserves the requested app redirect when login starts Google OAuth", async () => {
+    searchParamsGetMock.mockImplementation((key: string) =>
+      key === "redirect" ? "/app/orders" : null,
+    );
+
+    await startGoogleOAuth(<LoginPage />);
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/app/orders")}`,
+      },
+    });
+  });
+
+  it("shows a clear message when the OAuth callback redirects back with an error", () => {
+    searchParamsGetMock.mockImplementation((key: string) =>
+      key === "error" ? "oauth_callback" : null,
+    );
+
+    render(<LoginPage />);
+
+    expect(
+      screen.getByText("Google sign-in could not be completed. Please try again."),
+    ).toBeInTheDocument();
+  });
+
+  it("sends first-time Google signup straight to onboarding", async () => {
+    await startGoogleOAuth(<SignupPage />);
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/onboard")}`,
+      },
+    });
+  });
+
   it("tells an existing user to sign in when they try to sign up again", async () => {
     signUpMock.mockResolvedValue({
       data: { session: null },

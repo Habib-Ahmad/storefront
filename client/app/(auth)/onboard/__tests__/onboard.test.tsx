@@ -147,9 +147,7 @@ describe("OnboardPage", () => {
 
     render(<OnboardPage />);
 
-    expect(
-      screen.getByText("You already have an account. Finish setting up your store to continue."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Finish setting up your workspace to continue.")).toBeInTheDocument();
   });
 
   it("submits only the workspace fields during onboarding", async () => {

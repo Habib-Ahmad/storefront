@@ -6,12 +6,13 @@ import Link from "next/link";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { getSupabase } from "@/lib/supabase";
+import { signInWithGoogleOAuth } from "@/lib/oauth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { SpinnerGapIcon, GoogleLogoIcon, AppleLogoIcon } from "@phosphor-icons/react";
+import { SpinnerGapIcon, GoogleLogoIcon } from "@phosphor-icons/react";
 import { ShoppingBagSvg } from "@/components/illustrations";
 
 const signupSchema = Yup.object({
@@ -33,6 +34,16 @@ export default function SignupPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [accountExists, setAccountExists] = useState(false);
+
+  async function handleGoogleSignIn() {
+    const supabase = getSupabase();
+    if (!supabase) {
+      setFormError("Auth is not configured");
+      return;
+    }
+
+    await signInWithGoogleOAuth(supabase, window.location.origin, "/onboard");
+  }
 
   return (
     <div className="space-y-6">
@@ -157,36 +168,15 @@ export default function SignupPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 gap-2"
-                onClick={() => {
-                  const supabase = getSupabase();
-                  supabase?.auth.signInWithOAuth({
-                    provider: "google",
-                    options: { redirectTo: `${window.location.origin}/app` },
-                  });
-                }}
+                className="h-10 w-full gap-2"
+                onClick={handleGoogleSignIn}
               >
                 <GoogleLogoIcon className="size-4" weight="bold" />
                 Google
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 gap-2"
-                onClick={() => {
-                  const supabase = getSupabase();
-                  supabase?.auth.signInWithOAuth({
-                    provider: "apple",
-                    options: { redirectTo: `${window.location.origin}/app` },
-                  });
-                }}
-              >
-                <AppleLogoIcon className="size-4" weight="fill" />
-                Apple
               </Button>
             </div>
           </Form>

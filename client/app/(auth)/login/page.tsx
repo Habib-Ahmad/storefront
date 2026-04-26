@@ -7,12 +7,13 @@ import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { getSupabase } from "@/lib/supabase";
 import { api } from "@/lib/api";
+import { signInWithGoogleOAuth } from "@/lib/oauth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { SpinnerGapIcon, GoogleLogoIcon, AppleLogoIcon } from "@phosphor-icons/react";
+import { SpinnerGapIcon, GoogleLogoIcon } from "@phosphor-icons/react";
 import { ShoppingBagSvg } from "@/components/illustrations";
 
 const loginSchema = Yup.object({
@@ -24,7 +25,21 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/app";
+  const oauthError =
+    searchParams.get("error") === "oauth_callback"
+      ? "Google sign-in could not be completed. Please try again."
+      : null;
   const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleGoogleSignIn() {
+    const supabase = getSupabase();
+    if (!supabase) {
+      setFormError("Auth is not configured");
+      return;
+    }
+
+    await signInWithGoogleOAuth(supabase, window.location.origin, redirect);
+  }
 
   return (
     <div className="space-y-6">
@@ -65,9 +80,9 @@ function LoginForm() {
       >
         {({ isSubmitting, errors, touched }) => (
           <Form className="md:card-3d space-y-4 px-1 md:rounded-2xl md:border md:border-border/60 md:bg-background/72 md:p-6 md:shadow-lg md:shadow-black/5">
-            {formError && (
+            {(formError ?? oauthError) && (
               <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
-                {formError}
+                {formError ?? oauthError}
               </p>
             )}
 
@@ -122,36 +137,15 @@ function LoginForm() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 gap-2"
-                onClick={() => {
-                  const supabase = getSupabase();
-                  supabase?.auth.signInWithOAuth({
-                    provider: "google",
-                    options: { redirectTo: `${window.location.origin}/app` },
-                  });
-                }}
+                className="h-10 w-full gap-2"
+                onClick={handleGoogleSignIn}
               >
                 <GoogleLogoIcon className="size-4" weight="bold" />
                 Google
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 gap-2"
-                onClick={() => {
-                  const supabase = getSupabase();
-                  supabase?.auth.signInWithOAuth({
-                    provider: "apple",
-                    options: { redirectTo: `${window.location.origin}/app` },
-                  });
-                }}
-              >
-                <AppleLogoIcon className="size-4" weight="fill" />
-                Apple
               </Button>
             </div>
           </Form>

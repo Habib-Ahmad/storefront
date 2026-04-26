@@ -294,7 +294,7 @@ export default function OnboardPage() {
             <Form className="md:card-3d space-y-5 md:rounded-2xl md:p-7">
               {showIncompleteSetupBanner && (
                 <p className="rounded-lg border border-primary/15 bg-primary/8 px-3 py-2 text-center text-sm text-primary">
-                  You already have an account. Finish setting up your store to continue.
+                  Finish setting up your workspace to continue.
                 </p>
               )}
 
