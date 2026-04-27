@@ -48,7 +48,7 @@ func Authenticate(keyFunc jwt.Keyfunc) func(http.Handler) http.Handler {
 			role := models.UserRoleStaff
 			if roleStr, ok := claims["role"].(string); ok && roleStr != "" {
 				parsed := models.UserRole(roleStr)
-				if parsed == models.UserRoleAdmin || parsed == models.UserRoleStaff || parsed == models.UserRoleManager {
+				if parsed == models.UserRoleAdmin || parsed == models.UserRoleStaff {
 					role = parsed
 				}
 			}

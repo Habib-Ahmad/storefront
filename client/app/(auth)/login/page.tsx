@@ -8,6 +8,7 @@ import * as Yup from "yup";
 import { getSupabase } from "@/lib/supabase";
 import { api } from "@/lib/api";
 import { signInWithGoogleOAuth } from "@/lib/oauth";
+import { SESSION_TIMEOUT_ERROR_CODE } from "@/lib/session-policy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -25,10 +26,13 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/app";
-  const oauthError =
-    searchParams.get("error") === "oauth_callback"
+  const errorCode = searchParams.get("error");
+  const authError =
+    errorCode === "oauth_callback"
       ? "Google sign-in could not be completed. Please try again."
-      : null;
+      : errorCode === SESSION_TIMEOUT_ERROR_CODE
+        ? "Your session expired. Sign in again to continue."
+        : null;
   const [formError, setFormError] = useState<string | null>(null);
 
   async function handleGoogleSignIn() {
@@ -80,9 +84,9 @@ function LoginForm() {
       >
         {({ isSubmitting, errors, touched }) => (
           <Form className="md:card-3d space-y-4 px-1 md:rounded-2xl md:border md:border-border/60 md:bg-background/72 md:p-6 md:shadow-lg md:shadow-black/5">
-            {(formError ?? oauthError) && (
+            {(formError ?? authError) && (
               <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
-                {formError ?? oauthError}
+                {formError ?? authError}
               </p>
             )}
 

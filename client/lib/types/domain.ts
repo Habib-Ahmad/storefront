@@ -8,7 +8,7 @@ export const TimestampSchema = z.string();
 // ── Enums ──────────────────────────────────────────────
 
 export const TenantStatusSchema = z.enum(["active", "suspended"]);
-export const UserRoleSchema = z.enum(["admin", "staff", "manager"]);
+export const UserRoleSchema = z.enum(["admin", "staff"]);
 
 export type TenantStatus = z.infer<typeof TenantStatusSchema>;
 export type UserRole = z.infer<typeof UserRoleSchema>;

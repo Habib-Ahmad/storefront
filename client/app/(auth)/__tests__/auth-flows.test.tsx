@@ -96,6 +96,18 @@ describe("auth flows", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows a clear message when the session times out", () => {
+    searchParamsGetMock.mockImplementation((key: string) =>
+      key === "error" ? "session_timeout" : null,
+    );
+
+    render(<LoginPage />);
+
+    expect(
+      screen.getByText("Your session expired. Sign in again to continue."),
+    ).toBeInTheDocument();
+  });
+
   it("sends first-time Google signup straight to onboarding", async () => {
     await startGoogleOAuth(<SignupPage />);
 
