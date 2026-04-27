@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/golang-jwt/jwt/v5"
 
+	"storefront/backend/internal/authz"
 	handler "storefront/backend/internal/handler"
 	mw "storefront/backend/internal/middleware"
 	"storefront/backend/internal/repository"
@@ -78,42 +79,42 @@ func New(
 		r.Use(mw.Authenticate(jwtKeyFunc))
 		r.Use(mw.ResolveTenant(userRepo, tenantRepo))
 
-		r.Put("/tenants/me", tenant.UpdateProfile)
-		r.Put("/tenants/me/storefront", tenant.UpdateStorefront)
-		r.Put("/tenants/me/modules", tenant.SetModules)
+		r.With(mw.RequirePermission(authz.PermissionTenantProfileManage)).Put("/tenants/me", tenant.UpdateProfile)
+		r.With(mw.RequirePermission(authz.PermissionStorefrontManage)).Put("/tenants/me/storefront", tenant.UpdateStorefront)
+		r.With(mw.RequirePermission(authz.PermissionModulesManage)).Put("/tenants/me/modules", tenant.SetModules)
 
-		r.Get("/users/me", user.GetMe)
-		r.Put("/users/me", user.UpdateProfile)
+		r.With(mw.RequirePermission(authz.PermissionSelfProfileRead)).Get("/users/me", user.GetMe)
+		r.With(mw.RequirePermission(authz.PermissionSelfProfileManage)).Put("/users/me", user.UpdateProfile)
 
-		r.Post("/products", product.Create)
-		r.Get("/products", product.List)
-		r.Get("/products/{id}", product.Get)
-		r.Put("/products/{id}", product.Update)
-		r.Delete("/products/{id}", product.Delete)
-		r.Post("/products/{id}/variants", product.CreateVariant)
-		r.Get("/products/{id}/variants", product.ListVariants)
-		r.Put("/products/{id}/variants/{variantId}", product.UpdateVariant)
-		r.Delete("/products/{id}/variants/{variantId}", product.DeleteVariant)
-		r.Post("/products/{id}/images", product.AddImage)
-		r.Get("/products/{id}/images", product.ListImages)
-		r.Put("/products/{id}/images/{imageId}", product.UpdateImage)
-		r.Delete("/products/{id}/images/{imageId}", product.DeleteImage)
+		r.With(mw.RequirePermission(authz.PermissionProductsManage)).Post("/products", product.Create)
+		r.With(mw.RequirePermission(authz.PermissionProductsRead)).Get("/products", product.List)
+		r.With(mw.RequirePermission(authz.PermissionProductsRead)).Get("/products/{id}", product.Get)
+		r.With(mw.RequirePermission(authz.PermissionProductsManage)).Put("/products/{id}", product.Update)
+		r.With(mw.RequirePermission(authz.PermissionProductsManage)).Delete("/products/{id}", product.Delete)
+		r.With(mw.RequirePermission(authz.PermissionProductVariantsManage)).Post("/products/{id}/variants", product.CreateVariant)
+		r.With(mw.RequirePermission(authz.PermissionProductVariantsRead)).Get("/products/{id}/variants", product.ListVariants)
+		r.With(mw.RequirePermission(authz.PermissionProductVariantsManage)).Put("/products/{id}/variants/{variantId}", product.UpdateVariant)
+		r.With(mw.RequirePermission(authz.PermissionProductVariantsManage)).Delete("/products/{id}/variants/{variantId}", product.DeleteVariant)
+		r.With(mw.RequirePermission(authz.PermissionProductImagesManage)).Post("/products/{id}/images", product.AddImage)
+		r.With(mw.RequirePermission(authz.PermissionProductImagesRead)).Get("/products/{id}/images", product.ListImages)
+		r.With(mw.RequirePermission(authz.PermissionProductImagesManage)).Put("/products/{id}/images/{imageId}", product.UpdateImage)
+		r.With(mw.RequirePermission(authz.PermissionProductImagesManage)).Delete("/products/{id}/images/{imageId}", product.DeleteImage)
 
-		r.Post("/orders", order.Create)
-		r.Get("/orders", order.List)
-		r.Get("/orders/{id}", order.Get)
-		r.Get("/orders/{id}/items", order.ListItems)
-		r.Get("/orders/{id}/dispatch-options", order.DispatchOptions)
-		r.Post("/orders/{id}/dispatch", order.Dispatch)
-		r.Post("/orders/{id}/cancel", order.Cancel)
-		r.Post("/orders/{id}/resume-payment", order.ResumePayment)
+		r.With(mw.RequirePermission(authz.PermissionOrdersCreate)).Post("/orders", order.Create)
+		r.With(mw.RequirePermission(authz.PermissionOrdersRead)).Get("/orders", order.List)
+		r.With(mw.RequirePermission(authz.PermissionOrdersRead)).Get("/orders/{id}", order.Get)
+		r.With(mw.RequirePermission(authz.PermissionOrdersRead)).Get("/orders/{id}/items", order.ListItems)
+		r.With(mw.RequirePermission(authz.PermissionOrdersDispatch)).Get("/orders/{id}/dispatch-options", order.DispatchOptions)
+		r.With(mw.RequirePermission(authz.PermissionOrdersDispatch)).Post("/orders/{id}/dispatch", order.Dispatch)
+		r.With(mw.RequirePermission(authz.PermissionOrdersManage)).Post("/orders/{id}/cancel", order.Cancel)
+		r.With(mw.RequirePermission(authz.PermissionOrdersManage)).Post("/orders/{id}/resume-payment", order.ResumePayment)
 
-		r.Get("/wallet", wallet.GetBalance)
-		r.Get("/wallet/transactions", wallet.ListTransactions)
+		r.With(mw.RequirePermission(authz.PermissionWalletRead)).Get("/wallet", wallet.GetBalance)
+		r.With(mw.RequirePermission(authz.PermissionWalletRead)).Get("/wallet/transactions", wallet.ListTransactions)
 
-		r.Get("/analytics/summary", analytics.Summary)
+		r.With(mw.RequirePermission(authz.PermissionAnalyticsRead)).Get("/analytics/summary", analytics.Summary)
 
-		r.Post("/media/upload-url", media.GetUploadURL)
+		r.With(mw.RequirePermission(authz.PermissionMediaUpload)).Post("/media/upload-url", media.GetUploadURL)
 	})
 
 	return r

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"storefront/backend/internal/authz"
 	"storefront/backend/internal/middleware"
 	"storefront/backend/internal/models"
 	"storefront/backend/internal/service"
@@ -50,8 +51,8 @@ func (h *TenantHandler) Onboard(w http.ResponseWriter, r *http.Request) {
 
 // PUT /tenants/me/storefront
 func (h *TenantHandler) UpdateStorefront(w http.ResponseWriter, r *http.Request) {
-	if middleware.UserRoleFromCtx(r.Context()) != models.UserRoleAdmin {
-		respondErr(w, http.StatusForbidden, "admin role required")
+	if !authz.HasPermission(middleware.UserRoleFromCtx(r.Context()), authz.PermissionStorefrontManage) {
+		respondErr(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
@@ -84,8 +85,8 @@ func (h *TenantHandler) UpdateStorefront(w http.ResponseWriter, r *http.Request)
 
 // PUT /tenants/me
 func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	if middleware.UserRoleFromCtx(r.Context()) != models.UserRoleAdmin {
-		respondErr(w, http.StatusForbidden, "admin role required")
+	if !authz.HasPermission(middleware.UserRoleFromCtx(r.Context()), authz.PermissionTenantProfileManage) {
+		respondErr(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
@@ -109,8 +110,8 @@ func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 // PUT /tenants/me/modules
 func (h *TenantHandler) SetModules(w http.ResponseWriter, r *http.Request) {
-	if middleware.UserRoleFromCtx(r.Context()) != models.UserRoleAdmin {
-		respondErr(w, http.StatusForbidden, "admin role required")
+	if !authz.HasPermission(middleware.UserRoleFromCtx(r.Context()), authz.PermissionModulesManage) {
+		respondErr(w, http.StatusForbidden, "forbidden")
 		return
 	}
 	tenant := middleware.TenantFromCtx(r.Context())
