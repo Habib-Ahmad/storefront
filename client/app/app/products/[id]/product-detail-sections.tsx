@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveMediaURL } from "@/lib/media-url";
 import type { ProductVariant } from "@/lib/types";
 import { formatCurrency } from "./product-detail-formatters";
 
@@ -208,7 +209,7 @@ export function ImagesCard({ images, onAdd, onDelete }: ImagesCardProps) {
                 key={image.id}
                 className="group relative aspect-square overflow-hidden rounded-lg border"
               >
-                <img src={image.url} alt="" className="size-full object-cover" />
+                <img src={resolveMediaURL(image.url)} alt="" className="size-full object-cover" />
                 {image.is_primary && (
                   <Badge className="absolute top-1 left-1 px-1.5 py-0 text-[10px]">Primary</Badge>
                 )}

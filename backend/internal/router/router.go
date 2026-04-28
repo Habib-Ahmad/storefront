@@ -59,6 +59,7 @@ func New(
 
 	// Public endpoints
 	r.Get("/tiers", tier.List)
+	r.Get("/media/object", media.GetObject)
 	r.Get("/storefronts/{slug}", storefront.GetPublic)
 	r.Get("/storefronts/{slug}/products/{id}", storefront.GetPublicProduct)
 	r.Post("/storefronts/{slug}/delivery-quotes", order.QuotePublicDelivery)

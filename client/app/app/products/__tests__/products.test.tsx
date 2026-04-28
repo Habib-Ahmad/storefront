@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const pushMock = vi.fn();
@@ -11,12 +11,22 @@ vi.mock("next/navigation", () => ({
 
 const mockUseProducts = vi.fn();
 const mockCreateProduct = vi.fn();
+const mockAddImage = vi.fn();
+const mockUploadImageFile = vi.fn();
 vi.mock("@/hooks/use-products", () => ({
   useProducts: (...args: unknown[]) => mockUseProducts(...args),
   useCreateProduct: () => ({
     mutateAsync: mockCreateProduct,
     isPending: false,
   }),
+  useAddImage: () => ({
+    mutateAsync: mockAddImage,
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/lib/media-upload", () => ({
+  uploadImageFile: (...args: unknown[]) => mockUploadImageFile(...args),
 }));
 
 import ProductsPage from "@/app/app/products/page";
@@ -24,9 +34,30 @@ import NewProductPage from "@/app/app/products/new/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockAddImage.mockResolvedValue(undefined);
+  mockUploadImageFile.mockResolvedValue("https://cdn.example.com/image.jpg");
 });
 
 describe("ProductsPage", () => {
+  it("shows empty state instead of product skeletons for first-time users while loading", () => {
+    window.localStorage.removeItem("storefront.products.has-items");
+    mockUseProducts.mockReturnValue({ data: undefined, isLoading: true });
+
+    render(<ProductsPage />);
+
+    expect(screen.getByText("Add your first product to get started")).toBeInTheDocument();
+  });
+
+  it("shows product skeletons while loading once products have existed before", () => {
+    window.localStorage.setItem("storefront.products.has-items", "1");
+    mockUseProducts.mockReturnValue({ data: undefined, isLoading: true });
+
+    const { container } = render(<ProductsPage />);
+
+    expect(screen.queryByText("Add your first product to get started")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".card-3d [data-slot='skeleton']")).toHaveLength(12);
+  });
+
   it("shows empty state when there are no products", () => {
     mockUseProducts.mockReturnValue({ data: { data: [], total: 0 }, isLoading: false });
     render(<ProductsPage />);
@@ -204,5 +235,39 @@ describe("NewProductPage", () => {
     await userEvent.click(screen.getByText("Create product"));
 
     expect(await screen.findByText("slug already taken")).toBeInTheDocument();
+  });
+
+  it("uploads selected images after product creation", async () => {
+    mockCreateProduct.mockResolvedValue({ id: "new-id" });
+    render(<NewProductPage />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "Ankara Shirt");
+    await userEvent.type(screen.getByLabelText("Option name"), "Standard");
+    await userEvent.type(screen.getByLabelText("Price (₦)"), "5000");
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).not.toBeNull();
+
+    const file = new File(["image"], "shirt.jpg", { type: "image/jpeg" });
+    const createObjectURLSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:shirt");
+
+    fireEvent.change(fileInput!, { target: { files: [file] } });
+
+    await userEvent.click(screen.getByText("Create product"));
+
+    await vi.waitFor(() => {
+      expect(mockUploadImageFile).toHaveBeenCalledWith(file, "new-id");
+      expect(mockAddImage).toHaveBeenCalledWith({
+        productId: "new-id",
+        data: {
+          url: "https://cdn.example.com/image.jpg",
+          sort_order: 0,
+          is_primary: true,
+        },
+      });
+      expect(pushMock).toHaveBeenCalledWith("/app/products/new-id");
+    });
+
+    createObjectURLSpy.mockRestore();
   });
 });

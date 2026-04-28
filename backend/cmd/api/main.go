@@ -91,7 +91,6 @@ func main() {
 	tenantH := handler.NewTenantHandler(tenantSvc, log)
 	userSvc := service.NewUserService(userRepo)
 	userH := handler.NewUserHandler(userSvc, log)
-	productH := handler.NewProductHandler(productSvc, log)
 	orderH := handler.NewOrderHandler(orderSvc, paymentSvc, cfg.PublicAppURL, log)
 	orderH.SetDeliveryQuoteService(deliveryQuoteSvc)
 	orderH.SetShipmentService(shipmentSvc)
@@ -100,7 +99,14 @@ func main() {
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, log)
 	webhookH := handler.NewWebhookHandler(paystackClient, paymentSvc, log)
 	webhookH.SetShipmentService(shipbubbleClient, shipmentSvc)
-	mediaH := handler.NewMediaHandler(cfg.CloudflareAccountID, cfg.CloudflareAPIToken, log)
+	mediaH := handler.NewMediaHandler(
+		cfg.R2BucketName,
+		cfg.R2S3API,
+		cfg.R2AccessKey,
+		cfg.R2SecretKey,
+		log,
+	)
+	productH := handler.NewProductHandler(productSvc, mediaH, log)
 
 	// Ensure audit log partitions exist on startup (fresh deploy safety).
 	if err := scheduler.EnsureAuditLogPartitions(ctx, pool); err != nil {

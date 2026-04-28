@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { PublicStorefrontActions } from "@/components/public-storefront-actions";
 import { PublicPendingOrderBanner } from "@/components/public-pending-order-banner";
+import { resolveMediaURL } from "@/lib/media-url";
 import {
   getOrCreateCheckoutId,
   productRecoveryKey,
@@ -360,7 +361,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                 style={
                   primaryImage
                     ? {
-                        backgroundImage: `url(${primaryImage.url})`,
+                        backgroundImage: `url(${resolveMediaURL(primaryImage.url)})`,
                         backgroundPosition: "center",
                         backgroundSize: "cover",
                       }

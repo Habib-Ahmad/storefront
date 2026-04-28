@@ -212,6 +212,7 @@ export default function ProductDetailPage() {
       <ImageDialog
         open={imageDialogOpen}
         onClose={() => setImageDialogOpen(false)}
+        productId={product.id}
         nextSortOrder={images.length}
         onSubmit={async (imgData) => {
           setFormError(null);

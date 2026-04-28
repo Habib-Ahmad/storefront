@@ -15,12 +15,13 @@ import (
 )
 
 type ProductHandler struct {
-	svc *service.ProductService
-	log *slog.Logger
+	svc   *service.ProductService
+	media *MediaHandler
+	log   *slog.Logger
 }
 
-func NewProductHandler(svc *service.ProductService, log *slog.Logger) *ProductHandler {
-	return &ProductHandler{svc: svc, log: log}
+func NewProductHandler(svc *service.ProductService, media *MediaHandler, log *slog.Logger) *ProductHandler {
+	return &ProductHandler{svc: svc, media: media, log: log}
 }
 
 // POST /products
@@ -70,6 +71,26 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		serverErr(w, h.log, r, err)
 		return
+	}
+	for i := range products {
+		variants, err := h.svc.ListVariants(r.Context(), tenant.ID, products[i].ID)
+		if err != nil {
+			serverErr(w, h.log, r, err)
+			return
+		}
+		images, err := h.svc.GetImagesByProduct(r.Context(), tenant.ID, products[i].ID)
+		if err != nil {
+			serverErr(w, h.log, r, err)
+			return
+		}
+		if variants == nil {
+			variants = []models.ProductVariant{}
+		}
+		if images == nil {
+			images = []models.ProductImage{}
+		}
+		products[i].Variants = variants
+		products[i].Images = images
 	}
 	if products == nil {
 		products = []models.Product{}
@@ -388,6 +409,15 @@ func (h *ProductHandler) DeleteImage(w http.ResponseWriter, r *http.Request) {
 	imageID, err := uuid.Parse(chi.URLParam(r, "imageId"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid image id")
+		return
+	}
+	img, err := h.svc.GetImage(r.Context(), tenant.ID, productID, imageID)
+	if err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+	if err := h.media.DeleteObjectByURL(r.Context(), img.URL); err != nil {
+		serverErr(w, h.log, r, err)
 		return
 	}
 	if err := h.svc.DeleteImage(r.Context(), tenant.ID, productID, imageID); err != nil {

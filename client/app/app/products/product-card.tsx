@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TagIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
+import { resolveMediaURL } from "@/lib/media-url";
 import type { Product } from "@/lib/types";
 import { formatPrice, totalStock } from "./product-formatters";
 
@@ -17,7 +18,11 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="card-3d overflow-hidden rounded-2xl transition-all hover:ring-2 hover:ring-primary/20">
         <div className="flex aspect-square items-center justify-center bg-muted">
           {primaryImage ? (
-            <img src={primaryImage.url} alt={product.name} className="size-full object-cover" />
+            <img
+              src={resolveMediaURL(primaryImage.url)}
+              alt={product.name}
+              className="size-full object-cover"
+            />
           ) : (
             <TagIcon className="size-10 text-muted-foreground/40" />
           )}

@@ -57,6 +57,7 @@ export function useCreateVariant() {
     mutationFn: ({ productId, data }: { productId: string; data: CreateVariantRequest }) =>
       api.createVariant(productId, data),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product"] });
       qc.invalidateQueries({ queryKey: ["variants"] });
     },
@@ -76,6 +77,7 @@ export function useUpdateVariant() {
       data: CreateVariantRequest;
     }) => api.updateVariant(productId, variantId, data),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product"] });
       qc.invalidateQueries({ queryKey: ["variants"] });
     },
@@ -88,6 +90,7 @@ export function useDeleteVariant() {
     mutationFn: ({ productId, variantId }: { productId: string; variantId: string }) =>
       api.deleteVariant(productId, variantId),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product"] });
       qc.invalidateQueries({ queryKey: ["variants"] });
     },
@@ -100,6 +103,7 @@ export function useAddImage() {
     mutationFn: ({ productId, data }: { productId: string; data: AddImageRequest }) =>
       api.addImage(productId, data),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product"] });
       qc.invalidateQueries({ queryKey: ["images"] });
     },
@@ -112,6 +116,7 @@ export function useDeleteImage() {
     mutationFn: ({ productId, imageId }: { productId: string; imageId: string }) =>
       api.deleteImage(productId, imageId),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product"] });
       qc.invalidateQueries({ queryKey: ["images"] });
     },

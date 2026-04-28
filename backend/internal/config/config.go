@@ -23,10 +23,11 @@ type Config struct {
 	ShipbubbleAPIKey  string
 
 	R2AccountID  string
+	R2Token      string
 	R2AccessKey  string
 	R2SecretKey  string
 	R2BucketName string
-	R2PublicURL  string
+	R2S3API      string
 
 	CloudflareAccountID string
 	CloudflareAPIToken  string
@@ -51,10 +52,11 @@ func Load() (*Config, error) {
 		ShipbubbleAPIKey:  os.Getenv("SHIPBUBBLE_API_KEY"),
 
 		R2AccountID:  os.Getenv("R2_ACCOUNT_ID"),
+		R2Token:      os.Getenv("R2_TOKEN"),
 		R2AccessKey:  os.Getenv("R2_ACCESS_KEY"),
 		R2SecretKey:  os.Getenv("R2_SECRET_KEY"),
 		R2BucketName: os.Getenv("R2_BUCKET_NAME"),
-		R2PublicURL:  os.Getenv("R2_PUBLIC_URL"),
+		R2S3API:      strings.TrimSpace(os.Getenv("R2_S3_API")),
 
 		CloudflareAccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
 		CloudflareAPIToken:  os.Getenv("CLOUDFLARE_API_TOKEN"),

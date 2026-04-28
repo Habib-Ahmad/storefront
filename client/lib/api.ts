@@ -314,8 +314,12 @@ class ApiClient {
     );
 
   // Media
-  getUploadUrl = () =>
-    this.request<{ id: string; upload_url: string }>("POST", "/media/upload-url");
+  getUploadUrl = (data: { filename: string; content_type: string; product_id?: string }) =>
+    this.request<{ key: string; upload_url: string; public_url: string }>(
+      "POST",
+      "/media/upload-url",
+      data,
+    );
 }
 
 export const api = new ApiClient();

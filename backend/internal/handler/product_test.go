@@ -29,6 +29,7 @@ type stubProductRepo struct {
 	publicProducts []models.PublicStorefrontProduct
 	variant        *models.ProductVariant
 	variants       []models.ProductVariant
+	images         []models.ProductImage
 	createErr      error
 	getErr         error
 	addImageErr    error
@@ -90,7 +91,7 @@ func (s *stubProductRepo) AddImage(_ context.Context, img *models.ProductImage) 
 	return nil
 }
 func (s *stubProductRepo) ListImagesByProduct(_ context.Context, _ uuid.UUID) ([]models.ProductImage, error) {
-	return nil, nil
+	return s.images, nil
 }
 func (s *stubProductRepo) DeleteImage(_ context.Context, _ uuid.UUID) error { return nil }
 func (s *stubProductRepo) UpdateImage(_ context.Context, _ *models.ProductImage) error {
@@ -122,7 +123,8 @@ func noInventoryTenant() *models.Tenant {
 
 func newProductHandler(repo *stubProductRepo) *handler.ProductHandler {
 	svc := service.NewProductService(repo)
-	return handler.NewProductHandler(svc, slog.Default())
+	media := handler.NewMediaHandler("", "", "", "", slog.Default())
+	return handler.NewProductHandler(svc, media, slog.Default())
 }
 
 func withChiParam(req *http.Request, key, val string) *http.Request {
@@ -684,10 +686,10 @@ func TestUpdateImage_DuplicateSortOrder(t *testing.T) {
 }
 
 func TestDeleteImage_Valid(t *testing.T) {
-	repo := &stubProductRepo{}
-	h := newProductHandler(repo)
 	productID := uuid.New()
 	imageID := uuid.New()
+	repo := &stubProductRepo{images: []models.ProductImage{{ID: imageID, ProductID: productID, URL: "http://localhost:8090/media/object?key=test-object"}}}
+	h := newProductHandler(repo)
 	req := httptest.NewRequest(http.MethodDelete, "/products/"+productID.String()+"/images/"+imageID.String(), nil)
 	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
 	req = withChiParams(req, map[string]string{"id": productID.String(), "imageId": imageID.String()})

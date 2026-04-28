@@ -2,7 +2,8 @@
 
 import { SpinnerGapIcon, UploadSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { uploadImageFile } from "@/lib/media-upload";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,11 +18,18 @@ import { Label } from "@/components/ui/label";
 interface ImageDialogProps {
   open: boolean;
   onClose: () => void;
+  productId: string;
   nextSortOrder: number;
   onSubmit: (data: { url: string; sort_order: number; is_primary: boolean }) => Promise<void>;
 }
 
-export function ImageDialog({ open, onClose, nextSortOrder, onSubmit }: ImageDialogProps) {
+export function ImageDialog({
+  open,
+  onClose,
+  productId,
+  nextSortOrder,
+  onSubmit,
+}: ImageDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isPrimary, setIsPrimary] = useState(nextSortOrder === 0);
@@ -51,13 +59,7 @@ export function ImageDialog({ open, onClose, nextSortOrder, onSubmit }: ImageDia
     setUploading(true);
     setDialogError(null);
     try {
-      const { upload_url } = await api.getUploadUrl();
-      const form = new FormData();
-      form.append("file", file);
-      const uploadResponse = await fetch(upload_url, { method: "POST", body: form });
-      const uploadData = await uploadResponse.json();
-      if (!uploadData.success) throw new Error("Cloudflare rejected the upload");
-      const url: string = uploadData.result.variants[0];
+      const url = await uploadImageFile(file, productId);
       await onSubmit({ url, sort_order: nextSortOrder, is_primary: isPrimary });
     } catch (err) {
       if (err instanceof ApiError) setDialogError(err.message);

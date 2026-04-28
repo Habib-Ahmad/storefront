@@ -16,6 +16,7 @@ import (
 var (
 	ErrProductNotFound    = apperr.NotFound("product not found")
 	ErrVariantNotFound    = apperr.NotFound("variant not found")
+	ErrImageNotFound      = apperr.NotFound("image not found")
 	ErrSoldOut            = apperr.Conflict("variant is sold out")
 	ErrDuplicateSKU       = apperr.Conflict("a variant with this SKU already exists for this product")
 	ErrDuplicateSortOrder = apperr.Conflict("an image with this sort order already exists for this product")
@@ -109,6 +110,22 @@ func (s *ProductService) GetImagesByProduct(ctx context.Context, tenantID, produ
 	return s.products.ListImagesByProduct(ctx, productID)
 }
 
+func (s *ProductService) GetImage(ctx context.Context, tenantID, productID, imageID uuid.UUID) (*models.ProductImage, error) {
+	if _, err := s.products.GetByID(ctx, tenantID, productID); err != nil {
+		return nil, ErrProductNotFound
+	}
+	images, err := s.products.ListImagesByProduct(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+	for _, img := range images {
+		if img.ID == imageID {
+			return &img, nil
+		}
+	}
+	return nil, ErrImageNotFound
+}
+
 func (s *ProductService) AddImage(ctx context.Context, tenantID uuid.UUID, img *models.ProductImage) error {
 	if _, err := s.products.GetByID(ctx, tenantID, img.ProductID); err != nil {
 		return ErrProductNotFound
@@ -125,6 +142,20 @@ func (s *ProductService) AddImage(ctx context.Context, tenantID uuid.UUID, img *
 func (s *ProductService) DeleteImage(ctx context.Context, tenantID, productID, imageID uuid.UUID) error {
 	if _, err := s.products.GetByID(ctx, tenantID, productID); err != nil {
 		return ErrProductNotFound
+	}
+	images, err := s.products.ListImagesByProduct(ctx, productID)
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, img := range images {
+		if img.ID == imageID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrImageNotFound
 	}
 	return s.products.DeleteImage(ctx, imageID)
 }

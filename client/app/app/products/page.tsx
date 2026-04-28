@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   PlusIcon,
@@ -15,9 +15,12 @@ import { useProducts } from "@/hooks/use-products";
 import { ProductCard } from "./product-card";
 import { ProductSkeleton } from "./product-skeleton";
 
+const PRODUCTS_KNOWN_STORAGE_KEY = "storefront.products.has-items";
+
 export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [hasKnownProducts, setHasKnownProducts] = useState<boolean | null>(null);
   const perPage = 12;
 
   const { data, isLoading } = useProducts({ page, per_page: perPage });
@@ -26,9 +29,31 @@ export default function ProductsPage() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / perPage);
 
+  useEffect(() => {
+    const storedValue = window.localStorage.getItem(PRODUCTS_KNOWN_STORAGE_KEY);
+    setHasKnownProducts(storedValue === "1");
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    if (total > 0) {
+      window.localStorage.setItem(PRODUCTS_KNOWN_STORAGE_KEY, "1");
+      setHasKnownProducts(true);
+      return;
+    }
+
+    window.localStorage.removeItem(PRODUCTS_KNOWN_STORAGE_KEY);
+    setHasKnownProducts(false);
+  }, [isLoading, total]);
+
   const filtered = search
     ? products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
     : products;
+  const showSkeleton = isLoading && hasKnownProducts === true;
+  const showEmptyState = (!isLoading && total === 0) || (isLoading && hasKnownProducts === false);
 
   return (
     <div className="space-y-4">
@@ -57,7 +82,7 @@ export default function ProductsPage() {
       )}
 
       {/* Loading */}
-      {isLoading && (
+      {showSkeleton && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <ProductSkeleton key={i} />
@@ -66,7 +91,7 @@ export default function ProductsPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && total === 0 && (
+      {showEmptyState && (
         <div className="card-3d flex flex-col items-center justify-center rounded-2xl p-8 text-center">
           <OpenBoxSvg className="size-36" />
           <p className="mt-3 text-sm text-muted-foreground">
