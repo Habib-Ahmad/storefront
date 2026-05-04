@@ -56,6 +56,10 @@ func (s *ProductService) Create(ctx context.Context, p *models.Product, variants
 
 	for i := range variants {
 		variants[i].ProductID = p.ID
+		if len(variants) == 1 && variants[i].SKU == "" {
+			variants[i].SKU = "Default"
+			variants[i].IsDefault = true
+		}
 		normalizeVariant(&variants[i])
 		if err := s.products.CreateVariant(ctx, &variants[i]); err != nil {
 			if apperr.IsUniqueViolation(err) {

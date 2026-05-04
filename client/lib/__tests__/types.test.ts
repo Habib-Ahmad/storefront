@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AnalyticsSummarySchema,
   CreatePublicStorefrontDeliveryQuoteRequestSchema,
+  CreateProductRequestSchema,
   MeResponseSchema,
   OrderItemSchema,
   OrderSchema,
@@ -247,6 +248,19 @@ describe("ProductDetailResponseSchema", () => {
     };
 
     expect(() => ProductDetailResponseSchema.parse(payload)).toThrow();
+  });
+});
+
+describe("Product request schemas", () => {
+  it("rejects blank descriptions when creating a product", () => {
+    expect(() =>
+      CreateProductRequestSchema.parse({
+        name: "Ankara Shirt",
+        description: "   ",
+        category: "Fashion",
+        is_available: true,
+      }),
+    ).toThrow("Description is required");
   });
 });
 

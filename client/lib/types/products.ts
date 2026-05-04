@@ -30,7 +30,7 @@ export const ProductSchema = z.object({
   id: UUIDSchema,
   tenant_id: UUIDSchema,
   name: z.string(),
-  description: z.string().nullable().optional(),
+  description: z.string(),
   category: z.string().nullable().optional(),
   is_available: z.boolean(),
   created_at: TimestampSchema,
@@ -57,7 +57,7 @@ export const CreateVariantRequestSchema = z.object({
 
 export const CreateProductRequestSchema = z.object({
   name: z.string(),
-  description: z.string().nullable().optional(),
+  description: z.string().trim().min(1, "Description is required"),
   category: z.string().nullable().optional(),
   is_available: z.boolean(),
   variants: z.array(CreateVariantRequestSchema).optional(),
@@ -65,7 +65,7 @@ export const CreateProductRequestSchema = z.object({
 
 export const UpdateProductRequestSchema = z.object({
   name: z.string(),
-  description: z.string().nullable().optional(),
+  description: z.string().trim().min(1, "Description is required"),
   category: z.string().nullable().optional(),
   is_available: z.boolean(),
 });

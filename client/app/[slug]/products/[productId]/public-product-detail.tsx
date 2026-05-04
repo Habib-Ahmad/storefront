@@ -15,12 +15,12 @@ interface PublicProductDetailProps {
   detail: PublicStorefrontProductDetailResponse;
 }
 
-function formatVariantLabel(attributes: Record<string, unknown>) {
+function formatVariantLabel(attributes: Record<string, unknown>, sku: string) {
   const values = Object.values(attributes)
     .map((value) => (typeof value === "string" ? value : String(value)))
     .filter(Boolean);
 
-  return values.length > 0 ? values.join(" / ") : "Default option";
+  return values.length > 0 ? values.join(" / ") : sku;
 }
 
 export function PublicProductDetail({ detail }: PublicProductDetailProps) {
@@ -41,7 +41,7 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
     () =>
       variants.map((variant) => ({
         id: variant.id,
-        label: formatVariantLabel(variant.attributes),
+        label: formatVariantLabel(variant.attributes, variant.sku),
         inStock: variant.in_stock,
       })),
     [variants],
@@ -58,7 +58,7 @@ export function PublicProductDetail({ detail }: PublicProductDetailProps) {
       productId: product.id,
       productName: product.name,
       variantId: selectedVariant.id,
-      variantLabel: formatVariantLabel(selectedVariant.attributes),
+      variantLabel: formatVariantLabel(selectedVariant.attributes, selectedVariant.sku),
       unitPrice: selectedVariant.price,
       quantity: 1,
       imageUrl: selectedImage?.url ?? product.image_url ?? null,

@@ -26,7 +26,7 @@ type PublicStorefrontDeliveryStatus struct {
 type PublicStorefrontProduct struct {
 	ID          uuid.UUID       `json:"id"`
 	Name        string          `json:"name"`
-	Description *string         `json:"description,omitempty"`
+	Description string          `json:"description"`
 	Category    *string         `json:"category,omitempty"`
 	ImageURL    *string         `json:"image_url,omitempty"`
 	Price       decimal.Decimal `json:"price"`
@@ -40,6 +40,7 @@ type PublicStorefrontCatalog struct {
 
 type PublicStorefrontProductVariant struct {
 	ID         uuid.UUID       `json:"id"`
+	SKU        string          `json:"sku"`
 	Attributes json.RawMessage `json:"attributes"`
 	Price      decimal.Decimal `json:"price"`
 	InStock    bool            `json:"in_stock"`

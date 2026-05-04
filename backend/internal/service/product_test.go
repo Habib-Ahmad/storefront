@@ -48,6 +48,30 @@ func TestCreateProduct_ExplicitVariants_NoDefault(t *testing.T) {
 	}
 }
 
+func TestCreateProduct_BlankSingleVariantSKU_UsesDefaultLabel(t *testing.T) {
+	repo := &mockProductRepo{}
+	svc := service.NewProductService(repo)
+
+	p := &models.Product{TenantID: uuid.New(), Name: "Hoodie", IsAvailable: true}
+	variants := []models.ProductVariant{{SKU: "", Price: decimal.NewFromInt(5000)}}
+	_, err := svc.Create(context.Background(), p, variants)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.variantCreated == nil {
+		t.Fatal("expected variant to be created")
+	}
+	if repo.variantCreated.SKU != "Default" {
+		t.Fatalf("expected default SKU label, got %q", repo.variantCreated.SKU)
+	}
+	if !repo.variantCreated.IsDefault {
+		t.Fatal("expected blank single variant to become the default variant")
+	}
+	if !repo.variantCreated.Price.Equal(decimal.NewFromInt(5000)) {
+		t.Fatalf("expected price to be preserved, got %s", repo.variantCreated.Price)
+	}
+}
+
 func TestDecrementStock_InfiniteStock(t *testing.T) {
 	// nil StockQty = infinite; decrement should be a no-op
 	repo := &mockProductRepo{variant: &models.ProductVariant{ID: uuid.New(), StockQty: nil}}

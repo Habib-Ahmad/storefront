@@ -272,6 +272,7 @@ func TestUpdateProduct_OK(t *testing.T) {
 	h := newProductHandler(repo)
 	body, _ := json.Marshal(map[string]any{
 		"name":         "Updated Tee",
+		"description":  "Updated description",
 		"is_available": true,
 	})
 	req := httptest.NewRequest(http.MethodPut, "/products/"+productID.String(), bytes.NewReader(body))
@@ -284,11 +285,50 @@ func TestUpdateProduct_OK(t *testing.T) {
 	}
 }
 
+func TestCreateProduct_DescriptionRequired(t *testing.T) {
+	h := newProductHandler(&stubProductRepo{})
+	body, _ := json.Marshal(map[string]any{
+		"name":         "New Tee",
+		"description":  "   ",
+		"is_available": true,
+		"variants": []map[string]any{{
+			"sku":   "Default",
+			"price": 5000,
+		}},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	rec := httptest.NewRecorder()
+	h.Create(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateProduct_DescriptionRequired(t *testing.T) {
+	productID := uuid.New()
+	repo := &stubProductRepo{product: &models.Product{ID: productID, Name: "Old"}}
+	h := newProductHandler(repo)
+	body, _ := json.Marshal(map[string]any{
+		"name":         "Updated Tee",
+		"description":  "",
+		"is_available": true,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/products/"+productID.String(), bytes.NewReader(body))
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", productID.String())
+	rec := httptest.NewRecorder()
+	h.Update(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestUpdateProduct_NotFound(t *testing.T) {
 	repo := &stubProductRepo{getErr: errNotFound}
 	h := newProductHandler(repo)
 	id := uuid.New()
-	body, _ := json.Marshal(map[string]any{"name": "X", "is_available": true})
+	body, _ := json.Marshal(map[string]any{"name": "X", "description": "Desc", "is_available": true})
 	req := httptest.NewRequest(http.MethodPut, "/products/"+id.String(), bytes.NewReader(body))
 	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
 	req = withChiParam(req, "id", id.String())

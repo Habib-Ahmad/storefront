@@ -21,6 +21,13 @@ type StorefrontService struct {
 	products repository.ProductRepository
 }
 
+func storefrontDescriptionValue(description *string) string {
+	if description == nil {
+		return ""
+	}
+	return *description
+}
+
 func NewStorefrontService(tenants repository.TenantRepository, products repository.ProductRepository) *StorefrontService {
 	return &StorefrontService{tenants: tenants, products: products}
 }
@@ -84,6 +91,7 @@ func (s *StorefrontService) GetPublicProductBySlug(ctx context.Context, slug str
 		}
 		publicVariants = append(publicVariants, models.PublicStorefrontProductVariant{
 			ID:         variant.ID,
+			SKU:        variant.SKU,
 			Attributes: variant.Attributes,
 			Price:      variant.Price,
 			InStock:    variantInStock,
@@ -110,7 +118,7 @@ func (s *StorefrontService) GetPublicProductBySlug(ctx context.Context, slug str
 		Product: models.PublicStorefrontProduct{
 			ID:          product.ID,
 			Name:        product.Name,
-			Description: product.Description,
+			Description: storefrontDescriptionValue(product.Description),
 			Category:    product.Category,
 			ImageURL:    primaryImageURL,
 			Price:       startingPrice,

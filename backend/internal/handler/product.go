@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Name        string                  `json:"name"        validate:"required"`
-		Description *string                 `json:"description"`
+		Description string                  `json:"description"`
 		Category    *string                 `json:"category"`
 		IsAvailable bool                    `json:"is_available"`
 		Variants    []models.ProductVariant `json:"variants"`
@@ -42,12 +43,24 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !decodeValid(w, r, &req) {
 		return
 	}
+	description := strings.TrimSpace(req.Description)
+	if description == "" {
+		respondErr(w, http.StatusBadRequest, "description is required")
+		return
+	}
+	var category *string
+	if req.Category != nil {
+		trimmed := strings.TrimSpace(*req.Category)
+		if trimmed != "" {
+			category = &trimmed
+		}
+	}
 
 	p := &models.Product{
 		TenantID:    tenant.ID,
 		Name:        req.Name,
-		Description: req.Description,
-		Category:    req.Category,
+		Description: &description,
+		Category:    category,
 		IsAvailable: req.IsAvailable,
 	}
 	out, err := h.svc.Create(r.Context(), p, req.Variants)
@@ -141,19 +154,31 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Name        string  `json:"name"        validate:"required"`
-		Description *string `json:"description"`
+		Description string  `json:"description"`
 		Category    *string `json:"category"`
 		IsAvailable bool    `json:"is_available"`
 	}
 	if !decodeValid(w, r, &req) {
 		return
 	}
+	description := strings.TrimSpace(req.Description)
+	if description == "" {
+		respondErr(w, http.StatusBadRequest, "description is required")
+		return
+	}
+	var category *string
+	if req.Category != nil {
+		trimmed := strings.TrimSpace(*req.Category)
+		if trimmed != "" {
+			category = &trimmed
+		}
+	}
 	p := &models.Product{
 		ID:          id,
 		TenantID:    tenant.ID,
 		Name:        req.Name,
-		Description: req.Description,
-		Category:    req.Category,
+		Description: &description,
+		Category:    category,
 		IsAvailable: req.IsAvailable,
 	}
 	if err := h.svc.Update(r.Context(), p); err != nil {

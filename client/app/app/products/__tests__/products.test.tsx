@@ -182,16 +182,19 @@ describe("NewProductPage", () => {
     await userEvent.click(screen.getByText("Create product"));
 
     expect(await screen.findByText("Name is required")).toBeInTheDocument();
-    expect(await screen.findByText("Option name is required")).toBeInTheDocument();
+    expect(await screen.findByText("Description is required")).toBeInTheDocument();
     expect(await screen.findByText("Price is required")).toBeInTheDocument();
   });
 
-  it("submits a valid product and navigates to its detail page", async () => {
+  it("submits a valid product and lets the user continue from the success modal", async () => {
     mockCreateProduct.mockResolvedValue({ id: "new-id" });
     render(<NewProductPage />);
 
     await userEvent.type(screen.getByLabelText("Name"), "Ankara Shirt");
-    await userEvent.type(screen.getByLabelText("Option name"), "Standard");
+    await userEvent.type(
+      screen.getByLabelText("Description"),
+      "A soft Ankara shirt for everyday wear",
+    );
     await userEvent.type(screen.getByLabelText("Price (₦)"), "5000");
 
     await userEvent.click(screen.getByText("Create product"));
@@ -201,24 +204,29 @@ describe("NewProductPage", () => {
         expect.objectContaining({
           name: "Ankara Shirt",
           is_available: true,
-          variants: [expect.objectContaining({ sku: "Standard" })],
+          variants: [expect.objectContaining({ sku: "Default" })],
         }),
       );
     });
 
+    expect(await screen.findByText("Product created")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("View product"));
     expect(pushMock).toHaveBeenCalledWith("/app/products/new-id");
   });
 
   it("adds and removes variant options", async () => {
     render(<NewProductPage />);
 
-    expect(screen.getByText("Default option", { exact: false })).toBeInTheDocument();
+    expect(
+      screen.getByText("No option name needed unless you add more choices."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Option name/)).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByText("Add option"));
-    expect(screen.getByText("Option 1")).toBeInTheDocument();
+    await userEvent.click(screen.getByText("Add size, color, or other option"));
     expect(screen.getByText("Option 2")).toBeInTheDocument();
 
-    // After adding, we should have 2 "Option name" labels
+    // After adding, every option should ask for a customer-facing name.
     const optionNameLabels = screen.getAllByLabelText(/Option name/);
     expect(optionNameLabels).toHaveLength(2);
   });
@@ -229,7 +237,7 @@ describe("NewProductPage", () => {
     render(<NewProductPage />);
 
     await userEvent.type(screen.getByLabelText("Name"), "Test");
-    await userEvent.type(screen.getByLabelText("Option name"), "Standard");
+    await userEvent.type(screen.getByLabelText("Description"), "Useful test product");
     await userEvent.type(screen.getByLabelText("Price (₦)"), "1000");
 
     await userEvent.click(screen.getByText("Create product"));
@@ -242,7 +250,10 @@ describe("NewProductPage", () => {
     render(<NewProductPage />);
 
     await userEvent.type(screen.getByLabelText("Name"), "Ankara Shirt");
-    await userEvent.type(screen.getByLabelText("Option name"), "Standard");
+    await userEvent.type(
+      screen.getByLabelText("Description"),
+      "A soft Ankara shirt for everyday wear",
+    );
     await userEvent.type(screen.getByLabelText("Price (₦)"), "5000");
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement | null;
@@ -265,6 +276,12 @@ describe("NewProductPage", () => {
           is_primary: true,
         },
       });
+      expect(screen.getByText("Product created")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText("View product"));
+
+    await vi.waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/app/products/new-id");
     });
 

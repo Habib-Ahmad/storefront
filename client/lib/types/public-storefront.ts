@@ -19,7 +19,7 @@ export const PublicStorefrontSchema = z.object({
 export const PublicStorefrontProductSchema = z.object({
   id: UUIDSchema,
   name: z.string(),
-  description: z.string().nullable().optional(),
+  description: z.string(),
   category: z.string().nullable().optional(),
   image_url: z.string().nullable().optional(),
   price: z.string(),
@@ -28,6 +28,7 @@ export const PublicStorefrontProductSchema = z.object({
 
 export const PublicStorefrontVariantSchema = z.object({
   id: UUIDSchema,
+  sku: z.string(),
   attributes: z.record(z.string(), z.unknown()),
   price: z.string(),
   in_stock: z.boolean(),

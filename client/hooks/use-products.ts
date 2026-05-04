@@ -110,6 +110,26 @@ export function useAddImage() {
   });
 }
 
+export function useUpdateImage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      productId,
+      imageId,
+      data,
+    }: {
+      productId: string;
+      imageId: string;
+      data: AddImageRequest;
+    }) => api.updateImage(productId, imageId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product"] });
+      qc.invalidateQueries({ queryKey: ["images"] });
+    },
+  });
+}
+
 export function useDeleteImage() {
   const qc = useQueryClient();
   return useMutation({

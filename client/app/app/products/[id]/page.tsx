@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -22,9 +23,10 @@ import {
   useDeleteVariant,
   useAddImage,
   useDeleteImage,
+  useUpdateImage,
 } from "@/hooks/use-products";
 import { ApiError } from "@/lib/api";
-import type { ProductVariant } from "@/lib/types";
+import type { ProductImage, ProductVariant } from "@/lib/types";
 import { ImageDialog } from "./image-dialog";
 import {
   DangerZoneCard,
@@ -37,7 +39,7 @@ import { VariantDialog } from "./variant-dialog";
 
 const productSchema = Yup.object({
   name: Yup.string().required("Name is required"),
-  description: Yup.string().nullable(),
+  description: Yup.string().trim().required("Description is required"),
   category: Yup.string().nullable(),
   is_available: Yup.boolean().required(),
 });
@@ -53,6 +55,7 @@ export default function ProductDetailPage() {
   const deleteVariant = useDeleteVariant();
   const addImage = useAddImage();
   const deleteImageMut = useDeleteImage();
+  const updateImage = useUpdateImage();
 
   const [editing, setEditing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -62,6 +65,9 @@ export default function ProductDetailPage() {
   }>({ open: false });
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [variantToDelete, setVariantToDelete] = useState<ProductVariant | null>(null);
+  const [imageToDelete, setImageToDelete] = useState<ProductImage | null>(null);
+  const [isUpdatingImages, setIsUpdatingImages] = useState(false);
 
   if (isLoading) {
     return <ProductDetailSkeleton />;
@@ -83,12 +89,78 @@ export default function ProductDetailPage() {
   const { product, variants: rawVariants, images: rawImages } = data;
   const variants = rawVariants ?? [];
   const images = rawImages ?? [];
+  const orderedImages = [...images].sort((left, right) => left.sort_order - right.sort_order);
+
+  async function persistImageArrangement(nextImages: ProductImage[], primaryImageId: string) {
+    setFormError(null);
+    setIsUpdatingImages(true);
+    try {
+      for (const [index, image] of nextImages.entries()) {
+        await updateImage.mutateAsync({
+          productId: product.id,
+          imageId: image.id,
+          data: {
+            url: image.url,
+            sort_order: 1000 + index,
+            is_primary: false,
+          },
+        });
+      }
+
+      for (const [index, image] of nextImages.entries()) {
+        await updateImage.mutateAsync({
+          productId: product.id,
+          imageId: image.id,
+          data: {
+            url: image.url,
+            sort_order: index,
+            is_primary: image.id === primaryImageId,
+          },
+        });
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setFormError(err.message);
+      } else {
+        setFormError("Couldn't update image order.");
+      }
+    } finally {
+      setIsUpdatingImages(false);
+    }
+  }
+
+  async function moveImage(imageId: string, direction: "left" | "right") {
+    const currentIndex = orderedImages.findIndex((image) => image.id === imageId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const nextIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= orderedImages.length) {
+      return;
+    }
+
+    const nextImages = [...orderedImages];
+    [nextImages[currentIndex], nextImages[nextIndex]] = [
+      nextImages[nextIndex],
+      nextImages[currentIndex],
+    ];
+    const primaryImageId = orderedImages.find((image) => image.is_primary)?.id ?? nextImages[0].id;
+    await persistImageArrangement(nextImages, primaryImageId);
+  }
+
+  async function makePrimaryImage(imageId: string) {
+    if (orderedImages.find((image) => image.id === imageId)?.is_primary) {
+      return;
+    }
+    await persistImageArrangement(orderedImages, imageId);
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       {/* Header */}
       <div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/app/products">
             <Button variant="ghost" size="sm" className="-ml-2 gap-1">
               <ArrowLeftIcon className="size-4" />
@@ -125,7 +197,7 @@ export default function ProductDetailPage() {
               id: product.id,
               data: {
                 name: values.name,
-                description: values.description || null,
+                description: values.description.trim(),
                 category: values.category || null,
                 is_available: values.is_available,
               },
@@ -155,21 +227,16 @@ export default function ProductDetailPage() {
         variants={variants}
         onAdd={() => setVariantDialog({ open: true })}
         onEdit={(variant) => setVariantDialog({ open: true, variant })}
-        onDelete={async (variant) => {
-          await deleteVariant.mutateAsync({ productId: product.id, variantId: variant.id });
-        }}
+        onDelete={async (variant) => setVariantToDelete(variant)}
       />
 
       <ImagesCard
         images={images}
         onAdd={() => setImageDialogOpen(true)}
-        onDelete={async (imageId) => {
-          try {
-            await deleteImageMut.mutateAsync({ productId: product.id, imageId });
-          } catch (err) {
-            if (err instanceof ApiError) setFormError(err.message);
-          }
-        }}
+        onDelete={(image) => setImageToDelete(image)}
+        onMakePrimary={makePrimaryImage}
+        onMove={moveImage}
+        isUpdating={isUpdatingImages}
       />
 
       <DangerZoneCard onDelete={() => setDeleteConfirm(true)} />
@@ -180,6 +247,7 @@ export default function ProductDetailPage() {
         onClose={() => setVariantDialog({ open: false })}
         productId={product.id}
         variant={variantDialog.variant}
+        variantCount={variants.length}
       />
 
       {/* Delete confirm dialog */}
@@ -187,10 +255,10 @@ export default function ProductDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete {product.name}?</DialogTitle>
+            <DialogDescription>
+              This permanently removes the product, its options, and its image records.
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This will permanently remove this product and all its variants.
-          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(false)}>
               Cancel
@@ -203,6 +271,78 @@ export default function ProductDetailPage() {
               }}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!variantToDelete}
+        onOpenChange={(open: boolean) => !open && setVariantToDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this option?</DialogTitle>
+            <DialogDescription>
+              {variantToDelete?.is_default
+                ? "This removes the default option from the product."
+                : `This removes ${variantToDelete?.sku} from the product.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVariantToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!variantToDelete) return;
+                await deleteVariant.mutateAsync({
+                  productId: product.id,
+                  variantId: variantToDelete.id,
+                });
+                setVariantToDelete(null);
+              }}
+            >
+              Delete option
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!imageToDelete}
+        onOpenChange={(open: boolean) => !open && setImageToDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this image?</DialogTitle>
+            <DialogDescription>
+              This removes the image from the product and deletes the stored file.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImageToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!imageToDelete) return;
+                try {
+                  await deleteImageMut.mutateAsync({
+                    productId: product.id,
+                    imageId: imageToDelete.id,
+                  });
+                  setImageToDelete(null);
+                } catch (err) {
+                  if (err instanceof ApiError) {
+                    setFormError(err.message);
+                  }
+                }
+              }}
+            >
+              Delete image
             </Button>
           </DialogFooter>
         </DialogContent>

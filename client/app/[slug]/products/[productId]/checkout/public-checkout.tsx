@@ -44,12 +44,12 @@ interface PublicCheckoutProps {
 
 type FulfillmentMode = "pickup" | "delivery";
 
-function formatVariantLabel(attributes: Record<string, unknown>) {
+function formatVariantLabel(attributes: Record<string, unknown>, sku: string) {
   const values = Object.values(attributes)
     .map((value) => (typeof value === "string" ? value : String(value)))
     .filter(Boolean);
 
-  return values.length > 0 ? values.join(" / ") : "Default option";
+  return values.length > 0 ? values.join(" / ") : sku;
 }
 
 function quoteBadge(option: PublicStorefrontDeliveryQuoteOption) {
@@ -390,7 +390,9 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Selected option</span>
                 <span className="font-medium text-foreground">
-                  {selectedVariant ? formatVariantLabel(selectedVariant.attributes) : "Unavailable"}
+                  {selectedVariant
+                    ? formatVariantLabel(selectedVariant.attributes, selectedVariant.sku)
+                    : "Unavailable"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -455,7 +457,7 @@ export function PublicCheckout({ detail, initialVariantId }: PublicCheckoutProps
                             : "border-border/70 bg-background text-foreground hover:border-foreground/20"
                         }`}
                       >
-                        {formatVariantLabel(variant.attributes)}
+                        {formatVariantLabel(variant.attributes, variant.sku)}
                       </button>
                     );
                   })}

@@ -3,9 +3,11 @@
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { Field, Form, Formik } from "formik";
 import * as Yup from "yup";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogDescription,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -16,29 +18,40 @@ import { Label } from "@/components/ui/label";
 import { useCreateVariant, useUpdateVariant } from "@/hooks/use-products";
 import { ApiError } from "@/lib/api";
 import type { CreateVariantRequest, ProductVariant } from "@/lib/types";
-import { useState } from "react";
-
-const variantSchema = Yup.object({
-  sku: Yup.string().required("Option name is required"),
-  price: Yup.string()
-    .required("Price is required")
-    .test("positive", "Must be > 0", (value) => !!value && parseFloat(value) > 0),
-  cost_price: Yup.string().nullable(),
-  stock_qty: Yup.string().nullable(),
-});
 
 interface VariantDialogProps {
   open: boolean;
   onClose: () => void;
   productId: string;
   variant?: ProductVariant;
+  variantCount: number;
 }
 
-export function VariantDialog({ open, onClose, productId, variant }: VariantDialogProps) {
+export function VariantDialog({
+  open,
+  onClose,
+  productId,
+  variant,
+  variantCount,
+}: VariantDialogProps) {
   const createVariant = useCreateVariant();
   const updateVariant = useUpdateVariant();
   const [error, setError] = useState<string | null>(null);
   const isEdit = !!variant;
+  const isDefaultVariant = !!variant?.is_default;
+  const requiresName = !isDefaultVariant || variantCount > 1 || !isEdit;
+  const variantSchema = Yup.object({
+    sku: requiresName
+      ? Yup.string().trim().required("Option name is required")
+      : Yup.string().nullable(),
+    price: Yup.string()
+      .required("Price is required")
+      .test("positive", "Must be > 0", (value) => !!value && parseFloat(value) > 0),
+    cost_price: Yup.string().nullable(),
+    stock_qty: Yup.string()
+      .nullable()
+      .test("stock-valid", "Stock can't be negative", (value) => !value || Number(value) >= 0),
+  });
 
   const initialValues = {
     sku: variant?.sku ?? "",
@@ -49,9 +62,14 @@ export function VariantDialog({ open, onClose, productId, variant }: VariantDial
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen: boolean) => !nextOpen && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Option" : "Add Option"}</DialogTitle>
+          <DialogDescription>
+            {requiresName
+              ? "Use a customer-facing name that clearly distinguishes this option from the others."
+              : "This product only has one option, so you only need to manage price and stock here."}
+          </DialogDescription>
         </DialogHeader>
 
         <Formik
@@ -61,7 +79,7 @@ export function VariantDialog({ open, onClose, productId, variant }: VariantDial
           onSubmit={async (values) => {
             setError(null);
             const data: CreateVariantRequest = {
-              sku: values.sku,
+              sku: requiresName ? values.sku.trim() : (variant?.sku ?? "Default"),
               price: values.price,
               cost_price: values.cost_price || null,
               stock_qty: values.stock_qty ? parseInt(values.stock_qty, 10) : null,
@@ -87,20 +105,22 @@ export function VariantDialog({ open, onClose, productId, variant }: VariantDial
                     {error}
                   </p>
                 )}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="v-sku">Option name</Label>
-                    <Field
-                      as={Input}
-                      id="v-sku"
-                      name="sku"
-                      placeholder="e.g. Default, Small, Red"
-                      className="h-10"
-                    />
-                    {errors.sku && (touched.sku || tried) && (
-                      <p className="text-xs text-destructive">{errors.sku}</p>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {requiresName && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="v-sku">Option name</Label>
+                      <Field
+                        as={Input}
+                        id="v-sku"
+                        name="sku"
+                        placeholder={isDefaultVariant ? "e.g. Standard" : "e.g. Small, Red, 1L"}
+                        className="h-10"
+                      />
+                      {errors.sku && (touched.sku || tried) && (
+                        <p className="text-xs text-destructive">{errors.sku}</p>
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <Label htmlFor="v-price">Price (₦)</Label>
                     <Field
@@ -122,7 +142,7 @@ export function VariantDialog({ open, onClose, productId, variant }: VariantDial
                       id="v-cost"
                       name="cost_price"
                       type="number"
-                      placeholder="Optional"
+                      placeholder="Optional internal cost"
                       className="h-10"
                     />
                   </div>
@@ -133,9 +153,12 @@ export function VariantDialog({ open, onClose, productId, variant }: VariantDial
                       id="v-stock"
                       name="stock_qty"
                       type="number"
-                      placeholder="∞"
+                      placeholder="Leave blank for unlimited"
                       className="h-10"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank for unlimited stock.
+                    </p>
                   </div>
                 </div>
 
