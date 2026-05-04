@@ -11,17 +11,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OpenBoxSvg } from "@/components/illustrations";
+import { useSession } from "@/components/auth-provider";
 import { useProducts } from "@/hooks/use-products";
+import { getScopedStorageKey, PRODUCTS_KNOWN_STORAGE_KEY, removeStorageKey } from "@/lib/storage";
 import { ProductCard } from "./product-card";
 import { ProductSkeleton } from "./product-skeleton";
 
-const PRODUCTS_KNOWN_STORAGE_KEY = "storefront.products.has-items";
-
 export default function ProductsPage() {
+  const { session, loading: sessionLoading } = useSession();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [hasKnownProducts, setHasKnownProducts] = useState<boolean | null>(null);
   const perPage = 12;
+  const productsKnownStorageKey = getScopedStorageKey(
+    PRODUCTS_KNOWN_STORAGE_KEY,
+    session?.user?.id,
+  );
 
   const { data, isLoading } = useProducts({ page, per_page: perPage });
 
@@ -30,24 +35,35 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(total / perPage);
 
   useEffect(() => {
-    const storedValue = window.localStorage.getItem(PRODUCTS_KNOWN_STORAGE_KEY);
+    if (sessionLoading) {
+      return;
+    }
+
+    removeStorageKey(PRODUCTS_KNOWN_STORAGE_KEY);
+
+    if (!productsKnownStorageKey) {
+      setHasKnownProducts(false);
+      return;
+    }
+
+    const storedValue = window.localStorage.getItem(productsKnownStorageKey);
     setHasKnownProducts(storedValue === "1");
-  }, []);
+  }, [productsKnownStorageKey, sessionLoading]);
 
   useEffect(() => {
-    if (isLoading) {
+    if (sessionLoading || !productsKnownStorageKey || isLoading) {
       return;
     }
 
     if (total > 0) {
-      window.localStorage.setItem(PRODUCTS_KNOWN_STORAGE_KEY, "1");
+      window.localStorage.setItem(productsKnownStorageKey, "1");
       setHasKnownProducts(true);
       return;
     }
 
-    window.localStorage.removeItem(PRODUCTS_KNOWN_STORAGE_KEY);
+    window.localStorage.removeItem(productsKnownStorageKey);
     setHasKnownProducts(false);
-  }, [isLoading, total]);
+  }, [isLoading, productsKnownStorageKey, sessionLoading, total]);
 
   const filtered = search
     ? products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))

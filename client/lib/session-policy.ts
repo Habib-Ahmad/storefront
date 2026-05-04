@@ -1,7 +1,7 @@
 export const SESSION_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 export const SESSION_TIMEOUT_ERROR_CODE = "session_timeout";
 
-const lastActivityAtKey = "storefront:auth:last-activity-at";
+import { removeStorageKey, SESSION_LAST_ACTIVITY_AT_STORAGE_KEY } from "@/lib/storage";
 
 type SessionTimeoutState = {
   timedOut: boolean;
@@ -22,21 +22,21 @@ function parseTimestamp(raw: string | null) {
 }
 
 function getStoredLastActivity(now: number) {
-  return parseTimestamp(window.localStorage.getItem(lastActivityAtKey)) ?? now;
+  return parseTimestamp(window.localStorage.getItem(SESSION_LAST_ACTIVITY_AT_STORAGE_KEY)) ?? now;
 }
 
 export function initializeSessionPolicy(now = Date.now()) {
-  if (parseTimestamp(window.localStorage.getItem(lastActivityAtKey)) === null) {
-    window.localStorage.setItem(lastActivityAtKey, String(now));
+  if (parseTimestamp(window.localStorage.getItem(SESSION_LAST_ACTIVITY_AT_STORAGE_KEY)) === null) {
+    window.localStorage.setItem(SESSION_LAST_ACTIVITY_AT_STORAGE_KEY, String(now));
   }
 }
 
 export function noteSessionActivity(at = Date.now()) {
-  window.localStorage.setItem(lastActivityAtKey, String(at));
+  window.localStorage.setItem(SESSION_LAST_ACTIVITY_AT_STORAGE_KEY, String(at));
 }
 
 export function clearSessionPolicy() {
-  window.localStorage.removeItem(lastActivityAtKey);
+  removeStorageKey(SESSION_LAST_ACTIVITY_AT_STORAGE_KEY);
 }
 
 export function getSessionTimeoutState(now = Date.now()): SessionTimeoutState {

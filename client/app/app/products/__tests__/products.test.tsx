@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { PRODUCTS_KNOWN_STORAGE_KEY } from "@/lib/storage";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -13,6 +14,7 @@ const mockUseProducts = vi.fn();
 const mockCreateProduct = vi.fn();
 const mockAddImage = vi.fn();
 const mockUploadImageFile = vi.fn();
+const mockUseSession = vi.fn();
 vi.mock("@/hooks/use-products", () => ({
   useProducts: (...args: unknown[]) => mockUseProducts(...args),
   useCreateProduct: () => ({
@@ -25,6 +27,10 @@ vi.mock("@/hooks/use-products", () => ({
   }),
 }));
 
+vi.mock("@/components/auth-provider", () => ({
+  useSession: () => mockUseSession(),
+}));
+
 vi.mock("@/lib/media-upload", () => ({
   uploadImageFile: (...args: unknown[]) => mockUploadImageFile(...args),
 }));
@@ -34,13 +40,17 @@ import NewProductPage from "@/app/app/products/new/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
+  mockUseSession.mockReturnValue({
+    session: { user: { id: "user-1" } },
+    loading: false,
+  });
   mockAddImage.mockResolvedValue(undefined);
   mockUploadImageFile.mockResolvedValue("https://cdn.example.com/image.jpg");
 });
 
 describe("ProductsPage", () => {
   it("shows empty state instead of product skeletons for first-time users while loading", () => {
-    window.localStorage.removeItem("storefront.products.has-items");
     mockUseProducts.mockReturnValue({ data: undefined, isLoading: true });
 
     render(<ProductsPage />);
@@ -49,13 +59,22 @@ describe("ProductsPage", () => {
   });
 
   it("shows product skeletons while loading once products have existed before", () => {
-    window.localStorage.setItem("storefront.products.has-items", "1");
+    window.localStorage.setItem(`${PRODUCTS_KNOWN_STORAGE_KEY}:user-1`, "1");
     mockUseProducts.mockReturnValue({ data: undefined, isLoading: true });
 
     const { container } = render(<ProductsPage />);
 
     expect(screen.queryByText("Add your first product to get started")).not.toBeInTheDocument();
     expect(container.querySelectorAll(".card-3d [data-slot='skeleton']")).toHaveLength(12);
+  });
+
+  it("ignores another user's stored product flag while loading", () => {
+    window.localStorage.setItem(`${PRODUCTS_KNOWN_STORAGE_KEY}:user-2`, "1");
+    mockUseProducts.mockReturnValue({ data: undefined, isLoading: true });
+
+    render(<ProductsPage />);
+
+    expect(screen.getByText("Add your first product to get started")).toBeInTheDocument();
   });
 
   it("shows empty state when there are no products", () => {
