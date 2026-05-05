@@ -16,6 +16,13 @@ import (
 	"storefront/backend/internal/service"
 )
 
+func deliveryReadyTenant(id uuid.UUID) *models.Tenant {
+	email := "merchant@example.com"
+	phone := "+2348012345678"
+	address := "123 Main St, Ikeja, Lagos, Nigeria"
+	return &models.Tenant{ID: id, ContactEmail: &email, ContactPhone: &phone, Address: &address}
+}
+
 type stubShipmentDispatcher struct {
 	shipment *models.Shipment
 	options  []models.DispatchShipmentOption
@@ -66,7 +73,7 @@ func TestDispatchOrder_CallsShipmentService(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders/"+orderID.String()+"/dispatch", bytes.NewReader(body))
 	req = withURLParam(req, "id", orderID.String())
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID, ActiveModules: models.ActiveModules{Logistics: true}}))
+	req = req.WithContext(injectTenant(req.Context(), deliveryReadyTenant(tenantID)))
 	rec := httptest.NewRecorder()
 
 	h.Dispatch(rec, req)
@@ -88,13 +95,13 @@ func TestDispatchOrder_CallsShipmentService(t *testing.T) {
 	}
 }
 
-func TestDispatchOrder_RequiresLogisticsModule(t *testing.T) {
+func TestDispatchOrder_RequiresDeliveryReadiness(t *testing.T) {
 	h := handler.NewOrderHandler(service.NewOrderService(&stubOrderRepo{}, &stubProductRepoForOrder{}), &stubPaymentInitiator{}, "", slog.Default())
 	h.SetShipmentService(&stubShipmentDispatcher{})
 
 	req := httptest.NewRequest(http.MethodPost, "/orders/"+uuid.New().String()+"/dispatch", bytes.NewReader([]byte(`{"courier_id":"123","service_code":"bike"}`)))
 	req = withURLParam(req, "id", uuid.New().String())
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 
 	h.Dispatch(rec, req)
@@ -121,7 +128,7 @@ func TestDispatchOptions_ReturnsCourierOptions(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/orders/"+orderID.String()+"/dispatch-options", nil)
 	req = withURLParam(req, "id", orderID.String())
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: tenantID, ActiveModules: models.ActiveModules{Logistics: true}}))
+	req = req.WithContext(injectTenant(req.Context(), deliveryReadyTenant(tenantID)))
 	rec := httptest.NewRecorder()
 
 	h.DispatchOptions(rec, req)

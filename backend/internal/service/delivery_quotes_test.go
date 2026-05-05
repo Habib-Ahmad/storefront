@@ -155,7 +155,6 @@ func TestDeliveryQuoteService_QuotePublic_NormalizesRates(t *testing.T) {
 		ContactEmail:        &tenantEmail,
 		ContactPhone:        &tenantPhone,
 		Address:             &tenantAddress,
-		ActiveModules:       models.ActiveModules{Logistics: true},
 		Status:              models.TenantStatusActive,
 	}}, &stubQuoteProductRepo{})
 	products := &stubQuoteProductRepo{
@@ -288,7 +287,6 @@ func TestDeliveryQuoteService_ResolvePublicSelection_RejectsUnavailableOption(t 
 			ContactEmail:        &tenantEmail,
 			ContactPhone:        &tenantPhone,
 			Address:             &tenantAddress,
-			ActiveModules:       models.ActiveModules{Logistics: true},
 			Status:              models.TenantStatusActive,
 		}}, products),
 		products,
@@ -321,7 +319,6 @@ func TestDeliveryQuoteService_QuotePublic_NormalizesProviderNames(t *testing.T) 
 		ContactEmail:        &tenantEmail,
 		ContactPhone:        &tenantPhone,
 		Address:             &tenantAddress,
-		ActiveModules:       models.ActiveModules{Logistics: true},
 		Status:              models.TenantStatusActive,
 	}}, &stubQuoteProductRepo{})
 	products := &stubQuoteProductRepo{
@@ -393,7 +390,6 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsProviderFailure(t *testing.T) {
 		ContactEmail:        &tenantEmail,
 		ContactPhone:        &tenantPhone,
 		Address:             &tenantAddress,
-		ActiveModules:       models.ActiveModules{Logistics: true},
 		Status:              models.TenantStatusActive,
 	}}, &stubQuoteProductRepo{})
 	products := &stubQuoteProductRepo{
@@ -472,7 +468,6 @@ func TestDeliveryQuoteService_QuotePublic_RejectsIncompleteStorefrontLogisticsPr
 			Name:                "Funke Fabrics",
 			Slug:                "funke-fabrics",
 			StorefrontPublished: true,
-			ActiveModules:       models.ActiveModules{Logistics: true},
 			Status:              models.TenantStatusActive,
 		}}, products),
 		products,
@@ -533,7 +528,6 @@ func TestDeliveryQuoteService_QuotePublic_ReturnsProviderFailureForInvalidReceiv
 			ContactEmail:        &tenantEmail,
 			ContactPhone:        &tenantPhone,
 			Address:             &tenantAddress,
-			ActiveModules:       models.ActiveModules{Logistics: true},
 			Status:              models.TenantStatusActive,
 		}}, products),
 		products,

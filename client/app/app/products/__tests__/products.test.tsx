@@ -205,6 +205,14 @@ describe("NewProductPage", () => {
     expect(await screen.findByText("Price is required")).toBeInTheDocument();
   });
 
+  it("shows a live storefront preview while creating a product", () => {
+    render(<NewProductPage />);
+
+    expect(screen.getByText("Live storefront preview")).toBeInTheDocument();
+    expect(screen.getByText("Untitled product")).toBeInTheDocument();
+    expect(screen.getByText("Primary product image will appear here")).toBeInTheDocument();
+  });
+
   it("submits a valid product and lets the user continue from the success modal", async () => {
     mockCreateProduct.mockResolvedValue({ id: "new-id" });
     render(<NewProductPage />);

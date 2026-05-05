@@ -38,34 +38,20 @@ func TestOnboard_CreatesTenanUserAndWallet(t *testing.T) {
 	}
 }
 
-func TestSetModules_UpdatesTenant(t *testing.T) {
-	tenantID := uuid.New()
-	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{ID: tenantID, Status: models.TenantStatusActive}}
-	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
-
-	mods := models.ActiveModules{Inventory: true, Payments: true}
-	if err := svc.SetModules(context.Background(), tenantID, mods); err != nil {
+func TestRequireDeliveryReady_AllowsCompletePickupProfile(t *testing.T) {
+	email := "merchant@example.com"
+	phone := "+2348012345678"
+	address := "123 Main St, Ikeja, Lagos, Nigeria"
+	tenant := &models.Tenant{ContactEmail: &email, ContactPhone: &phone, Address: &address}
+	if err := service.RequireDeliveryReady(tenant); err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if tenantRepo.updated == nil {
-		t.Fatal("tenant not updated")
-	}
-	if !tenantRepo.updated.ActiveModules.Inventory {
-		t.Fatal("inventory module not set")
 	}
 }
 
-func TestRequireModule_RejectsDisabled(t *testing.T) {
-	tenant := &models.Tenant{ActiveModules: models.ActiveModules{Inventory: false}}
-	if err := service.RequireModule(tenant, true, false, false); err == nil {
-		t.Fatal("expected error for disabled inventory module")
-	}
-}
-
-func TestRequireModule_PassesEnabled(t *testing.T) {
-	tenant := &models.Tenant{ActiveModules: models.ActiveModules{Inventory: true, Payments: true}}
-	if err := service.RequireModule(tenant, true, true, false); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestRequireDeliveryReady_RejectsIncompletePickupProfile(t *testing.T) {
+	tenant := &models.Tenant{}
+	if err := service.RequireDeliveryReady(tenant); err == nil {
+		t.Fatal("expected error for incomplete logistics readiness")
 	}
 }
 
@@ -170,16 +156,12 @@ func TestUpdateProfile_UpdatesTenantFields(t *testing.T) {
 	}
 }
 
-func TestUpdateProfile_AutoEnablesLogisticsWhenProfileIsComplete(t *testing.T) {
+func TestUpdateProfile_PersistsCompletePickupProfile(t *testing.T) {
 	tenantID := uuid.New()
 	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{
 		ID:     tenantID,
 		Name:   "Old",
 		Status: models.TenantStatusActive,
-		ActiveModules: models.ActiveModules{
-			Inventory: true,
-			Payments:  true,
-		},
 	}}
 	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
 
@@ -193,24 +175,20 @@ func TestUpdateProfile_AutoEnablesLogisticsWhenProfileIsComplete(t *testing.T) {
 	if tenantRepo.updated == nil {
 		t.Fatal("tenant not updated")
 	}
-	if !tenantRepo.updated.ActiveModules.Logistics {
-		t.Fatal("logistics module should auto-enable when profile is complete")
+	if tenantRepo.updated.Address == nil || *tenantRepo.updated.Address != addr {
+		t.Fatal("address should be persisted on the tenant")
 	}
-	if !tenantRepo.updated.ActiveModules.Inventory || !tenantRepo.updated.ActiveModules.Payments {
-		t.Fatal("existing modules should be preserved")
+	if !service.StorefrontDeliveryReady(tenantRepo.updated) {
+		t.Fatal("complete pickup profile should be delivery-ready")
 	}
 }
 
-func TestUpdateProfile_DoesNotAutoEnableLogisticsWhenAddressIsIncomplete(t *testing.T) {
+func TestUpdateProfile_IncompleteAddressStaysNotDeliveryReady(t *testing.T) {
 	tenantID := uuid.New()
 	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{
 		ID:     tenantID,
 		Name:   "Old",
 		Status: models.TenantStatusActive,
-		ActiveModules: models.ActiveModules{
-			Inventory: true,
-			Payments:  true,
-		},
 	}}
 	svc := service.NewTenantService(tenantRepo, &mockTierRepo{}, &mockWalletRepo{}, &mockUserRepo{})
 
@@ -224,7 +202,7 @@ func TestUpdateProfile_DoesNotAutoEnableLogisticsWhenAddressIsIncomplete(t *test
 	if tenantRepo.updated == nil {
 		t.Fatal("tenant not updated")
 	}
-	if tenantRepo.updated.ActiveModules.Logistics {
-		t.Fatal("logistics module should stay disabled until the pickup profile is complete")
+	if service.StorefrontDeliveryReady(tenantRepo.updated) {
+		t.Fatal("delivery should stay unavailable until the pickup profile is complete")
 	}
 }

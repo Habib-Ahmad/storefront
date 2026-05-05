@@ -29,12 +29,6 @@ func TestPolicies_CoverEveryKnownRole(t *testing.T) {
 }
 
 func TestHasPermission_EnforcesLeastPrivilegeShape(t *testing.T) {
-	if !authz.HasPermission(models.UserRoleAdmin, authz.PermissionModulesManage) {
-		t.Fatal("expected admin to manage modules")
-	}
-	if authz.HasPermission(models.UserRoleStaff, authz.PermissionModulesManage) {
-		t.Fatal("did not expect staff to manage modules")
-	}
 	if authz.HasPermission(models.UserRoleStaff, authz.PermissionStorefrontManage) {
 		t.Fatal("did not expect staff to manage storefront settings")
 	}

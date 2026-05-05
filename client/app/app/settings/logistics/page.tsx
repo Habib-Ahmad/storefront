@@ -175,20 +175,10 @@ export default function LogisticsSettingsPage() {
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg font-semibold">Pickup profile</h2>
                       <Badge
-                        variant={
-                          tenant.active_modules.logistics
-                            ? "default"
-                            : logisticsReady
-                              ? "secondary"
-                              : "outline"
-                        }
+                        variant={logisticsReady ? "default" : formReady ? "secondary" : "outline"}
                         className="text-xs"
                       >
-                        {tenant.active_modules.logistics
-                          ? "Active"
-                          : logisticsReady || formReady
-                            ? "Ready on save"
-                            : "Needs setup"}
+                        {logisticsReady ? "Active" : formReady ? "Ready on save" : "Needs setup"}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -336,7 +326,7 @@ export default function LogisticsSettingsPage() {
                           {isSubmitting ? <SpinnerGapIcon className="size-4 animate-spin" /> : null}
                           Save logistics setup
                         </Button>
-                        {tenant.active_modules.logistics ? (
+                        {logisticsReady ? (
                           <span className="inline-flex items-center gap-1 text-sm text-primary">
                             <CheckCircleIcon className="size-4" weight="fill" />
                             Delivery is enabled.

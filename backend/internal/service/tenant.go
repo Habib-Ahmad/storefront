@@ -16,7 +16,6 @@ const defaultTierName = "Standard"
 
 var (
 	ErrTenantNotFound = apperr.NotFound("tenant not found")
-	ErrModuleDisabled = apperr.Forbidden("module not enabled for this tenant")
 	ErrSlugTaken      = apperr.Conflict("slug already in use")
 	ErrSlugReserved   = apperr.Unprocessable("slug is reserved")
 	ErrUserExists     = apperr.Conflict("user already belongs to a tenant")
@@ -167,16 +166,6 @@ func IsReservedStorefrontSlug(slug string) bool {
 	return reserved
 }
 
-// SetModules replaces the tenant's active_modules configuration.
-func (s *TenantService) SetModules(ctx context.Context, tenantID uuid.UUID, modules models.ActiveModules) error {
-	tenant, err := s.tenants.GetByID(ctx, tenantID)
-	if err != nil {
-		return ErrTenantNotFound
-	}
-	tenant.ActiveModules = modules
-	return s.tenants.Update(ctx, tenant)
-}
-
 // UpdateProfile updates the tenant's editable profile fields.
 func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, name string, contactEmail, contactPhone, address, logoURL *string) error {
 	tenant, err := s.tenants.GetByID(ctx, tenantID)
@@ -188,9 +177,6 @@ func (s *TenantService) UpdateProfile(ctx context.Context, tenantID uuid.UUID, n
 	tenant.ContactPhone = normalizeTenantOptionalString(contactPhone)
 	tenant.Address = normalizeTenantOptionalString(address)
 	tenant.LogoURL = normalizeTenantOptionalString(logoURL)
-	if StorefrontDeliveryReady(tenant) {
-		tenant.ActiveModules.Logistics = true
-	}
 	return s.tenants.Update(ctx, tenant)
 }
 
@@ -269,16 +255,9 @@ func slugifyStorefrontName(value string) string {
 	return strings.Trim(builder.String(), "-")
 }
 
-// RequireModule returns ErrModuleDisabled if the requested module is not active.
-func RequireModule(tenant *models.Tenant, inventory, payments, logistics bool) error {
-	if inventory && !tenant.ActiveModules.Inventory {
-		return ErrModuleDisabled
-	}
-	if payments && !tenant.ActiveModules.Payments {
-		return ErrModuleDisabled
-	}
-	if logistics && !tenant.ActiveModules.Logistics {
-		return ErrModuleDisabled
+func RequireDeliveryReady(tenant *models.Tenant) error {
+	if !StorefrontDeliveryReady(tenant) {
+		return apperr.Forbidden("delivery is not available for this tenant")
 	}
 	return nil
 }

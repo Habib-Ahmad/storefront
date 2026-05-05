@@ -105,9 +105,6 @@ func (s *DeliveryQuoteService) fetchPublicQuotes(ctx context.Context, slug strin
 	if err != nil {
 		return models.PublicStorefront{}, nil, nil, err
 	}
-	if !tenant.ActiveModules.Logistics {
-		return models.PublicStorefront{}, nil, nil, apperr.Forbidden("delivery is not enabled for this storefront")
-	}
 	if !storefront.Delivery.Ready {
 		message := "delivery is not available right now"
 		if storefront.Delivery.UnavailableReason != nil {

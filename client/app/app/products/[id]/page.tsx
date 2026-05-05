@@ -28,6 +28,7 @@ import {
 import { ApiError } from "@/lib/api";
 import type { ProductImage, ProductVariant } from "@/lib/types";
 import { ImageDialog } from "./image-dialog";
+import { ProductCardPreview } from "../product-card-preview";
 import {
   DangerZoneCard,
   ImagesCard,
@@ -90,6 +91,7 @@ export default function ProductDetailPage() {
   const variants = rawVariants ?? [];
   const images = rawImages ?? [];
   const orderedImages = [...images].sort((left, right) => left.sort_order - right.sort_order);
+  const primaryImage = orderedImages.find((image) => image.is_primary) ?? orderedImages[0] ?? null;
 
   async function persistImageArrangement(nextImages: ProductImage[], primaryImageId: string) {
     setFormError(null);
@@ -208,18 +210,33 @@ export default function ProductDetailPage() {
           }
         }}
       >
-        {({ isSubmitting, errors, touched, resetForm }) => (
-          <ProductDetailsCard
-            editing={editing}
-            isSubmitting={isSubmitting}
-            errors={errors as Record<string, string | undefined>}
-            touched={touched as Record<string, boolean | undefined>}
-            onEdit={() => setEditing(true)}
-            onCancel={() => {
-              resetForm();
-              setEditing(false);
-            }}
-          />
+        {({ isSubmitting, errors, touched, resetForm, values }) => (
+          <>
+            <ProductDetailsCard
+              editing={editing}
+              isSubmitting={isSubmitting}
+              errors={errors as Record<string, string | undefined>}
+              touched={touched as Record<string, boolean | undefined>}
+              onEdit={() => setEditing(true)}
+              onCancel={() => {
+                resetForm();
+                setEditing(false);
+              }}
+            />
+
+            <ProductCardPreview
+              name={values.name}
+              description={values.description}
+              category={values.category}
+              imageURL={primaryImage?.url ?? null}
+              variants={variants.map((variant) => ({
+                price: variant.price,
+                stock_qty: variant.stock_qty,
+              }))}
+              available={values.is_available}
+              summary="See how this product card currently reads on the storefront."
+            />
+          </>
         )}
       </Formik>
 

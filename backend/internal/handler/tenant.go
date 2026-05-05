@@ -10,7 +10,6 @@ import (
 
 	"storefront/backend/internal/authz"
 	"storefront/backend/internal/middleware"
-	"storefront/backend/internal/models"
 	"storefront/backend/internal/service"
 )
 
@@ -102,24 +101,6 @@ func (h *TenantHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.UpdateProfile(r.Context(), tenant.ID, req.Name, req.ContactEmail, req.ContactPhone, req.Address, req.LogoURL); err != nil {
-		serverErr(w, h.log, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// PUT /tenants/me/modules
-func (h *TenantHandler) SetModules(w http.ResponseWriter, r *http.Request) {
-	if !authz.HasPermission(middleware.UserRoleFromCtx(r.Context()), authz.PermissionModulesManage) {
-		respondErr(w, http.StatusForbidden, "forbidden")
-		return
-	}
-	tenant := middleware.TenantFromCtx(r.Context())
-	var mods models.ActiveModules
-	if !decodeValid(w, r, &mods) {
-		return
-	}
-	if err := h.svc.SetModules(r.Context(), tenant.ID, mods); err != nil {
 		serverErr(w, h.log, r, err)
 		return
 	}

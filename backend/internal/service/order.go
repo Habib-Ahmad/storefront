@@ -76,9 +76,6 @@ func (s *OrderService) CreatePublic(ctx context.Context, slug string, order *mod
 	if tenant == nil || tenant.Status != models.TenantStatusActive || !tenant.StorefrontPublished {
 		return nil, nil, false, ErrStorefrontNotFound
 	}
-	if !tenant.ActiveModules.Payments {
-		return nil, nil, false, ErrCheckoutUnavailable
-	}
 
 	if order.PublicCheckoutID != nil {
 		existingOrder, existingErr := s.orders.GetByPublicCheckoutID(ctx, tenant.ID, *order.PublicCheckoutID)

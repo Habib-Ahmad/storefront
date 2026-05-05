@@ -13,26 +13,19 @@ const (
 	TenantStatusSuspended TenantStatus = "suspended"
 )
 
-type ActiveModules struct {
-	Inventory bool `json:"inventory"`
-	Payments  bool `json:"payments"`
-	Logistics bool `json:"logistics"`
-}
-
 type Tenant struct {
-	ID                   uuid.UUID     `json:"id"`
-	TierID               uuid.UUID     `json:"tier_id"`
-	Name                 string        `json:"name"`
-	Slug                 string        `json:"slug"`
-	StorefrontPublished  bool          `json:"storefront_published"`
-	ContactEmail         *string       `json:"contact_email,omitempty"`
-	ContactPhone         *string       `json:"contact_phone,omitempty"`
-	Address              *string       `json:"address,omitempty"`
-	LogoURL              *string       `json:"logo_url,omitempty"`
-	PaystackSubaccountID *string       `json:"paystack_subaccount_id,omitempty"`
-	ActiveModules        ActiveModules `json:"active_modules"`
-	Status               TenantStatus  `json:"status"`
-	CreatedAt            time.Time     `json:"created_at"`
-	UpdatedAt            time.Time     `json:"updated_at"`
-	DeletedAt            *time.Time    `json:"-"`
+	ID                   uuid.UUID    `json:"id"`
+	TierID               uuid.UUID    `json:"tier_id"`
+	Name                 string       `json:"name"`
+	Slug                 string       `json:"slug"`
+	StorefrontPublished  bool         `json:"storefront_published"`
+	ContactEmail         *string      `json:"contact_email,omitempty"`
+	ContactPhone         *string      `json:"contact_phone,omitempty"`
+	Address              *string      `json:"address,omitempty"`
+	LogoURL              *string      `json:"logo_url,omitempty"`
+	PaystackSubaccountID *string      `json:"paystack_subaccount_id,omitempty"`
+	Status               TenantStatus `json:"status"`
+	CreatedAt            time.Time    `json:"created_at"`
+	UpdatedAt            time.Time    `json:"updated_at"`
+	DeletedAt            *time.Time   `json:"-"`
 }

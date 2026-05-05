@@ -13,14 +13,6 @@ export const UserRoleSchema = z.enum(["admin", "staff"]);
 export type TenantStatus = z.infer<typeof TenantStatusSchema>;
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
-// ── Shared account/domain schemas ──────────────────────
-
-export const ActiveModulesSchema = z.object({
-  inventory: z.boolean(),
-  payments: z.boolean(),
-  logistics: z.boolean(),
-});
-
 export const TierSchema = z.object({
   id: UUIDSchema,
   name: z.string(),
@@ -42,7 +34,6 @@ export const TenantSchema = z.object({
   address: z.string().nullable().optional(),
   logo_url: z.string().nullable().optional(),
   paystack_subaccount_id: z.string().nullable().optional(),
-  active_modules: ActiveModulesSchema,
   status: TenantStatusSchema,
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
@@ -62,7 +53,6 @@ export const UserSchema = z.object({
 
 // ── Inferred types ─────────────────────────────────────
 
-export type ActiveModules = z.infer<typeof ActiveModulesSchema>;
 export type Tier = z.infer<typeof TierSchema>;
 export type Tenant = z.infer<typeof TenantSchema>;
 export type User = z.infer<typeof UserSchema>;

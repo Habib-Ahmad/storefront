@@ -1,17 +1,16 @@
 import * as z from "zod";
-import { ActiveModulesSchema, TenantSchema, UserRoleSchema } from "./domain";
+import { TenantSchema, UserRoleSchema } from "./domain";
 
 export {
   UUIDSchema,
   TimestampSchema,
   TenantStatusSchema,
   UserRoleSchema,
-  ActiveModulesSchema,
   TierSchema,
   TenantSchema,
 } from "./domain";
 
-export type { ActiveModules, Tenant, TenantStatus, Tier, UserRole } from "./domain";
+export type { Tenant, TenantStatus, Tier, UserRole } from "./domain";
 
 // ── Auth response schemas ──────────────────────────────
 
@@ -53,12 +52,9 @@ export const UpdateStorefrontRequestSchema = z.object({
   storefront_published: z.boolean(),
 });
 
-export const SetModulesRequestSchema = ActiveModulesSchema;
-
 // ── Inferred types ─────────────────────────────────────
 
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 export type OnboardRequest = z.infer<typeof OnboardRequestSchema>;
 export type UpdateTenantRequest = z.infer<typeof UpdateTenantRequestSchema>;
 export type UpdateStorefrontRequest = z.infer<typeof UpdateStorefrontRequestSchema>;
-export type SetModulesRequest = z.infer<typeof SetModulesRequestSchema>;

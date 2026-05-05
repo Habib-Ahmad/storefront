@@ -40,7 +40,7 @@ export default function DeliveriesPage() {
     ...(tenant?.contact_phone?.trim() ? [] : ["pickup phone"]),
     ...missingLogisticsAddressFields(address),
   ];
-  const needsSetup = !tenant?.active_modules.logistics;
+  const needsSetup = missingFields.length > 0;
   const deliveryOrders = useMemo(
     () => (ordersResponse?.data ?? []).filter((order) => order.is_delivery),
     [ordersResponse?.data],

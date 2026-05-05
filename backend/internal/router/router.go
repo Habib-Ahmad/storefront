@@ -82,7 +82,6 @@ func New(
 
 		r.With(mw.RequirePermission(authz.PermissionTenantProfileManage)).Put("/tenants/me", tenant.UpdateProfile)
 		r.With(mw.RequirePermission(authz.PermissionStorefrontManage)).Put("/tenants/me/storefront", tenant.UpdateStorefront)
-		r.With(mw.RequirePermission(authz.PermissionModulesManage)).Put("/tenants/me/modules", tenant.SetModules)
 
 		r.With(mw.RequirePermission(authz.PermissionSelfProfileRead)).Get("/users/me", user.GetMe)
 		r.With(mw.RequirePermission(authz.PermissionSelfProfileManage)).Put("/users/me", user.UpdateProfile)

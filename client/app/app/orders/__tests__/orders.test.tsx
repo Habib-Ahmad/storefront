@@ -544,7 +544,7 @@ describe("NewOrderPage", () => {
       isLoading: false,
     });
     const { ApiError } = await import("@/lib/api");
-    mockUseCreateOrder.mockRejectedValue(new ApiError(422, "inventory module not enabled"));
+    mockUseCreateOrder.mockRejectedValue(new ApiError(422, "unable to create order"));
 
     render(<NewOrderPage />);
 
@@ -553,7 +553,7 @@ describe("NewOrderPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /save order/i }));
 
-    expect(await screen.findByText("inventory module not enabled")).toBeInTheDocument();
+    expect(await screen.findByText("unable to create order")).toBeInTheDocument();
   });
 
   it("shows helpful empty-state guidance when there are no products for catalog orders", async () => {

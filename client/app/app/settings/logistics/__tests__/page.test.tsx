@@ -44,11 +44,6 @@ beforeEach(() => {
         contact_email: null,
         contact_phone: null,
         address: null,
-        active_modules: {
-          inventory: true,
-          payments: true,
-          logistics: false,
-        },
         status: "active",
         created_at: "2026-03-14T10:00:00Z",
         updated_at: "2026-03-14T10:00:00Z",
@@ -117,11 +112,6 @@ describe("LogisticsSettingsPage", () => {
           contact_email: null,
           contact_phone: null,
           address: null,
-          active_modules: {
-            inventory: true,
-            payments: true,
-            logistics: false,
-          },
           status: "active",
           created_at: "2026-03-14T10:00:00Z",
           updated_at: "2026-03-14T10:00:00Z",

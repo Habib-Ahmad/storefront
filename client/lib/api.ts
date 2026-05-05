@@ -16,7 +16,6 @@ import type {
   ProductImage,
   ProductVariant,
   ResumePaymentResponse,
-  SetModulesRequest,
   Shipment,
   Tenant,
   Tier,
@@ -205,9 +204,6 @@ class ApiClient {
     UpdateStorefrontRequestSchema.parse(data);
     await this.request<void>("PUT", "/tenants/me/storefront", data);
   };
-
-  setModules = (data: SetModulesRequest) => this.request<void>("PUT", "/tenants/me/modules", data);
-
   // Users
   getUser = async (): Promise<User> =>
     UserSchema.parse(await this.request<unknown>("GET", "/users/me"));

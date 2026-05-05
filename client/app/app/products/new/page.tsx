@@ -32,6 +32,7 @@ import { useAddImage, useCreateProduct } from "@/hooks/use-products";
 import { ApiError } from "@/lib/api";
 import { PRODUCT_CATEGORY_OPTIONS } from "@/lib/product-categories";
 import { uploadImageFile } from "@/lib/media-upload";
+import { ProductCardPreview } from "../product-card-preview";
 
 const schema = Yup.object({
   name: Yup.string().required("Name is required"),
@@ -255,6 +256,10 @@ export default function NewProductPage() {
       >
         {({ isSubmitting, errors, touched, values, submitCount }) => {
           const tried = submitCount > 0;
+          const primaryPreviewImage =
+            pendingImages.find((image) => image.isPrimary)?.preview ??
+            pendingImages[0]?.preview ??
+            null;
           return (
             <>
               <Form className="space-y-6">
@@ -529,6 +534,15 @@ export default function NewProductPage() {
                     </div>
                   )}
                 </div>
+
+                <ProductCardPreview
+                  name={values.name}
+                  description={values.description}
+                  category={values.category}
+                  imageURL={primaryPreviewImage}
+                  variants={values.variants}
+                  summary="See how this product card will read on the storefront while you build it."
+                />
 
                 {/* Submit */}
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

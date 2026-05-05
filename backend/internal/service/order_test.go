@@ -205,7 +205,6 @@ func TestCreatePublicOrder_UsesPublishedTenantAndOnlinePayment(t *testing.T) {
 		Slug:                "funke-fabrics",
 		StorefrontPublished: true,
 		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true},
 	}}
 	svc := service.NewOrderService(&mockOrderRepo{}, productRepo)
 	svc.SetTenantRepo(tenantRepo)
@@ -240,7 +239,6 @@ func TestCreatePublicOrder_UnpublishedStorefrontNotFound(t *testing.T) {
 		Slug:                "hidden-store",
 		StorefrontPublished: false,
 		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true},
 	}}
 	svc := service.NewOrderService(&mockOrderRepo{}, productRepo)
 	svc.SetTenantRepo(tenantRepo)
@@ -251,7 +249,7 @@ func TestCreatePublicOrder_UnpublishedStorefrontNotFound(t *testing.T) {
 	}
 }
 
-func TestCreatePublicOrder_PaymentsDisabled(t *testing.T) {
+func TestCreatePublicOrder_IgnoresPaymentsModuleFlag(t *testing.T) {
 	variantID := uuid.New()
 	productRepo := &mockProductRepo{variant: &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(4200), StockQty: nil}}
 	tenantRepo := &mockTenantRepo{tenant: &models.Tenant{
@@ -259,14 +257,13 @@ func TestCreatePublicOrder_PaymentsDisabled(t *testing.T) {
 		Slug:                "funke-fabrics",
 		StorefrontPublished: true,
 		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: false},
 	}}
 	svc := service.NewOrderService(&mockOrderRepo{}, productRepo)
 	svc.SetTenantRepo(tenantRepo)
 
 	_, _, _, err := svc.CreatePublic(context.Background(), "funke-fabrics", &models.Order{CustomerName: name("Funke"), CustomerPhone: phone("08012345678")}, []models.OrderItem{{VariantID: variantID, Quantity: 1}})
-	if !errors.Is(err, service.ErrCheckoutUnavailable) {
-		t.Fatalf("expected ErrCheckoutUnavailable, got %v", err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -288,7 +285,6 @@ func TestCreatePublicOrder_ReusesExistingCheckoutID(t *testing.T) {
 		Slug:                "funke-fabrics",
 		StorefrontPublished: true,
 		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true},
 	}}
 	svc := service.NewOrderService(orderRepo, productRepo)
 	svc.SetTenantRepo(tenantRepo)

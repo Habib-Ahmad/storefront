@@ -28,10 +28,6 @@ func NewProductHandler(svc *service.ProductService, media *MediaHandler, log *sl
 // POST /products
 func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 
 	var req struct {
 		Name        string                  `json:"name"        validate:"required"`
@@ -74,10 +70,6 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 // GET /products
 func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	limit := queryInt(r, "limit", 20)
 	offset := queryInt(r, "offset", 0)
 	products, err := h.svc.List(r.Context(), tenant.ID, limit, offset)
@@ -119,10 +111,6 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 // GET /products/{id}
 func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -143,10 +131,6 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PUT /products/{id}
 func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -191,10 +175,6 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 // DELETE /products/{id}
 func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -211,10 +191,6 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // POST /products/{id}/variants
 func (h *ProductHandler) CreateVariant(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	productID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -248,10 +224,6 @@ func (h *ProductHandler) CreateVariant(w http.ResponseWriter, r *http.Request) {
 // GET /products/{id}/variants
 func (h *ProductHandler) ListVariants(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	productID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -271,10 +243,6 @@ func (h *ProductHandler) ListVariants(w http.ResponseWriter, r *http.Request) {
 // PUT /products/{id}/variants/{variantId}
 func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	variantID, err := uuid.Parse(chi.URLParam(r, "variantId"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid variant id")
@@ -308,10 +276,6 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 // DELETE /products/{id}/variants/{variantId}
 func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	variantID, err := uuid.Parse(chi.URLParam(r, "variantId"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid variant id")
@@ -327,10 +291,6 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 // POST /products/{id}/images
 func (h *ProductHandler) AddImage(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	productID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -360,10 +320,6 @@ func (h *ProductHandler) AddImage(w http.ResponseWriter, r *http.Request) {
 // GET /products/{id}/images
 func (h *ProductHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	productID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -383,10 +339,6 @@ func (h *ProductHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 // PUT /products/{id}/images/{imageId}
 func (h *ProductHandler) UpdateImage(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	productID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
@@ -422,10 +374,6 @@ func (h *ProductHandler) UpdateImage(w http.ResponseWriter, r *http.Request) {
 // DELETE /products/{id}/images/{imageId}
 func (h *ProductHandler) DeleteImage(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, true, false, false); err != nil {
-		respondErr(w, http.StatusForbidden, "inventory module not enabled")
-		return
-	}
 	productID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid product id")

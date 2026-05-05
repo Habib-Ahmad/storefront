@@ -3,20 +3,18 @@ export {
   TimestampSchema,
   TenantStatusSchema,
   UserRoleSchema,
-  ActiveModulesSchema,
   TierSchema,
   TenantSchema,
   UserSchema,
 } from "./domain";
 
-export type { TenantStatus, UserRole, ActiveModules, Tier, Tenant, User } from "./domain";
+export type { TenantStatus, UserRole, Tier, Tenant, User } from "./domain";
 
 export {
   MeResponseSchema,
   OnboardRequestSchema,
   UpdateTenantRequestSchema,
   UpdateStorefrontRequestSchema,
-  SetModulesRequestSchema,
 } from "./auth";
 
 export type {
@@ -24,7 +22,6 @@ export type {
   OnboardRequest,
   UpdateTenantRequest,
   UpdateStorefrontRequest,
-  SetModulesRequest,
 } from "./auth";
 
 export { UpdateUserRequestSchema, TiersResponseSchema } from "./account";

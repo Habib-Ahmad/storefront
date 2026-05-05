@@ -320,10 +320,6 @@ func (h *OrderHandler) publicTrackingResponse(ctx context.Context, order *models
 // POST /orders
 func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, false, true, false); err != nil {
-		respondErr(w, http.StatusForbidden, "payments module not enabled")
-		return
-	}
 
 	var req orderCreateRequest
 	if !decodeValid(w, r, &req) {
@@ -536,8 +532,8 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 // GET /orders/{id}/dispatch-options
 func (h *OrderHandler) DispatchOptions(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, false, false, true); err != nil {
-		respondErr(w, http.StatusForbidden, "logistics module not enabled")
+	if err := service.RequireDeliveryReady(tenant); err != nil {
+		respondErr(w, http.StatusForbidden, "delivery is not available for this tenant")
 		return
 	}
 	if h.shipmentSvc == nil {
@@ -563,8 +559,8 @@ func (h *OrderHandler) DispatchOptions(w http.ResponseWriter, r *http.Request) {
 // POST /orders/{id}/dispatch
 func (h *OrderHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 	tenant := middleware.TenantFromCtx(r.Context())
-	if err := service.RequireModule(tenant, false, false, true); err != nil {
-		respondErr(w, http.StatusForbidden, "logistics module not enabled")
+	if err := service.RequireDeliveryReady(tenant); err != nil {
+		respondErr(w, http.StatusForbidden, "delivery is not available for this tenant")
 		return
 	}
 	if h.shipmentSvc == nil {

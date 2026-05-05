@@ -105,19 +105,17 @@ var errNotFound = errors.New("not found")
 
 func activeTenant() *models.Tenant {
 	return &models.Tenant{
-		ID:            uuid.New(),
-		Name:          "Test Store",
-		Status:        models.TenantStatusActive,
-		ActiveModules: models.ActiveModules{Inventory: true, Payments: true},
+		ID:     uuid.New(),
+		Name:   "Test Store",
+		Status: models.TenantStatusActive,
 	}
 }
 
 func noInventoryTenant() *models.Tenant {
 	return &models.Tenant{
-		ID:            uuid.New(),
-		Name:          "No Inv",
-		Status:        models.TenantStatusActive,
-		ActiveModules: models.ActiveModules{Inventory: false},
+		ID:     uuid.New(),
+		Name:   "No Inv",
+		Status: models.TenantStatusActive,
 	}
 }
 
@@ -170,15 +168,17 @@ func TestCreateProduct_MissingName(t *testing.T) {
 	}
 }
 
-func TestCreateProduct_ModuleDisabled(t *testing.T) {
+func TestCreateProduct_IgnoresInventoryModuleFlag(t *testing.T) {
 	h := newProductHandler(&stubProductRepo{})
-	body, _ := json.Marshal(map[string]any{"name": "T-Shirt", "is_available": true})
+	body, _ := json.Marshal(map[string]any{
+		"name": "T-Shirt", "description": "Soft cotton tee", "is_available": true,
+	})
 	req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewReader(body))
 	req = req.WithContext(middleware.WithTenant(req.Context(), noInventoryTenant()))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", rec.Code)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
 	}
 }
 
@@ -353,15 +353,15 @@ func TestDeleteProduct_OK(t *testing.T) {
 	}
 }
 
-func TestDeleteProduct_ModuleDisabled(t *testing.T) {
+func TestDeleteProduct_IgnoresInventoryModuleFlag(t *testing.T) {
 	h := newProductHandler(&stubProductRepo{})
 	req := httptest.NewRequest(http.MethodDelete, "/products/"+uuid.New().String(), nil)
 	req = req.WithContext(middleware.WithTenant(req.Context(), noInventoryTenant()))
 	req = withChiParam(req, "id", uuid.New().String())
 	rec := httptest.NewRecorder()
 	h.Delete(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", rec.Code)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
 	}
 }
 
@@ -427,7 +427,7 @@ func TestCreateVariant_MissingSKU(t *testing.T) {
 	}
 }
 
-func TestCreateVariant_ModuleDisabled(t *testing.T) {
+func TestCreateVariant_IgnoresInventoryModuleFlag(t *testing.T) {
 	h := newProductHandler(&stubProductRepo{})
 	body, _ := json.Marshal(map[string]any{"sku": "X", "price": 1000})
 	req := httptest.NewRequest(http.MethodPost, "/products/"+uuid.New().String()+"/variants", bytes.NewReader(body))
@@ -435,8 +435,8 @@ func TestCreateVariant_ModuleDisabled(t *testing.T) {
 	req = withChiParam(req, "id", uuid.New().String())
 	rec := httptest.NewRecorder()
 	h.CreateVariant(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", rec.Code)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
 	}
 }
 
@@ -558,15 +558,16 @@ func TestDeleteVariant_NotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteVariant_ModuleDisabled(t *testing.T) {
-	h := newProductHandler(&stubProductRepo{})
+func TestDeleteVariant_IgnoresInventoryModuleFlag(t *testing.T) {
+	variantID := uuid.New()
+	h := newProductHandler(&stubProductRepo{variant: &models.ProductVariant{ID: variantID}})
 	req := httptest.NewRequest(http.MethodDelete, "/products/"+uuid.New().String()+"/variants/"+uuid.New().String(), nil)
 	req = req.WithContext(middleware.WithTenant(req.Context(), noInventoryTenant()))
-	req = withChiParams(req, map[string]string{"id": uuid.New().String(), "variantId": uuid.New().String()})
+	req = withChiParams(req, map[string]string{"id": uuid.New().String(), "variantId": variantID.String()})
 	rec := httptest.NewRecorder()
 	h.DeleteVariant(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", rec.Code)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
 	}
 }
 
@@ -618,7 +619,7 @@ func TestAddImage_ProductNotFound(t *testing.T) {
 	}
 }
 
-func TestAddImage_ModuleDisabled(t *testing.T) {
+func TestAddImage_IgnoresInventoryModuleFlag(t *testing.T) {
 	h := newProductHandler(&stubProductRepo{})
 	body, _ := json.Marshal(map[string]any{"url": "https://example.com/img.jpg"})
 	req := httptest.NewRequest(http.MethodPost, "/products/"+uuid.New().String()+"/images", bytes.NewReader(body))
@@ -626,8 +627,8 @@ func TestAddImage_ModuleDisabled(t *testing.T) {
 	req = withChiParam(req, "id", uuid.New().String())
 	rec := httptest.NewRecorder()
 	h.AddImage(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", rec.Code)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
 	}
 }
 

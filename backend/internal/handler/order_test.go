@@ -240,6 +240,22 @@ func withURLParam(r *http.Request, key, value string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }
 
+func readyStorefrontTenant(id uuid.UUID, slug string) *models.Tenant {
+	email := "merchant@example.com"
+	phone := "+2348012345678"
+	address := "123 Main St, Ikeja, Lagos, Nigeria"
+	return &models.Tenant{
+		ID:                  id,
+		Name:                "Funke Fabrics",
+		Slug:                slug,
+		StorefrontPublished: true,
+		ContactEmail:        &email,
+		ContactPhone:        &phone,
+		Address:             &address,
+		Status:              models.TenantStatusActive,
+	}
+}
+
 func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {
 	variantID := uuid.New()
 	h := newOrderHandler(&models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(1000), StockQty: nil})
@@ -250,7 +266,7 @@ func TestCreateOrder_DeliveryMissingPhone(t *testing.T) {
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -270,7 +286,7 @@ func TestCreateOrder_Valid(t *testing.T) {
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -286,7 +302,7 @@ func TestCreateOrder_CashSale_NoPaystackURL(t *testing.T) {
 		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -311,7 +327,7 @@ func TestCreateOrder_QuickSale_AmountOnly(t *testing.T) {
 		"note":           "walk-in customer",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -331,7 +347,7 @@ func TestCreateOrder_QuickSale_MissingAmount(t *testing.T) {
 		"payment_method": "cash",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -345,7 +361,7 @@ func TestCreateOrder_InvalidVariantID(t *testing.T) {
 		"items": []map[string]any{{"variant_id": "not-a-uuid", "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -360,7 +376,7 @@ func TestCreateOrder_ZeroQuantity(t *testing.T) {
 		"items": []map[string]any{{"variant_id": variantID, "quantity": 0}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -376,7 +392,7 @@ func TestCreateOrder_InvalidPaymentMethod(t *testing.T) {
 		"items":          []map[string]any{{"variant_id": variantID, "quantity": 1}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -387,7 +403,7 @@ func TestCreateOrder_InvalidPaymentMethod(t *testing.T) {
 func TestCreateOrder_BadJSON(t *testing.T) {
 	h := newOrderHandler(nil)
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte("{not json")))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -399,7 +415,7 @@ func TestCreateOrder_EmptyBody(t *testing.T) {
 	h := newOrderHandler(nil)
 	body, _ := json.Marshal(map[string]any{})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
@@ -411,14 +427,7 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 	variantID := uuid.New()
 	payment := &stubPaymentInitiator{}
 	quoter := &stubDeliveryQuoter{shippingFee: decimal.NewFromInt(1500)}
-	h := newPublicOrderHandlerWithServices(&models.Tenant{
-		ID:                  uuid.New(),
-		Name:                "Funke Fabrics",
-		Slug:                "funke-fabrics",
-		StorefrontPublished: true,
-		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment, quoter)
+	h := newPublicOrderHandlerWithServices(readyStorefrontTenant(uuid.New(), "funke-fabrics"), &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment, quoter)
 	body, _ := json.Marshal(map[string]any{
 		"checkout_id":      uuid.New().String(),
 		"customer_phone":   "08012345678",
@@ -477,14 +486,7 @@ func TestCreatePublicOrder_Valid(t *testing.T) {
 
 func TestCreatePublicOrder_DeliveryRequiresSelectedQuote(t *testing.T) {
 	variantID := uuid.New()
-	h := newPublicOrderHandler(&models.Tenant{
-		ID:                  uuid.New(),
-		Name:                "Funke Fabrics",
-		Slug:                "funke-fabrics",
-		StorefrontPublished: true,
-		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
+	h := newPublicOrderHandler(readyStorefrontTenant(uuid.New(), "funke-fabrics"), &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
 	body, _ := json.Marshal(map[string]any{
 		"checkout_id":      uuid.New().String(),
 		"customer_phone":   "08012345678",
@@ -519,14 +521,7 @@ func TestQuotePublicDelivery_Valid(t *testing.T) {
 			}},
 		},
 	}
-	h := newPublicOrderHandlerWithServices(&models.Tenant{
-		ID:                  uuid.New(),
-		Name:                "Funke Fabrics",
-		Slug:                "funke-fabrics",
-		StorefrontPublished: true,
-		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, &stubPaymentInitiator{}, quoter)
+	h := newPublicOrderHandlerWithServices(readyStorefrontTenant(uuid.New(), "funke-fabrics"), &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, &stubPaymentInitiator{}, quoter)
 	body, _ := json.Marshal(models.PublicStorefrontDeliveryQuoteRequest{
 		CustomerName:    "Chidi",
 		CustomerPhone:   "08012345678",
@@ -559,14 +554,7 @@ func TestQuotePublicDelivery_ReturnsGenericErrorForProviderFailure(t *testing.T)
 			Err:       errors.New("shipbubble: validate address: Insufficient wallet balance, Please fund your wallet to validate new addresses"),
 		},
 	}
-	h := newPublicOrderHandlerWithServices(&models.Tenant{
-		ID:                  uuid.New(),
-		Name:                "Funke Fabrics",
-		Slug:                "funke-fabrics",
-		StorefrontPublished: true,
-		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, &stubPaymentInitiator{}, quoter)
+	h := newPublicOrderHandlerWithServices(readyStorefrontTenant(uuid.New(), "funke-fabrics"), &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, &stubPaymentInitiator{}, quoter)
 	body, _ := json.Marshal(models.PublicStorefrontDeliveryQuoteRequest{
 		CustomerName:    "Chidi",
 		CustomerPhone:   "08012345678",
@@ -604,7 +592,7 @@ func TestCreateOrder_InitPaymentFailureReturnsError(t *testing.T) {
 		"items":            []map[string]any{{"variant_id": variantID, "quantity": 2}},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader(body))
-	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New(), ActiveModules: models.ActiveModules{Payments: true}}))
+	req = req.WithContext(injectTenant(req.Context(), &models.Tenant{ID: uuid.New()}))
 	rec := httptest.NewRecorder()
 	h.Create(rec, req)
 	if rec.Code != http.StatusBadGateway {
@@ -839,14 +827,7 @@ func TestResumePayment_RejectsCancelledOrder(t *testing.T) {
 func TestCreatePublicOrder_InitPaymentFailureReturnsError(t *testing.T) {
 	variantID := uuid.New()
 	payment := &stubPaymentInitiator{initErr: errors.New("paystack unavailable")}
-	h := newPublicOrderHandlerWithPayment(&models.Tenant{
-		ID:                  uuid.New(),
-		Name:                "Funke Fabrics",
-		Slug:                "funke-fabrics",
-		StorefrontPublished: true,
-		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: true, Logistics: true},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
+	h := newPublicOrderHandlerWithPayment(readyStorefrontTenant(uuid.New(), "funke-fabrics"), &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil}, payment)
 	body, _ := json.Marshal(map[string]any{
 		"checkout_id":      uuid.New().String(),
 		"customer_phone":   "08012345678",
@@ -867,16 +848,9 @@ func TestCreatePublicOrder_InitPaymentFailureReturnsError(t *testing.T) {
 	}
 }
 
-func TestCreatePublicOrder_CheckoutUnavailable(t *testing.T) {
+func TestCreatePublicOrder_IgnoresPaymentsModuleFlag(t *testing.T) {
 	variantID := uuid.New()
-	h := newPublicOrderHandler(&models.Tenant{
-		ID:                  uuid.New(),
-		Name:                "Funke Fabrics",
-		Slug:                "funke-fabrics",
-		StorefrontPublished: true,
-		Status:              models.TenantStatusActive,
-		ActiveModules:       models.ActiveModules{Payments: false},
-	}, &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
+	h := newPublicOrderHandler(readyStorefrontTenant(uuid.New(), "funke-fabrics"), &models.ProductVariant{ID: variantID, Price: decimal.NewFromInt(2500), StockQty: nil})
 	body, _ := json.Marshal(map[string]any{
 		"checkout_id":    uuid.New().String(),
 		"customer_name":  "Chidi",
@@ -887,7 +861,7 @@ func TestCreatePublicOrder_CheckoutUnavailable(t *testing.T) {
 	req = withURLParam(req, "slug", "funke-fabrics")
 	rec := httptest.NewRecorder()
 	h.CreatePublic(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

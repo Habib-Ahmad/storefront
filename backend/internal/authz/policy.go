@@ -13,7 +13,6 @@ const (
 	PermissionSelfProfileManage     Permission = "self:profile:manage"
 	PermissionTenantProfileManage   Permission = "tenant:profile:manage"
 	PermissionStorefrontManage      Permission = "tenant:storefront:manage"
-	PermissionModulesManage         Permission = "tenant:modules:manage"
 	PermissionProductsRead          Permission = "products:read"
 	PermissionProductsManage        Permission = "products:manage"
 	PermissionProductVariantsRead   Permission = "product_variants:read"
@@ -40,7 +39,6 @@ var rolePolicies = map[models.UserRole]RolePolicy{
 			PermissionSelfProfileManage,
 			PermissionTenantProfileManage,
 			PermissionStorefrontManage,
-			PermissionModulesManage,
 			PermissionProductsRead,
 			PermissionProductsManage,
 			PermissionProductVariantsRead,

@@ -28,11 +28,6 @@ beforeEach(() => {
         name: "Funke Fabrics",
         slug: "funke-fabrics",
         storefront_published: false,
-        active_modules: {
-          inventory: true,
-          payments: true,
-          logistics: false,
-        },
         status: "active",
         created_at: "2026-03-14T10:00:00Z",
         updated_at: "2026-03-14T10:00:00Z",

@@ -26,9 +26,9 @@ func StorefrontDeliveryStatus(tenant *models.Tenant) models.PublicStorefrontDeli
 		return status
 	}
 
-	status.Enabled = tenant.ActiveModules.Logistics
+	status.Enabled = StorefrontDeliveryReady(tenant)
 	if !status.Enabled {
-		reason := "This store has not enabled delivery yet."
+		reason := "Delivery is temporarily unavailable while the store completes its pickup profile."
 		status.UnavailableReason = &reason
 		return status
 	}
