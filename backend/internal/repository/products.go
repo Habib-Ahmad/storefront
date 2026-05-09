@@ -19,7 +19,8 @@ type ProductRepository interface {
 	ListPublicByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.PublicStorefrontProduct, error)
 	CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	Update(ctx context.Context, p *models.Product) error
-	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
+	Delete(ctx context.Context, tenantID, id uuid.UUID) error
+	HasOrderReferences(ctx context.Context, productID uuid.UUID) (bool, error)
 
 	CreateVariant(ctx context.Context, v *models.ProductVariant) error
 	GetVariantByID(ctx context.Context, id uuid.UUID) (*models.ProductVariant, error)
@@ -149,8 +150,14 @@ func (r *productRepo) Update(ctx context.Context, p *models.Product) error {
 	return err
 }
 
-func (r *productRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx, `UPDATE products SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, id, tenantID)
+func (r *productRepo) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	if _, err := r.db.Exec(ctx, `DELETE FROM product_images WHERE product_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := r.db.Exec(ctx, `DELETE FROM product_variants WHERE product_id = $1`, id); err != nil {
+		return err
+	}
+	tag, err := r.db.Exec(ctx, `DELETE FROM products WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -158,6 +165,18 @@ func (r *productRepo) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) er
 		return pgx.ErrNoRows
 	}
 	return nil
+}
+
+func (r *productRepo) HasOrderReferences(ctx context.Context, productID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM order_items oi
+			JOIN product_variants pv ON pv.id = oi.variant_id
+			WHERE pv.product_id = $1
+		)`, productID).Scan(&exists)
+	return exists, err
 }
 
 func (r *productRepo) CreateVariant(ctx context.Context, v *models.ProductVariant) error {

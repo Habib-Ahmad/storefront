@@ -109,21 +109,67 @@ func (h *MediaHandler) DeleteObjectByURL(ctx context.Context, objectURL string) 
 		return nil
 	}
 
-	parsed, err := url.Parse(strings.TrimSpace(objectURL))
+	key, err := objectKeyFromURL(objectURL)
 	if err != nil {
 		return err
+	}
+	return h.DeleteObjectByKey(ctx, key)
+}
+
+func (h *MediaHandler) DeleteObjectByKey(ctx context.Context, key string) error {
+	if h.client == nil || h.bucketName == "" {
+		return nil
+	}
+
+	trimmedKey := strings.TrimSpace(key)
+	if trimmedKey == "" {
+		return fmt.Errorf("missing object key")
+	}
+
+	_, err := h.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(h.bucketName),
+		Key:    aws.String(trimmedKey),
+	})
+	return err
+}
+
+func (h *MediaHandler) ListObjectKeys(ctx context.Context, prefix string) ([]string, error) {
+	if h.client == nil || h.bucketName == "" {
+		return nil, nil
+	}
+
+	paginator := s3.NewListObjectsV2Paginator(h.client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(h.bucketName),
+		Prefix: aws.String(strings.TrimSpace(prefix)),
+	})
+
+	var keys []string
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, object := range page.Contents {
+			if object.Key == nil {
+				continue
+			}
+			keys = append(keys, *object.Key)
+		}
+	}
+	return keys, nil
+}
+
+func objectKeyFromURL(objectURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(objectURL))
+	if err != nil {
+		return "", err
 	}
 
 	key := strings.TrimSpace(parsed.Query().Get("key"))
 	if key == "" {
-		return fmt.Errorf("missing object key")
+		return "", fmt.Errorf("missing object key")
 	}
-
-	_, err = h.client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(h.bucketName),
-		Key:    aws.String(key),
-	})
-	return err
+	return key, nil
 }
 
 // GET /media/object?key=...

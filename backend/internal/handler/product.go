@@ -181,7 +181,22 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, "invalid product id")
 		return
 	}
-	if err := h.svc.SoftDelete(r.Context(), tenant.ID, id); err != nil {
+	if err := h.svc.CanDelete(r.Context(), tenant.ID, id); err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+	images, err := h.svc.GetImagesByProduct(r.Context(), tenant.ID, id)
+	if err != nil {
+		handleErr(w, h.log, r, err)
+		return
+	}
+	for _, img := range images {
+		if err := h.media.DeleteObjectByURL(r.Context(), img.URL); err != nil {
+			serverErr(w, h.log, r, err)
+			return
+		}
+	}
+	if err := h.svc.Delete(r.Context(), tenant.ID, id); err != nil {
 		handleErr(w, h.log, r, err)
 		return
 	}

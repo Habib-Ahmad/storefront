@@ -116,6 +116,7 @@ type mockProductRepo struct {
 	variantCreated *models.ProductVariant
 	publicProducts []models.PublicStorefrontProduct
 	images         []models.ProductImage
+	hasOrderRefs   bool
 	err            error
 	restocked      map[uuid.UUID]int
 }
@@ -140,8 +141,11 @@ func (m *mockProductRepo) ListPublicByTenant(_ context.Context, _ uuid.UUID) ([]
 func (m *mockProductRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, m.err
 }
-func (m *mockProductRepo) Update(_ context.Context, _ *models.Product) error  { return m.err }
-func (m *mockProductRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return m.err }
+func (m *mockProductRepo) Update(_ context.Context, _ *models.Product) error { return m.err }
+func (m *mockProductRepo) Delete(_ context.Context, _, _ uuid.UUID) error    { return m.err }
+func (m *mockProductRepo) HasOrderReferences(_ context.Context, _ uuid.UUID) (bool, error) {
+	return m.hasOrderRefs, m.err
+}
 func (m *mockProductRepo) CreateVariant(_ context.Context, v *models.ProductVariant) error {
 	v.ID = uuid.New()
 	m.variantCreated = v

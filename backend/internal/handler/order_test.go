@@ -81,8 +81,11 @@ func (s *stubProductRepoForOrder) ListPublicByTenant(_ context.Context, _ uuid.U
 func (s *stubProductRepoForOrder) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
 }
-func (s *stubProductRepoForOrder) Update(_ context.Context, _ *models.Product) error  { return nil }
-func (s *stubProductRepoForOrder) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (s *stubProductRepoForOrder) Update(_ context.Context, _ *models.Product) error { return nil }
+func (s *stubProductRepoForOrder) Delete(_ context.Context, _, _ uuid.UUID) error    { return nil }
+func (s *stubProductRepoForOrder) HasOrderReferences(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
 func (s *stubProductRepoForOrder) CreateVariant(_ context.Context, v *models.ProductVariant) error {
 	v.ID = uuid.New()
 	return nil

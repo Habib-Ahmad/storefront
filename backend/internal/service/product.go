@@ -15,6 +15,7 @@ import (
 
 var (
 	ErrProductNotFound    = apperr.NotFound("product not found")
+	ErrProductHasOrders   = apperr.Conflict("products with existing orders cannot be deleted. Make the product unavailable instead.")
 	ErrVariantNotFound    = apperr.NotFound("variant not found")
 	ErrImageNotFound      = apperr.NotFound("image not found")
 	ErrSoldOut            = apperr.Conflict("variant is sold out")
@@ -189,17 +190,25 @@ func (s *ProductService) Update(ctx context.Context, p *models.Product) error {
 	return s.products.Update(ctx, existing)
 }
 
-func (s *ProductService) SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error {
-	variants, err := s.products.ListVariants(ctx, id)
+func (s *ProductService) CanDelete(ctx context.Context, tenantID, id uuid.UUID) error {
+	if _, err := s.products.GetByID(ctx, tenantID, id); err != nil {
+		return ErrProductNotFound
+	}
+	hasOrders, err := s.products.HasOrderReferences(ctx, id)
 	if err != nil {
-		return fmt.Errorf("list variants for cascade: %w", err)
+		return fmt.Errorf("check product order references: %w", err)
 	}
-	for _, v := range variants {
-		if err := s.products.SoftDeleteVariant(ctx, v.ID); err != nil {
-			return fmt.Errorf("cascade delete variant %s: %w", v.ID, err)
-		}
+	if hasOrders {
+		return ErrProductHasOrders
 	}
-	return s.products.SoftDelete(ctx, tenantID, id)
+	return nil
+}
+
+func (s *ProductService) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	if err := s.CanDelete(ctx, tenantID, id); err != nil {
+		return err
+	}
+	return s.products.Delete(ctx, tenantID, id)
 }
 
 func (s *ProductService) List(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]models.Product, error) {

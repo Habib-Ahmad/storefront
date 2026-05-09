@@ -264,7 +264,8 @@ export default function ProductDetailPage() {
           <DialogHeader>
             <DialogTitle>Delete {product.name}?</DialogTitle>
             <DialogDescription>
-              This permanently removes the product, its options, and its image records.
+              This permanently removes the product, its options, and its image records. If this
+              product already has orders, keep it and turn off storefront visibility instead.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -274,8 +275,17 @@ export default function ProductDetailPage() {
             <Button
               variant="destructive"
               onClick={async () => {
-                await deleteProduct.mutateAsync(product.id);
-                router.replace("/app/products");
+                setFormError(null);
+                try {
+                  await deleteProduct.mutateAsync(product.id);
+                  router.replace("/app/products");
+                } catch (err) {
+                  if (err instanceof ApiError) {
+                    setFormError(err.message);
+                    return;
+                  }
+                  setFormError("Couldn't delete this product.");
+                }
               }}
             >
               Delete

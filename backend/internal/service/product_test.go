@@ -173,12 +173,22 @@ func TestUpdate_NotFound(t *testing.T) {
 	}
 }
 
-func TestSoftDelete_CascadesVariants(t *testing.T) {
+func TestDelete_OK(t *testing.T) {
 	repo := &mockProductRepo{product: &models.Product{ID: uuid.New()}}
 	svc := service.NewProductService(repo)
 
-	if err := svc.SoftDelete(context.Background(), uuid.New(), uuid.New()); err != nil {
+	if err := svc.Delete(context.Background(), uuid.New(), uuid.New()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDelete_ConflictWhenProductHasOrders(t *testing.T) {
+	repo := &mockProductRepo{product: &models.Product{ID: uuid.New()}, hasOrderRefs: true}
+	svc := service.NewProductService(repo)
+
+	err := svc.Delete(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, service.ErrProductHasOrders) {
+		t.Fatalf("expected ErrProductHasOrders, got: %v", err)
 	}
 }
 

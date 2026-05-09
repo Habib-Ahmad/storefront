@@ -62,8 +62,11 @@ func (s *stubProductRepo) ListPublicByTenant(_ context.Context, _ uuid.UUID) ([]
 func (s *stubProductRepo) CountByTenant(_ context.Context, _ uuid.UUID) (int, error) {
 	return len(s.products), nil
 }
-func (s *stubProductRepo) Update(_ context.Context, _ *models.Product) error  { return nil }
-func (s *stubProductRepo) SoftDelete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (s *stubProductRepo) Update(_ context.Context, _ *models.Product) error { return nil }
+func (s *stubProductRepo) Delete(_ context.Context, _, _ uuid.UUID) error    { return nil }
+func (s *stubProductRepo) HasOrderReferences(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
 func (s *stubProductRepo) CreateVariant(_ context.Context, v *models.ProductVariant) error {
 	v.ID = uuid.New()
 	return nil
@@ -119,7 +122,7 @@ func noInventoryTenant() *models.Tenant {
 	}
 }
 
-func newProductHandler(repo *stubProductRepo) *handler.ProductHandler {
+func newProductHandler(repo repository.ProductRepository) *handler.ProductHandler {
 	svc := service.NewProductService(repo)
 	media := handler.NewMediaHandler("", "", "", "", slog.Default())
 	return handler.NewProductHandler(svc, media, slog.Default())
@@ -375,6 +378,28 @@ func TestDeleteProduct_InvalidID(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
+}
+
+func TestDeleteProduct_ConflictWhenProductHasOrders(t *testing.T) {
+	productID := uuid.New()
+	h := newProductHandler(&stubProductRepoWithOrderRefs{stubProductRepo: stubProductRepo{product: &models.Product{ID: productID}}, hasOrderRefs: true})
+	req := httptest.NewRequest(http.MethodDelete, "/products/"+productID.String(), nil)
+	req = req.WithContext(middleware.WithTenant(req.Context(), activeTenant()))
+	req = withChiParam(req, "id", productID.String())
+	rec := httptest.NewRecorder()
+	h.Delete(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+type stubProductRepoWithOrderRefs struct {
+	stubProductRepo
+	hasOrderRefs bool
+}
+
+func (s *stubProductRepoWithOrderRefs) HasOrderReferences(_ context.Context, _ uuid.UUID) (bool, error) {
+	return s.hasOrderRefs, nil
 }
 
 func TestCreateVariant_OK(t *testing.T) {
