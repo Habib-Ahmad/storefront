@@ -15,6 +15,7 @@ const mockCreateProduct = vi.fn();
 const mockAddImage = vi.fn();
 const mockUploadImageFile = vi.fn();
 const mockUseSession = vi.fn();
+const mockCreateProductUploadImage = vi.fn();
 vi.mock("@/hooks/use-products", () => ({
   useProducts: (...args: unknown[]) => mockUseProducts(...args),
   useCreateProduct: () => ({
@@ -35,6 +36,15 @@ vi.mock("@/lib/media-upload", () => ({
   uploadImageFile: (...args: unknown[]) => mockUploadImageFile(...args),
 }));
 
+vi.mock("@/lib/product-image", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/product-image")>("@/lib/product-image");
+
+  return {
+    ...actual,
+    createProductUploadImage: (...args: unknown[]) => mockCreateProductUploadImage(...args),
+  };
+});
+
 import ProductsPage from "@/app/app/products/page";
 import NewProductPage from "@/app/app/products/new/page";
 
@@ -47,6 +57,7 @@ beforeEach(() => {
   });
   mockAddImage.mockResolvedValue(undefined);
   mockUploadImageFile.mockResolvedValue("https://cdn.example.com/image.jpg");
+  mockCreateProductUploadImage.mockImplementation(async (file: File) => file);
 });
 
 describe("ProductsPage", () => {
@@ -290,6 +301,7 @@ describe("NewProductPage", () => {
     const createObjectURLSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:shirt");
 
     fireEvent.change(fileInput!, { target: { files: [file] } });
+    await userEvent.click(screen.getByRole("button", { name: "Use cropped image" }));
 
     await userEvent.click(screen.getByText("Create product"));
 

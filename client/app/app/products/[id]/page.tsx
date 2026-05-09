@@ -91,9 +91,9 @@ export default function ProductDetailPage() {
   const variants = rawVariants ?? [];
   const images = rawImages ?? [];
   const orderedImages = [...images].sort((left, right) => left.sort_order - right.sort_order);
-  const primaryImage = orderedImages.find((image) => image.is_primary) ?? orderedImages[0] ?? null;
+  const primaryImage = orderedImages[0] ?? null;
 
-  async function persistImageArrangement(nextImages: ProductImage[], primaryImageId: string) {
+  async function persistImageArrangement(nextImages: ProductImage[]) {
     setFormError(null);
     setIsUpdatingImages(true);
     try {
@@ -116,7 +116,7 @@ export default function ProductDetailPage() {
           data: {
             url: image.url,
             sort_order: index,
-            is_primary: image.id === primaryImageId,
+            is_primary: index === 0,
           },
         });
       }
@@ -147,15 +147,7 @@ export default function ProductDetailPage() {
       nextImages[nextIndex],
       nextImages[currentIndex],
     ];
-    const primaryImageId = orderedImages.find((image) => image.is_primary)?.id ?? nextImages[0].id;
-    await persistImageArrangement(nextImages, primaryImageId);
-  }
-
-  async function makePrimaryImage(imageId: string) {
-    if (orderedImages.find((image) => image.id === imageId)?.is_primary) {
-      return;
-    }
-    await persistImageArrangement(orderedImages, imageId);
+    await persistImageArrangement(nextImages);
   }
 
   return (
@@ -251,7 +243,6 @@ export default function ProductDetailPage() {
         images={images}
         onAdd={() => setImageDialogOpen(true)}
         onDelete={(image) => setImageToDelete(image)}
-        onMakePrimary={makePrimaryImage}
         onMove={moveImage}
         isUpdating={isUpdatingImages}
       />
@@ -299,11 +290,11 @@ export default function ProductDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete this option?</DialogTitle>
+            <DialogTitle>Delete option?</DialogTitle>
             <DialogDescription>
               {variantToDelete?.is_default
-                ? "This removes the default option from the product."
-                : `This removes ${variantToDelete?.sku} from the product.`}
+                ? "This option will be removed from the product."
+                : `${variantToDelete?.sku} will be removed from the product.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -333,10 +324,8 @@ export default function ProductDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete this image?</DialogTitle>
-            <DialogDescription>
-              This removes the image from the product and deletes the stored file.
-            </DialogDescription>
+            <DialogTitle>Delete photo?</DialogTitle>
+            <DialogDescription>This photo will be removed from the product.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setImageToDelete(null)}>

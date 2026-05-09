@@ -3,6 +3,7 @@
 import { SpinnerGapIcon, UploadSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
+import { productImageSizeMessage } from "@/lib/product-image";
 import { uploadImageFile } from "@/lib/media-upload";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ImageCropDialog } from "../image-crop-dialog";
 
 interface ImageDialogProps {
   open: boolean;
@@ -35,6 +37,7 @@ export function ImageDialog({
   const [isPrimary, setIsPrimary] = useState(nextSortOrder === 0);
   const [uploading, setUploading] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  const [fileToCrop, setFileToCrop] = useState<File | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -42,6 +45,7 @@ export function ImageDialog({
       if (preview) URL.revokeObjectURL(preview);
       setPreview(null);
       setDialogError(null);
+      setFileToCrop(null);
     }
     setIsPrimary(nextSortOrder === 0);
   }, [open, nextSortOrder, preview]);
@@ -49,10 +53,17 @@ export function ImageDialog({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0];
     if (!nextFile) return;
+    setDialogError(null);
+    setFileToCrop(nextFile);
+    event.target.value = "";
+  };
+
+  function handleCropConfirm(nextFile: File) {
     if (preview) URL.revokeObjectURL(preview);
     setFile(nextFile);
     setPreview(URL.createObjectURL(nextFile));
-  };
+    setFileToCrop(null);
+  }
 
   const handleSubmit = async () => {
     if (!file) return;
@@ -101,6 +112,9 @@ export function ImageDialog({
             </div>
             <input type="file" accept="image/*" className="sr-only" onChange={handleFileChange} />
           </label>
+          <p className="text-xs text-muted-foreground">
+            We crop uploads to match the product card and {productImageSizeMessage().toLowerCase()}
+          </p>
           {preview && (
             <button
               type="button"
@@ -136,6 +150,13 @@ export function ImageDialog({
             {uploading ? "Uploading…" : "Add image"}
           </Button>
         </DialogFooter>
+
+        <ImageCropDialog
+          open={!!fileToCrop}
+          file={fileToCrop}
+          onClose={() => setFileToCrop(null)}
+          onConfirm={handleCropConfirm}
+        />
       </DialogContent>
     </Dialog>
   );

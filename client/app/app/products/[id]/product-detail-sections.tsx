@@ -1,6 +1,8 @@
 import {
   CaretLeftIcon,
   CaretRightIcon,
+  CaretDownIcon,
+  CaretUpIcon,
   FloppyDiskIcon,
   PencilSimpleIcon,
   PlusIcon,
@@ -227,19 +229,11 @@ interface ImagesCardProps {
   images: ProductImage[];
   onAdd: () => void;
   onDelete: (image: ProductImage) => void;
-  onMakePrimary: (imageId: string) => Promise<void>;
   onMove: (imageId: string, direction: "left" | "right") => Promise<void>;
   isUpdating: boolean;
 }
 
-export function ImagesCard({
-  images,
-  onAdd,
-  onDelete,
-  onMakePrimary,
-  onMove,
-  isUpdating,
-}: ImagesCardProps) {
+export function ImagesCard({ images, onAdd, onDelete, onMove, isUpdating }: ImagesCardProps) {
   const orderedImages = [...images].sort((left, right) => left.sort_order - right.sort_order);
 
   return (
@@ -248,7 +242,7 @@ export function ImagesCard({
         <div>
           <h2 className="text-base font-semibold">Photos</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Reorder the gallery and choose which photo should lead on the storefront.
+            Use the arrows to reorder photos. The first one is the main photo customers see.
           </p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={onAdd}>
@@ -263,35 +257,35 @@ export function ImagesCard({
           <p className="text-sm">No photos yet</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {orderedImages.map((image, index) => (
             <div
               key={image.id}
-              className="group relative aspect-square overflow-hidden rounded-lg border bg-background"
+              className="group relative overflow-hidden rounded-xl border bg-background"
             >
-              <img src={resolveMediaURL(image.url)} alt="" className="size-full object-cover" />
-              {image.is_primary && (
-                <Badge className="absolute top-1 left-1 px-1.5 py-0 text-[10px]">Primary</Badge>
-              )}
-              <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-linear-to-t from-black/70 via-black/30 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  disabled={isUpdating || image.is_primary}
-                  onClick={() => void onMakePrimary(image.id)}
-                >
-                  Set main
-                </Button>
+              <div className="relative aspect-4/5 bg-muted">
+                <img src={resolveMediaURL(image.url)} alt="" className="size-full object-cover" />
+                {index === 0 ? (
+                  <Badge className="absolute top-2 left-2 px-2 py-0.5 text-[10px]">Primary</Badge>
+                ) : null}
+              </div>
+
+              <div className="flex items-center gap-2 border-t border-border/60 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {index === 0 ? "Main photo" : `Photo ${index + 1}`}
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon-sm"
                   disabled={isUpdating || index === 0}
                   onClick={() => void onMove(image.id, "left")}
+                  aria-label="Move photo earlier"
                 >
-                  <CaretLeftIcon className="size-3.5" />
+                  <CaretUpIcon className="size-3.5 sm:hidden" />
+                  <CaretLeftIcon className="hidden size-3.5 sm:block" />
                 </Button>
                 <Button
                   type="button"
@@ -299,16 +293,18 @@ export function ImagesCard({
                   size="icon-sm"
                   disabled={isUpdating || index === orderedImages.length - 1}
                   onClick={() => void onMove(image.id, "right")}
+                  aria-label="Move photo later"
                 >
-                  <CaretRightIcon className="size-3.5" />
+                  <CaretDownIcon className="size-3.5 sm:hidden" />
+                  <CaretRightIcon className="hidden size-3.5 sm:block" />
                 </Button>
                 <Button
                   type="button"
                   variant="destructive"
                   size="icon-sm"
-                  className="ml-auto"
                   disabled={isUpdating}
                   onClick={() => onDelete(image)}
+                  aria-label="Delete photo"
                 >
                   <TrashIcon className="size-3.5" />
                 </Button>

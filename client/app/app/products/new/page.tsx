@@ -30,8 +30,10 @@ import {
 } from "@/components/ui/dialog";
 import { useAddImage, useCreateProduct } from "@/hooks/use-products";
 import { ApiError } from "@/lib/api";
+import { productImageSizeMessage } from "@/lib/product-image";
 import { PRODUCT_CATEGORY_OPTIONS } from "@/lib/product-categories";
 import { uploadImageFile } from "@/lib/media-upload";
+import { ImageCropDialog } from "../image-crop-dialog";
 import { ProductCardPreview } from "../product-card-preview";
 
 const schema = Yup.object({
@@ -94,6 +96,9 @@ export default function NewProductPage() {
   const addImage = useAddImage();
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [fileToCrop, setFileToCrop] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [successState, setSuccessState] = useState<{
     productId: string;
     productName: string;
@@ -130,25 +135,41 @@ export default function NewProductPage() {
     setPendingImages([]);
   }
 
+  function advanceCropQueue(remainingFiles: File[]) {
+    const [nextFile, ...rest] = remainingFiles;
+    setFileToCrop(nextFile ?? null);
+    setCropQueue(rest);
+  }
+
   function handleImageSelection(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) {
       return;
     }
 
+    setImageError(null);
+    advanceCropQueue(files);
+    event.target.value = "";
+  }
+
+  function handleCropConfirm(file: File) {
     setPendingImages((current) => {
       const next = [
         ...current,
-        ...files.map((file, index) => ({
+        {
           id: crypto.randomUUID(),
           file,
           preview: URL.createObjectURL(file),
-          isPrimary: current.length === 0 && index === 0,
-        })),
+          isPrimary: current.length === 0,
+        },
       ];
       return normalizePrimary(next);
     });
-    event.target.value = "";
+    advanceCropQueue(cropQueue);
+  }
+
+  function handleCropClose() {
+    advanceCropQueue(cropQueue);
   }
 
   function removePendingImage(id: string) {
@@ -266,6 +287,11 @@ export default function NewProductPage() {
                 {formError && (
                   <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
                     {formError}
+                  </p>
+                )}
+                {imageError && (
+                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+                    {imageError}
                   </p>
                 )}
 
@@ -456,6 +482,10 @@ export default function NewProductPage() {
                         Add the photos customers should notice first. You can reorder them here and
                         choose the main photo.
                       </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        We crop each image to fit the product card and{" "}
+                        {productImageSizeMessage().toLowerCase()}
+                      </p>
                     </div>
                     <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 py-1 text-[0.8rem] font-medium transition-colors hover:bg-muted hover:text-foreground">
                       <Input
@@ -557,6 +587,13 @@ export default function NewProductPage() {
                   </Button>
                 </div>
               </Form>
+
+              <ImageCropDialog
+                open={!!fileToCrop}
+                file={fileToCrop}
+                onClose={handleCropClose}
+                onConfirm={handleCropConfirm}
+              />
 
               <Dialog
                 open={!!successState}
